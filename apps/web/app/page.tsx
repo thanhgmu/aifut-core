@@ -1,102 +1,73 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
-
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
-
-const ThemeImage = (props: Props) => {
-  const { srcLight, srcDark, ...rest } = props;
-
+export default function HomePage() {
   return (
-    <>
-      <Image {...rest} src={srcLight} className="imgLight" />
-      <Image {...rest} src={srcDark} className="imgDark" />
-    </>
-  );
-};
+    <main style={{ minHeight: "100vh", background: "#0b1020", color: "#f5f7ff", fontFamily: "Arial, sans-serif" }}>
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "72px 24px" }}>
+        <div style={{ display: "inline-block", padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 999, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#9fb0ff" }}>
+          AIFUT Core
+        </div>
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <ThemeImage
-          className={styles.logo}
-          srcLight="turborepo-dark.svg"
-          srcDark="turborepo-light.svg"
-          alt="Turborepo logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>apps/web/app/page.tsx</code>
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+        <h1 style={{ fontSize: "56px", lineHeight: 1.05, margin: "20px 0 16px", maxWidth: 900 }}>
+          Build once. Operate lean. Scale like a platform.
+        </h1>
 
-        <div className={styles.ctas}>
+        <p style={{ fontSize: 20, lineHeight: 1.7, maxWidth: 820, color: "#c8d2ff" }}>
+          AIFUT is the foundation for a SaaS/operator-stack platform designed for multi-tenant operation,
+          modular services, AI integration, and deployable business systems.
+        </p>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 28 }}>
           <a
-            className={styles.primary}
-            href="https://vercel.com/new/clone?demo-description=Learn+to+implement+a+monorepo+with+a+two+Next.js+sites+that+has+installed+three+local+packages.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4K8ZISWAzJ8X1504ca0zmC%2F0b21a1c6246add355e55816278ef54bc%2FBasic.png&demo-title=Monorepo+with+Turborepo&demo-url=https%3A%2F%2Fexamples-basic-web.vercel.sh%2F&from=templates&project-name=Monorepo+with+Turborepo&repository-name=monorepo-turborepo&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fturborepo%2Ftree%2Fmain%2Fexamples%2Fbasic&root-directory=apps%2Fdocs&skippable-integrations=1&teamSlug=vercel&utm_source=create-turbo"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="https://aifut.net"
+            style={{
+              background: "#6d7cff",
+              color: "white",
+              padding: "14px 20px",
+              borderRadius: 12,
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
+            AIFUT Foundation v0
           </a>
+
           <a
-            href="https://turborepo.dev/docs?utm_source"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
+            href="https://api.aifut.net"
+            style={{
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "#f5f7ff",
+              padding: "14px 20px",
+              borderRadius: 12,
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
-            Read our docs
+            API Endpoint
           </a>
         </div>
-        <Button appName="web" className={styles.secondary}>
-          Open alert
-        </Button>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com/templates?search=turborepo&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://turborepo.dev?utm_source=create-turbo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to turborepo.dev →
-        </a>
-      </footer>
-    </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 48 }}>
+          {[
+            "Multi-tenant foundation",
+            "Operator-first architecture",
+            "AI integration ready",
+            "Modular product ecosystem",
+            "Deployable on owned infrastructure",
+            "Built for lean scale"
+          ].map((item) => (
+            <div
+              key={item}
+              style={{
+                padding: 18,
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)"
+              }}
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
