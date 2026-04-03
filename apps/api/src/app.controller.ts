@@ -1,7 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
+  constructor(private readonly prisma: PrismaService) {}
+
   @Get()
   root() {
     return {
@@ -12,11 +15,22 @@ export class AppController {
   }
 
   @Get('health')
-  health() {
+  async health() {
+    const now = new Date().toISOString();
+    let database = 'down';
+
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      database = 'up';
+    } catch (error) {
+      database = 'down';
+    }
+
     return {
-      status: 'ok',
+      status: database === 'up' ? 'ok' : 'degraded',
       service: 'api',
-      timestamp: new Date().toISOString(),
+      database,
+      timestamp: now,
     };
   }
 }
