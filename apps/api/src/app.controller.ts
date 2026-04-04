@@ -20,9 +20,9 @@ export class AppController {
     let database = 'down';
 
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.prisma.db.$queryRaw`SELECT 1`;
       database = 'up';
-    } catch (error) {
+    } catch {
       database = 'down';
     }
 
