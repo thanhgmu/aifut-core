@@ -46,3 +46,8 @@ apps/api/generated/
 
 # build output
 apps/api/dist/
+
+# env files
+.env
+.env.*
+!.env.example
