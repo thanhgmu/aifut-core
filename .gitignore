@@ -36,3 +36,13 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# temp / backup
+*.bak
+*.save
+
+# prisma generated client
+apps/api/generated/
+
+# build output
+apps/api/dist/
