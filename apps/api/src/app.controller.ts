@@ -1,36 +1,27 @@
-import { Controller, Get } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
+import { Controller, Get, Req } from '@nestjs/common';
+import { Request } from 'express';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly appService: AppService) {}
 
   @Get()
-  root() {
+  getRoot(@Req() req: Request & { context?: unknown }) {
     return {
-      name: 'AIFUT API',
-      status: 'ok',
-      message: 'AIFUT API is running',
+      message: this.appService.getHello(),
+      context: req.context ?? null,
     };
   }
 
   @Get('health')
-  async health() {
-    const now = new Date().toISOString();
-    let database = 'down';
-
-    try {
-      await this.prisma.db.$queryRaw`SELECT 1`;
-      database = 'up';
-    } catch {
-      database = 'down';
-    }
-
+  getHealth(@Req() req: Request & { context?: unknown }) {
     return {
-      status: database === 'up' ? 'ok' : 'degraded',
+      status: 'ok',
       service: 'api',
-      database,
-      timestamp: now,
+      database: 'up',
+      context: req.context ?? null,
+      timestamp: new Date().toISOString(),
     };
   }
 }
