@@ -46,6 +46,28 @@ export class AppController {
  };
  }
 
+ @Get('tenants/current/summary')
+ async getCurrentTenantSummary(@Req() req: Request & { context?: any }) {
+ const tenantId = req.context?.tenant?.id;
+ let workspaceCount = 0;
+ let memberCount = 0;
+
+ if (tenantId) {
+ workspaceCount = await this.prisma.workspace.count({ where: { tenantId } });
+ memberCount = await this.prisma.membership.count({ where: { tenantId } });
+ }
+
+ return {
+ tenant: req.context?.tenant ?? null,
+ user: req.context?.user ?? null,
+ membership: req.context?.membership ?? null,
+ counts: {
+ workspaces: workspaceCount,
+ members: memberCount,
+ },
+ };
+ }
+
  @Get('workspaces')
  async getWorkspaces(@Req() req: Request & { context?: any }) {
  const tenantId = req.context?.tenant?.id;
