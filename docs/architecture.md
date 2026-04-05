@@ -1,37 +1,60 @@
 # AIFUT Core Architecture
 
-## Direction
+## Current Direction
 Model C SaaS/operator stack.
 
-## Phase 1 Goal
-Build a deployable platform foundation with:
-- web operator shell
-- API foundation
-- tenant-ready architecture
-- storage abstraction direction
-- event/logging foundation
-- deployable monorepo structure
+## Current State
+The backend API is now running on the VPS and provides a tenant-aware control-plane MVP read surface.
 
-## Core Principles
+## Current Core Schema
+- User
+- Tenant
+- Membership
+- Workspace
+- AuditLog
+
+## Current Principles
 - multi-tenant first
-- modular packages
-- app/runtime isolation
-- storage abstraction
-- API-first
-- AI-integration ready
+- modular monolith first
+- single Postgres first
 - deploy-first, then expand
+- control-plane before product modules
+- auth later, dev context now
 
-## Initial Monorepo Shape
-- apps/web -> operator/admin shell
-- apps/docs -> internal docs
-- apps/api -> backend API (next step)
-- packages/ui -> shared UI
-- packages/config -> shared config/contracts later
-- infra/docker -> docker and deployment assets
+## Current Development Mode
+The API currently resolves request context from development headers:
+- x-dev-user-email
+- x-tenant-slug
 
-## Next Build Targets
-1. add apps/api
-2. add env templates
-3. define tenant model
-4. define modules/contracts
-5. prepare VPS deployment
+This enables fast iteration on tenant-aware backend flows before introducing full authentication.
+
+## Current API Surface
+- GET /health
+- GET /me
+- GET /tenants/current
+- GET /tenants/current/summary
+- GET /workspaces
+- GET /tenants/current/members
+- GET /audit-logs
+
+## What Exists Today
+- API runtime on VPS
+- Prisma + Postgres integration
+- Seeded tenant, user, membership, workspace
+- Seeded sample audit logs
+- Tenant-aware request context in development mode
+- Control-plane read endpoints for current tenant operations
+
+## Next Phase
+1. Add controlled write endpoints
+2. Add role guard / authorization checks
+3. Introduce real authentication
+4. Expand tenant admin APIs
+5. Add operator/admin UI on top of the API
+
+## Near-Term Backend Priorities
+1. POST /workspaces
+2. Role guard completion
+3. Auth skeleton
+4. Better error handling and validation
+5. Additional tenant-admin endpoints as needed
