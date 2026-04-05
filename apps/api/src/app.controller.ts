@@ -59,4 +59,19 @@ export class AppController {
 
  return [];
  }
+
+ @Get('tenants/current/members')
+ async getCurrentTenantMembers(@Req() req: Request & { context?: any }) {
+ const tenantId = req.context?.tenant?.id;
+
+ if (tenantId) {
+ return this.prisma.membership.findMany({
+ where: { tenantId },
+ include: { user: true },
+ orderBy: { createdAt: 'asc' },
+ });
+ }
+
+ return [];
+ }
 }
