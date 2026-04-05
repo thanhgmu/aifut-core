@@ -1,10 +1,14 @@
 import { Controller, Get, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { AppService } from './app.service';
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
- constructor(private readonly appService: AppService) {}
+ constructor(
+ private readonly appService: AppService,
+ private readonly prisma: PrismaService,
+ ) {}
 
  @Get()
  getRoot(@Req() req: Request & { context?: unknown }) {
@@ -40,5 +44,19 @@ export class AppController {
  tenant: req.context?.tenant ?? null,
  membership: req.context?.membership ?? null,
  };
+ }
+
+ @Get('workspaces')
+ async getWorkspaces(@Req() req: Request & { context?: any }) {
+ const tenantId = req.context?.tenant?.id;
+
+ if (tenantId) {
+ return this.prisma.workspace.findMany({
+ where: { tenantId },
+ orderBy: { createdAt: 'asc' },
+ });
+ }
+
+ return [];
  }
 }
