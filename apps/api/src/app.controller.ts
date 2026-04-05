@@ -96,4 +96,19 @@ export class AppController {
 
  return [];
  }
+
+ @Get('audit-logs')
+ async getAuditLogs(@Req() req: Request & { context?: any }) {
+ const tenantId = req.context?.tenant?.id;
+
+ if (tenantId) {
+ return this.prisma.auditLog.findMany({
+ where: { tenantId },
+ include: { actor: true },
+ orderBy: { createdAt: 'desc' },
+ });
+ }
+
+ return [];
+ }
 }
