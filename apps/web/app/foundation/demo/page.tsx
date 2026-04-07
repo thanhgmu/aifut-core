@@ -1,25 +1,10 @@
 const API = "https://api.aifut.net";
 
-const DATASETS = {
-  core: {
-    label: "Core dataset",
-    email: "admin@aifut.local",
-    slug: "aifut-core",
-  },
-  demo: {
-    label: "Demo dataset",
-    email: "admin@aifut.net",
-    slug: "aifut-demo",
-  },
-};
-
-async function getData(path: string, dataset: keyof typeof DATASETS) {
-  const config = DATASETS[dataset];
-
+async function getData(path: string) {
   const res = await fetch(`${API}${path}`, {
     headers: {
-      "x-dev-user-email": config.email,
-      "x-tenant-slug": config.slug,
+      "x-dev-user-email": "admin@aifut.net",
+      "x-tenant-slug": "aifut-demo",
     },
     cache: "no-store",
   });
@@ -28,21 +13,12 @@ async function getData(path: string, dataset: keyof typeof DATASETS) {
   return res.json();
 }
 
-export default async function FoundationPage({
-  searchParams,
-}: {
-  searchParams?: { dataset?: string };
-}) {
-  const dataset =
-    searchParams?.dataset === "demo" ? "demo" : "core";
-
-  const current = DATASETS[dataset];
-
+export default async function FoundationDemoPage() {
   const [me, tenantContext, workspaces, health] = await Promise.all([
-    getData("/me", dataset),
-    getData("/tenants/current", dataset),
-    getData("/workspaces", dataset),
-    getData("/health", dataset),
+    getData("/me"),
+    getData("/tenants/current"),
+    getData("/workspaces"),
+    getData("/health"),
   ]);
 
   const user = me?.user;
@@ -60,43 +36,14 @@ export default async function FoundationPage({
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <a href="/" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
-          ← Back to home
+        <a href="/foundation" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+          ← Back to foundation
         </a>
 
-        <h1 style={{ fontSize: 42, margin: "18px 0 10px" }}>AIFUT Foundation</h1>
+        <h1 style={{ fontSize: 42, margin: "18px 0 10px" }}>AIFUT Foundation — Demo</h1>
         <p style={{ color: "#c8d2ff", fontSize: 18, lineHeight: 1.7, maxWidth: 820 }}>
-          A live foundation view powered by the public AIFUT API and the current dev
-          context running on the VPS deployment.
+          Demo dataset view using admin@aifut.net and tenant aifut-demo.
         </p>
-
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 18 }}>
-          <a
-            href="/foundation?dataset=core"
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              textDecoration: "none",
-              background: dataset === "core" ? "#6d7cff" : "rgba(255,255,255,0.06)",
-              color: "white",
-            }}
-          >
-            Core dataset
-          </a>
-
-          <a
-            href="/foundation?dataset=demo"
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              textDecoration: "none",
-              background: dataset === "demo" ? "#6d7cff" : "rgba(255,255,255,0.06)",
-              color: "white",
-            }}
-          >
-            Demo dataset
-          </a>
-        </div>
 
         <div
           style={{
@@ -108,7 +55,7 @@ export default async function FoundationPage({
             color: "#c8d2ff",
           }}
         >
-          Viewing: <strong>{current.label}</strong> — {current.email} / {current.slug}
+          Viewing: <strong>Demo dataset</strong> — admin@aifut.net / aifut-demo
         </div>
 
         <div
@@ -148,51 +95,8 @@ export default async function FoundationPage({
 
         <div style={{ marginTop: 28 }}>
           <Panel title="Workspaces">
-            {Array.isArray(workspaces) && workspaces.length > 0 ? (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
-                }}
-              >
-                {workspaces.map((workspace: any) => (
-                  <div
-                    key={workspace.id}
-                    style={{
-                      padding: 18,
-                      borderRadius: 16,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}
-                  >
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>{workspace.name}</div>
-                    <div style={{ marginTop: 8, color: "#9fb0ff" }}>slug: {workspace.slug}</div>
-                    <div style={{ marginTop: 6, color: "#9fb0ff", fontSize: 13 }}>
-                      tenantId: {workspace.tenantId}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: "#c8d2ff" }}>No workspace data returned.</div>
-            )}
-          </Panel>
-        </div>
-
-        <div style={{ marginTop: 28 }}>
-          <Panel title="Debug snapshot">
-            <pre
-              style={{
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                color: "#dfe6ff",
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
-            >
-              {JSON.stringify({ dataset, me, tenantContext, workspaces, health }, null, 2)}
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {JSON.stringify(workspaces, null, 2)}
             </pre>
           </Panel>
         </div>
