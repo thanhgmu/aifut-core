@@ -1,40 +1,26 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-
-const API = "https://api.aifut.net";
-
-type AuthResponse = {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    name?: string | null;
-  };
-  tenant: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-  membership: {
-    id: string;
-    role: string;
-    tenantId: string;
-    userId: string;
-  } | null;
-};
+import {
+  API_BASE,
+  AuthSession,
+  fetchAuthMe,
+  getStoredToken,
+  loginWithPassword,
+  setStoredToken,
+} from "../../lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("founder@aifut.net");
   const [password, setPassword] = useState("test123456");
   const [token, setToken] = useState("");
-  const [me, setMe] = useState<AuthResponse | null>(null);
+  const [me, setMe] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingMe, setCheckingMe] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("aifut_token");
+    const saved = getStoredToken();
     if (saved) {
       setToken(saved);
     }
@@ -48,17 +34,7 @@ export default function LoginPage() {
       setError("");
 
       try {
-        const res = await fetch(`${API}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error(`auth/me failed (${res.status})`);
-        }
-
-        const data = await res.json();
+        const data = await fetchAuthMe(token);
         setMe(data);
       } catch (err) {
         setMe(null);
@@ -85,22 +61,9 @@ export default function LoginPage() {
     setMe(null);
 
     try {
-      const res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || `Login failed (${res.status})`);
-      }
-
-      window.localStorage.setItem("aifut_token", data.token);
-      setToken(data.token);
+      const data = await loginWithPassword(email, password);
+      setStoredToken(data.token || "");
+      setToken(data.token || "");
       setMe(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -296,7 +259,7 @@ export default function LoginPage() {
               Session
             </div>
 
-            <Row label="API" value={API} />
+            <Row label="API" value={API_BASE} />
             <Row label="Token present" value={token ? "Yes" : "No"} />
             <Row
               label="User"
