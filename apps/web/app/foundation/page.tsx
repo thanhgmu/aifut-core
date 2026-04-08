@@ -1,43 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-const API = "https://api.aifut.net";
-
-type SessionPayload = {
-  user?: {
-    id: string;
-    email: string;
-    name?: string | null;
-  } | null;
-  tenant?: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-  membership?: {
-    id: string;
-    role: string;
-    tenantId: string;
-    userId: string;
-  } | null;
-};
+import { API_BASE, AuthSession, fetchAuthMe, getStoredToken } from "../../lib/auth";
 
 export default function FoundationPage() {
   const [token, setToken] = useState("");
-  const [me, setMe] = useState<SessionPayload | null>(null);
+  const [me, setMe] = useState<AuthSession | null>(null);
   const [workspaces, setWorkspaces] = useState<any[] | null>(null);
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("aifut_token") || "";
+    const saved = getStoredToken();
     setToken(saved);
 
     const load = async () => {
       try {
-        const healthRes = await fetch(`${API}/health`, { cache: "no-store" });
+        const healthRes = await fetch(`${API_BASE}/health`, { cache: "no-store" });
         const healthJson = await healthRes.json();
         setHealth(healthJson);
 
@@ -46,22 +26,10 @@ export default function FoundationPage() {
           return;
         }
 
-        const meRes = await fetch(`${API}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${saved}`,
-          },
-          cache: "no-store",
-        });
-
-        const meJson = await meRes.json();
-
-        if (!meRes.ok) {
-          throw new Error(meJson?.message || `auth/me failed (${meRes.status})`);
-        }
-
+        const meJson = await fetchAuthMe(saved);
         setMe(meJson);
 
-        const workspaceRes = await fetch(`${API}/workspaces`, {
+        const workspaceRes = await fetch(`${API_BASE}/workspaces`, {
           headers: {
             Authorization: `Bearer ${saved}`,
           },

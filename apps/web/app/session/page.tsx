@@ -1,37 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-const API = "https://api.aifut.net";
-
-type SessionData = {
-  token?: string;
-  user?: {
-    id: string;
-    email: string;
-    name?: string | null;
-  } | null;
-  tenant?: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-  membership?: {
-    id: string;
-    role: string;
-    tenantId: string;
-    userId: string;
-  } | null;
-};
+import {
+  API_BASE,
+  AuthSession,
+  clearStoredToken,
+  fetchAuthMe,
+  getStoredToken,
+} from "../../lib/auth";
 
 export default function SessionPage() {
   const [token, setToken] = useState("");
-  const [data, setData] = useState<SessionData | null>(null);
+  const [data, setData] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("aifut_token") || "";
+    const saved = getStoredToken();
     setToken(saved);
 
     if (!saved) {
@@ -42,18 +27,7 @@ export default function SessionPage() {
 
     const run = async () => {
       try {
-        const res = await fetch(`${API}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${saved}`,
-          },
-        });
-
-        const json = await res.json();
-
-        if (!res.ok) {
-          throw new Error(json?.message || `auth/me failed (${res.status})`);
-        }
-
+        const json = await fetchAuthMe(saved);
         setData(json);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load session");
@@ -72,7 +46,7 @@ export default function SessionPage() {
   }, [loading, data]);
 
   function handleLogout() {
-    window.localStorage.removeItem("aifut_token");
+    clearStoredToken();
     setToken("");
     setData(null);
     setError("Signed out. Token removed from localStorage.");
@@ -179,7 +153,7 @@ export default function SessionPage() {
             border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          <Row label="API" value={API} />
+          <Row label="API" value={API_BASE} />
           <Row label="Token present" value={token ? "Yes" : "No"} />
           <Row
             label="User"
