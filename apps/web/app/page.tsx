@@ -107,6 +107,19 @@ export default async function HomePage() {
         >
           Login
         </a>
+<a
+          href="/session"
+          style={{
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "#f5f7ff",
+            padding: "14px 20px",
+            borderRadius: 12,
+            textDecoration: "none",
+            fontWeight: 700,
+          }}
+        >
+          Session
+        </a>
           <a
             href="/foundation"
             style={{
