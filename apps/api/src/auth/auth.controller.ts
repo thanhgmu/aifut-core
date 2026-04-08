@@ -55,7 +55,11 @@ export class AuthController {
       throw new UnauthorizedException('Missing bearer token');
     }
 
-    const payload = verifyAuthToken(token);
-    return this.authService.me(payload.sub);
+    try {
+      const payload = verifyAuthToken(token);
+      return this.authService.me(payload.sub);
+    } catch {
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 }
