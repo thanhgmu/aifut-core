@@ -70,3 +70,25 @@ export async function loginWithPassword(email: string, password: string) {
 
   return json as AuthSession;
 }
+
+export async function registerWithPassword(
+  name: string,
+  email: string,
+  password: string,
+) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(json?.message || `Register failed (${res.status})`);
+  }
+
+  return json as AuthSession;
+}
