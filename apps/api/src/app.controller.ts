@@ -38,7 +38,14 @@ export class AppController {
         auth: ['/auth/context'],
         memberships: ['/memberships/resolve'],
         audit: ['/audit/events', '/audit/events/:eventId', '/audit/roadmap'],
-        entitlements: ['/entitlements/capabilities', '/entitlements/packaging-blueprint', '/entitlements/roadmap'],
+        entitlements: [
+          '/entitlements/capabilities',
+          '/entitlements/packaging-blueprint',
+          '/entitlements/plans',
+          '/entitlements/current-package',
+          '/entitlements/preview-selection',
+          '/entitlements/roadmap',
+        ],
         integrations: [
           '/integrations/infrastructure-profile',
           '/integrations/connections',
