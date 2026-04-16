@@ -40,6 +40,26 @@ export class IntegrationsController {
     };
   }
 
+  @Get('domain-routing')
+  async domainRouting(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+  ) {
+    return this.infrastructureProfileService.getDomainRoutingPolicy(
+      tenantSlugHeader ?? tenantSlugQuery,
+    );
+  }
+
+  @Get('storage-routing')
+  async storageRouting(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+  ) {
+    return this.infrastructureProfileService.getStorageRoutingPolicy(
+      tenantSlugHeader ?? tenantSlugQuery,
+    );
+  }
+
   @Get('connections')
   async connections(
     @Headers('x-tenant-slug') tenantSlugHeader?: string,

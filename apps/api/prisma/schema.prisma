@@ -48,6 +48,26 @@ enum EntitlementKind {
   USAGE_CREDIT
 }
 
+enum TenantDomainKind {
+  PLATFORM_SUBDOMAIN
+  CUSTOM
+  AFFILIATE_DOMAIN
+}
+
+enum TenantDomainStatus {
+  PENDING
+  ACTIVE
+  DEGRADED
+  DISABLED
+}
+
+enum TenantStorageMode {
+  PLATFORM_MANAGED
+  TENANT_MANAGED
+  HYBRID
+  DISABLED
+}
+
 enum AuditActorType {
   USER
   SYSTEM
@@ -55,30 +75,34 @@ enum AuditActorType {
 }
 
 model Tenant {
-  id          String                  @id @default(cuid())
-  name        String
-  slug        String                  @unique
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  workspaces  Workspace[]
-  users       User[]
-  memberships Membership[]
-  sessions    Session[]
-  integrations IntegrationConnection[]
-  entitlements Entitlement[]
-  auditEvents AuditEvent[]
+  id              String                  @id @default(cuid())
+  name            String
+  slug            String                  @unique
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  workspaces      Workspace[]
+  users           User[]
+  memberships     Membership[]
+  sessions        Session[]
+  integrations    IntegrationConnection[]
+  entitlements    Entitlement[]
+  auditEvents     AuditEvent[]
+  domains         TenantDomain[]
+  storagePolicies TenantStoragePolicy[]
 }
 
 model Workspace {
-  id           String                  @id @default(cuid())
-  name         String
-  slug         String
-  tenantId     String
-  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships  Membership[]
-  integrations IntegrationConnection[]
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  id              String                  @id @default(cuid())
+  name            String
+  slug            String
+  tenantId        String
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships     Membership[]
+  integrations    IntegrationConnection[]
+  domains         TenantDomain[]
+  storagePolicies TenantStoragePolicy[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
   @@unique([tenantId, slug])
 }
@@ -137,26 +161,30 @@ model Session {
 }
 
 model IntegrationConnection {
-  id              String              @id @default(cuid())
-  tenantId        String
-  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspaceId     String?
-  workspace       Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  name            String
-  slug            String
-  category        IntegrationCategory
-  provider        String
-  status          ConnectionStatus    @default(PENDING)
-  config          Json?
-  secretsRef      String?
-  mappingMode     String?
-  mappedObjects   String[]            @default([])
-  fieldMappings   Json?
-  eventMappings   Json?
-  syncPolicy      Json?
-  lastVerifiedAt  DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                 String              @id @default(cuid())
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId        String?
+  workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  name               String
+  slug               String
+  category           IntegrationCategory
+  provider           String
+  status             ConnectionStatus    @default(PENDING)
+  config             Json?
+  secretsRef         String?
+  mappingMode        String?
+  mappedObjects      String[]            @default([])
+  fieldMappings      Json?
+  eventMappings      Json?
+  syncPolicy         Json?
+  routingMode        String?
+  targetBaseUrl      String?
+  targetEnvironment  String?
+  targetRegion       String?
+  lastVerifiedAt     DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@unique([tenantId, slug])
   @@index([tenantId, category])
@@ -195,4 +223,47 @@ model AuditEvent {
   @@index([tenantId, action])
   @@index([userId])
   @@index([createdAt])
+}
+
+model TenantDomain {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId        String?
+  workspace          Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  hostname           String
+  kind               TenantDomainKind
+  status             TenantDomainStatus @default(PENDING)
+  isPrimary          Boolean            @default(false)
+  provider           String?
+  provisioningMode   String?
+  dnsTarget          String?
+  certificateStatus  String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([hostname])
+  @@index([tenantId, status])
+  @@index([workspaceId])
+}
+
+model TenantStoragePolicy {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId      String?
+  workspace        Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  key              String
+  mode             TenantStorageMode
+  storageClass     String?
+  targetRef        String?
+  targetRegion     String?
+  backupTargetRef  String?
+  meteringEnabled  Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, mode])
+  @@index([workspaceId])
 }
