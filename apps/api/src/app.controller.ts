@@ -37,6 +37,7 @@ export class AppController {
         tenancy: ['/tenancy/summary', '/tenancy/current', '/tenancy/roadmap'],
         auth: ['/auth/context'],
         memberships: ['/memberships/resolve'],
+        audit: ['/audit/events', '/audit/events/:eventId', '/audit/roadmap'],
         integrations: [
           '/integrations/infrastructure-profile',
           '/integrations/connections',
