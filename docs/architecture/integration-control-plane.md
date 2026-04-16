@@ -1,0 +1,235 @@
+# Integration Control Plane Architecture
+
+## Why this exists
+AIFUT should not force tenants to abandon their existing CRM, ecommerce, LMS, helpdesk, ERP-light, automation, or AI systems just to join the platform.
+
+The platform core should instead become the control plane that can:
+- connect those systems
+- normalize tenant/business context across them
+- observe health and sync drift
+- orchestrate workflows and AI actions across them
+- monetize the resulting solutions, workflows, and packaged operating surfaces
+
+This document translates that thesis into a concrete architecture direction for `aifut-core`.
+
+## Product principle
+AIFUT core is not required to be a full CRM, ecommerce engine, or LMS on day one.
+
+AIFUT core **must** become the platform kernel and control plane for those systems.
+
+That means AIFUT should own:
+- tenancy and actor context
+- entitlements and plan boundaries
+- integration contracts
+- health and observability
+- marketplace/commercialization boundaries
+- workflow and AI orchestration contracts
+
+And it should treat business applications as one of three things:
+- first-party native modules
+- external connectors
+- tenant-owned systems connected through generic bridges
+
+## Outcome for operators
+The end state should allow a very small operator team, ideally even a single operator, to:
+- provision tenants
+- attach external systems
+- observe sync and health status
+- apply policies and entitlements
+- monetize templates, solutions, workflows, and apps
+- help non-technical tenants connect their systems with low friction
+
+## Architectural layers
+
+### 1. Connector registry layer
+The connector registry is the normalized catalog of what AIFUT can connect to.
+
+Each connector definition should describe:
+- connector key
+- category (`crm`, `commerce`, `lms`, `workflow`, `analytics`, `messaging`, `ai`, `storage`, `other`)
+- provider name
+- auth modes (`api-key`, `oauth2`, `basic`, `webhook-shared-secret`, `custom`)
+- supported capabilities
+- required configuration fields
+- health-check strategy
+- event types supported
+- command/actions supported
+- sync directions (`pull`, `push`, `bidirectional`, `event-driven`)
+- whether the connector is first-party, marketplace-provided, or tenant-custom
+
+Examples:
+- Perfex connector
+- Shopify connector
+- WooCommerce connector
+- Moodle connector
+- n8n bridge
+- generic REST connector
+- webhook bridge connector
+
+### 2. Connection instance layer
+A tenant should not connect to a connector definition directly. It should create a connection instance.
+
+A connection instance should capture:
+- tenant/workspace ownership
+- connector key/provider
+- credential reference or auth material reference
+- remote base URL / account info
+- sync policy
+- event mapping profile
+- status and health
+- verification timestamps
+- error state summary
+- operator notes
+
+This is the layer that turns "we support Shopify" into "tenant A has connected store X in workspace Y".
+
+### 3. Unified business context layer
+No matter which external system connects, AIFUT should reason in its own language.
+
+The normalized context should allow the platform to answer:
+- which tenant does this event belong to?
+- which workspace does it affect?
+- which actor initiated it?
+- what kind of business object is it?
+- which policy or entitlement applies?
+- what workflow/action should follow?
+- what billing/usage event should be emitted?
+
+This means connectors should map external data into platform primitives such as:
+- actor
+- tenant
+- workspace
+- contact/member/customer
+- order/transaction/subscription
+- enrollment/learning-progress
+- workflow event
+- audit event
+- entitlement/usage event
+
+### 4. Integration UX layer
+The platform must support non-technical users, not just API-driven operators.
+
+Therefore integrations should support three usability tiers:
+
+#### Tier A — guided templates
+The user picks a known integration template such as:
+- Connect Shopify
+- Connect WooCommerce
+- Connect Perfex CRM
+- Connect Moodle
+- Connect n8n
+- Connect WhatsApp
+- Connect Google Sheets
+
+The user should then follow a guided wizard:
+1. choose provider
+2. provide domain/auth
+3. test connection
+4. choose sync scope
+5. choose mapping defaults
+6. review permissions
+7. enable
+
+#### Tier B — AI-assisted setup
+The user describes intent in natural language, for example:
+> Connect my current CRM and sync customers, invoices, and appointments.
+
+The system should then:
+- ask clarifying questions
+- propose the best connector type
+- pre-fill mapping defaults
+- suggest sync policies
+- test the configuration
+- explain errors in plain language
+
+#### Tier C — advanced mode
+For technical users and partners:
+- generic REST/OAuth configuration
+- JSON schema mapping
+- custom webhook/event routes
+- retry/security/rate-limit tuning
+- custom action definitions
+
+### 5. Observability and health layer
+Each connection should expose operator-friendly observability.
+
+AIFUT should track at least:
+- connection status
+- last verification time
+- last successful sync time
+- last error summary
+- auth expiry or drift risks
+- event delivery failures
+- mapping gaps
+- rate limit warnings
+- degraded mode flags
+
+This is mandatory if a single operator is expected to manage a large tenant base.
+
+### 6. Commercialization layer
+Once connectors and workflows exist, AIFUT should be able to commercialize them.
+
+Commercializable items should include:
+- connectors
+- integration templates
+- workflow packs
+- vertical solutions
+- onboarding/setup services
+- support packages
+
+Commercialization rules should support:
+- approval before listing
+- entitlement checks
+- demo/trial paths
+- plan/add-on attachment
+- reseller/affiliate revenue sharing
+
+## Recommended connector types for phase sequencing
+
+### Phase-first connectors
+These offer the best leverage earliest:
+- generic REST/OAuth connector
+- webhook/event bridge
+- n8n bridge
+- storage connector profile
+- messaging channel adapters
+
+### High-value named connectors next
+- Shopify / WooCommerce
+- Perfex (integration only, never platform core)
+- Moodle / LMS connector
+- Google Sheets / lightweight ops data
+- payment provider connectors
+
+## Rules for build vs buy
+
+### Build first-party
+- connector registry contract
+- connection instance model
+- health/drift semantics
+- normalized event and command model
+- integration UX/wizard contract
+- AI-assisted integration setup contract
+- monetization/approval boundaries
+
+### Integrate or adapt
+- business systems themselves (CRM, commerce, LMS)
+- workflow execution engines where useful
+- affiliate engine where it accelerates but does not own the platform kernel
+
+## Immediate backend consequences
+The API should evolve toward these concrete surfaces:
+- connector registry endpoint(s)
+- connection instance CRUD and verification endpoints
+- health status endpoint per connection
+- generic connector profile for tenant-owned systems
+- mapping profile and sync policy endpoints
+- workflow handoff endpoints
+
+## Success criteria
+This layer is successful when:
+1. a tenant can connect a known external system without code
+2. a technical user can connect a custom system with generic REST/OAuth/webhook tools
+3. the operator can observe health and errors centrally
+4. workflows and AI actions can operate against normalized platform context
+5. the resulting integrations can be packaged and monetized within tenant boundaries
