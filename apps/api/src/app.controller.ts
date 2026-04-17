@@ -42,6 +42,7 @@ export class AppController {
           '/entitlements/capabilities',
           '/entitlements/packaging-blueprint',
           '/entitlements/plans',
+          '/entitlements/admin-package-builder',
           '/entitlements/current-package',
           '/entitlements/preview-selection',
           '/entitlements/assign-package',

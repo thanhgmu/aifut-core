@@ -101,6 +101,138 @@ export class EntitlementsService {
     };
   }
 
+  async getAdminPackageBuilderState(input: {
+    tenantSlug?: string;
+    userEmail?: string;
+    workspaceSlug?: string;
+  }) {
+    const context = await this.actorContext.resolve(input);
+    const scopeKey = this.buildScopeKey(
+      context.tenant.slug,
+      context.activeWorkspace?.slug,
+    );
+
+    const [assignment, entitlements, connections] = await Promise.all([
+      this.prisma.tenantPackageAssignment.findUnique({
+        where: { scopeKey },
+        select: {
+          id: true,
+          scopeKey: true,
+          basePlanKey: true,
+          selectedOptions: true,
+          billingSnapshot: true,
+          provisioningState: true,
+          source: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: context.tenant.id,
+        },
+        orderBy: [{ key: 'asc' }],
+        select: {
+          id: true,
+          key: true,
+          kind: true,
+          value: true,
+          source: true,
+          endsAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.integrationConnection.findMany({
+        where: {
+          tenantId: context.tenant.id,
+          provider: 'nexovaflow',
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+          workspaceId: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const activePlan = assignment
+      ? PLAN_CATALOG.find((plan) => plan.key === assignment.basePlanKey) ?? null
+      : null;
+
+    const selectedOptions = (assignment?.selectedOptions ?? []).map(
+      (selectedKey) =>
+        PACKAGE_OPTIONS_CATALOG.find((option) => option.key === selectedKey) ?? {
+          key: selectedKey,
+          label: selectedKey,
+          category: 'unknown',
+        },
+    );
+
+    const builderOptions = PACKAGE_OPTIONS_CATALOG.map((option) => {
+      const connectorReady = option.dependencyKeys.includes('connector.nexovaflow')
+        ? connections.some((connection) => connection.status === 'ACTIVE')
+        : true;
+      const entitlement = entitlements.find(
+        (candidate) => candidate.key === option.entitlementKey,
+      );
+      const selected = assignment?.selectedOptions.includes(option.key) ?? false;
+
+      return {
+        ...option,
+        selected,
+        connectorReady,
+        entitlementState: entitlement
+          ? {
+              value: entitlement.value,
+              source: entitlement.source,
+              endsAt: entitlement.endsAt,
+              updatedAt: entitlement.updatedAt,
+            }
+          : null,
+        recommendedNextAction: selected
+          ? connectorReady
+            ? 'ready-for-provisioning-or-activation'
+            : 'connect-nexovaflow-first'
+          : 'available-to-add',
+      };
+    });
+
+    return {
+      capability: 'entitlements',
+      status: 'foundation',
+      tenant: context.tenant,
+      workspace: context.activeWorkspace,
+      builder: {
+        scopeKey,
+        activePlan,
+        assignment,
+        selectedOptions,
+        catalog: {
+          plans: PLAN_CATALOG,
+          options: builderOptions,
+        },
+        dependencyState: {
+          nexovaflowConnections: connections,
+          nexovaflowConnectorReady: connections.some(
+            (connection) => connection.status === 'ACTIVE',
+          ),
+        },
+        operatorActions: [
+          'select-base-plan',
+          'toggle-package-options',
+          'review-price-book-impact',
+          'sync-entitlements',
+          'trigger-downstream-provisioning',
+        ],
+      },
+      next: ['price-book-model', 'ui-form-contract', 'provisioning-run-records'],
+    };
+  }
+
   async getTenantPackageState(input: {
     tenantSlug?: string;
     userEmail?: string;

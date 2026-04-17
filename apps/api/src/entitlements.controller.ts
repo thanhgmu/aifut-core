@@ -27,6 +27,22 @@ export class EntitlementsController {
     return this.entitlements.getPlanCatalog();
   }
 
+  @Get('admin-package-builder')
+  async adminPackageBuilder(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+  ) {
+    return this.entitlements.getAdminPackageBuilderState({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+    });
+  }
+
   @Get('current-package')
   async currentPackage(
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
