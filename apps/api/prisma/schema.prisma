@@ -75,34 +75,36 @@ enum AuditActorType {
 }
 
 model Tenant {
-  id              String                  @id @default(cuid())
-  name            String
-  slug            String                  @unique
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  workspaces      Workspace[]
-  users           User[]
-  memberships     Membership[]
-  sessions        Session[]
-  integrations    IntegrationConnection[]
-  entitlements    Entitlement[]
-  auditEvents     AuditEvent[]
-  domains         TenantDomain[]
-  storagePolicies TenantStoragePolicy[]
+  id                 String                  @id @default(cuid())
+  name               String
+  slug               String                  @unique
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  workspaces         Workspace[]
+  users              User[]
+  memberships        Membership[]
+  sessions           Session[]
+  integrations       IntegrationConnection[]
+  entitlements       Entitlement[]
+  auditEvents        AuditEvent[]
+  domains            TenantDomain[]
+  storagePolicies    TenantStoragePolicy[]
+  packageAssignments TenantPackageAssignment[]
 }
 
 model Workspace {
-  id              String                  @id @default(cuid())
-  name            String
-  slug            String
-  tenantId        String
-  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships     Membership[]
-  integrations    IntegrationConnection[]
-  domains         TenantDomain[]
-  storagePolicies TenantStoragePolicy[]
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  id                 String                  @id @default(cuid())
+  name               String
+  slug               String
+  tenantId           String
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships        Membership[]
+  integrations       IntegrationConnection[]
+  domains            TenantDomain[]
+  storagePolicies    TenantStoragePolicy[]
+  packageAssignments TenantPackageAssignment[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   @@unique([tenantId, slug])
 }
@@ -265,5 +267,24 @@ model TenantStoragePolicy {
 
   @@unique([tenantId, key])
   @@index([tenantId, mode])
+  @@index([workspaceId])
+}
+
+model TenantPackageAssignment {
+  id                String      @id @default(cuid())
+  tenantId          String
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId       String?
+  workspace         Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  scopeKey          String      @unique
+  basePlanKey       String
+  selectedOptions   String[]    @default([])
+  billingSnapshot   Json?
+  provisioningState String?
+  source            String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([tenantId, basePlanKey])
   @@index([workspaceId])
 }

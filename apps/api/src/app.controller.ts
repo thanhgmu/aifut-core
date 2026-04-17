@@ -44,6 +44,7 @@ export class AppController {
           '/entitlements/plans',
           '/entitlements/current-package',
           '/entitlements/preview-selection',
+          '/entitlements/assign-package',
           '/entitlements/roadmap',
         ],
         integrations: [

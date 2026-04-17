@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import {
   ENTITLEMENTS_FOUNDATION_ROADMAP,
   PACKAGE_OPTIONS_BLUEPRINT,
@@ -57,6 +57,29 @@ export class EntitlementsController {
     return this.entitlements.previewSelection({
       basePlanKey,
       selectedOptions,
+    });
+  }
+
+  @Post('assign-package')
+  async assignPackage(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      basePlanKey?: string;
+      selectedOptions?: string[];
+      source?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.entitlements.assignPackage({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
     });
   }
 

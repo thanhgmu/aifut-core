@@ -16,6 +16,15 @@ type PackageSelectionPreviewInput = {
   selectedOptions?: string[];
 };
 
+type AssignPackageInput = {
+  tenantSlug?: string;
+  userEmail?: string;
+  workspaceSlug?: string;
+  basePlanKey?: string;
+  selectedOptions?: string[];
+  source?: string;
+};
+
 const PLAN_CATALOG = [
   {
     key: 'core.starter',
@@ -98,23 +107,43 @@ export class EntitlementsService {
     workspaceSlug?: string;
   }) {
     const context = await this.actorContext.resolve(input);
+    const scopeKey = this.buildScopeKey(
+      context.tenant.slug,
+      context.activeWorkspace?.slug,
+    );
 
-    const entitlements = await this.prisma.entitlement.findMany({
-      where: {
-        tenantId: context.tenant.id,
-      },
-      orderBy: [{ key: 'asc' }],
-      select: {
-        id: true,
-        key: true,
-        kind: true,
-        value: true,
-        source: true,
-        startsAt: true,
-        endsAt: true,
-        createdAt: true,
-      },
-    });
+    const [assignment, entitlements] = await Promise.all([
+      this.prisma.tenantPackageAssignment.findUnique({
+        where: { scopeKey },
+        select: {
+          id: true,
+          scopeKey: true,
+          basePlanKey: true,
+          selectedOptions: true,
+          billingSnapshot: true,
+          provisioningState: true,
+          source: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: context.tenant.id,
+        },
+        orderBy: [{ key: 'asc' }],
+        select: {
+          id: true,
+          key: true,
+          kind: true,
+          value: true,
+          source: true,
+          startsAt: true,
+          endsAt: true,
+          createdAt: true,
+        },
+      }),
+    ]);
 
     const activeOptionKeys = entitlements
       .filter(
@@ -129,36 +158,151 @@ export class EntitlementsService {
 
     return {
       capability: 'entitlements',
-      status: 'resolved',
+      status: assignment ? 'resolved' : 'foundation',
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       packageState: {
-        basePlan: 'operator-assigned',
+        assignment,
+        basePlan: assignment?.basePlanKey ?? 'operator-assigned',
+        selectedOptions: assignment?.selectedOptions ?? [],
         activeOptionEntitlements: activeOptionKeys,
         entitlementCount: entitlements.length,
       },
       entitlements,
-      next: ['plan-assignment-record', 'price-book-linkage', 'workspace-scope-overrides'],
+      next: ['price-book-linkage', 'workspace-scope-overrides', 'entitlement-sync-from-assignment'],
     };
   }
 
   previewSelection(input: PackageSelectionPreviewInput) {
-    const basePlanKey = input.basePlanKey?.trim().toLowerCase();
-    const selectedOptions = Array.from(
-      new Set((input.selectedOptions ?? []).map((item) => item.trim().toLowerCase())),
+    const validated = this.validateSelection(
+      input.basePlanKey,
+      input.selectedOptions,
     );
 
-    if (!basePlanKey) {
+    return {
+      capability: 'entitlements',
+      status: 'preview',
+      selection: {
+        basePlan: validated.plan,
+        selectedOptions: validated.selectedOptionDefinitions,
+      },
+      commercialEffects: {
+        basePlanPriceMonthly: validated.plan.basePriceMonthly,
+        optionPriceDeltas: validated.selectedOptionDefinitions.map((option) => ({
+          key: option.key,
+          billingMode: option.billingMode,
+          priceDelta: option.defaultPriceDelta,
+        })),
+        totalPriceComputation: 'operator-price-book-required',
+      },
+      provisioningEffects: {
+        requiresConnectorKeys: Array.from(
+          new Set(
+            validated.selectedOptionDefinitions.flatMap(
+              (option) => option.dependencyKeys,
+            ),
+          ),
+        ),
+        downstreamSystems: Array.from(
+          new Set(
+            validated.selectedOptionDefinitions.map(
+              (option) => option.downstreamSystem,
+            ),
+          ),
+        ),
+      },
+      next: ['persist-package-assignment', 'apply-entitlements', 'run-provisioning-flow'],
+    };
+  }
+
+  async assignPackage(input: AssignPackageInput) {
+    const context = await this.actorContext.resolve(input);
+    const validated = this.validateSelection(
+      input.basePlanKey,
+      input.selectedOptions,
+    );
+    const scopeKey = this.buildScopeKey(
+      context.tenant.slug,
+      context.activeWorkspace?.slug,
+    );
+
+    const assignment = await this.prisma.tenantPackageAssignment.upsert({
+      where: { scopeKey },
+      update: {
+        basePlanKey: validated.plan.key,
+        selectedOptions: validated.selectedOptions,
+        billingSnapshot: {
+          basePlanPriceMonthly: validated.plan.basePriceMonthly,
+          optionPriceDeltas: validated.selectedOptionDefinitions.map((option) => ({
+            key: option.key,
+            billingMode: option.billingMode,
+            priceDelta: option.defaultPriceDelta,
+          })),
+        },
+        provisioningState:
+          validated.selectedOptions.length > 0 ? 'pending' : 'inactive',
+        source: input.source?.trim() || 'aifut-admin',
+      },
+      create: {
+        tenantId: context.tenant.id,
+        workspaceId: context.activeWorkspace?.id,
+        scopeKey,
+        basePlanKey: validated.plan.key,
+        selectedOptions: validated.selectedOptions,
+        billingSnapshot: {
+          basePlanPriceMonthly: validated.plan.basePriceMonthly,
+          optionPriceDeltas: validated.selectedOptionDefinitions.map((option) => ({
+            key: option.key,
+            billingMode: option.billingMode,
+            priceDelta: option.defaultPriceDelta,
+          })),
+        },
+        provisioningState:
+          validated.selectedOptions.length > 0 ? 'pending' : 'inactive',
+        source: input.source?.trim() || 'aifut-admin',
+      },
+      select: {
+        id: true,
+        scopeKey: true,
+        basePlanKey: true,
+        selectedOptions: true,
+        billingSnapshot: true,
+        provisioningState: true,
+        source: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      capability: 'entitlements',
+      status: 'assigned',
+      tenant: context.tenant,
+      workspace: context.activeWorkspace,
+      assignment,
+      next: ['sync-feature-entitlements', 'connect-price-book', 'run-downstream-provisioning'],
+    };
+  }
+
+  private validateSelection(basePlanKey?: string, selectedOptions?: string[]) {
+    const normalizedBasePlanKey = basePlanKey?.trim().toLowerCase();
+    const normalizedSelectedOptions = Array.from(
+      new Set((selectedOptions ?? []).map((item) => item.trim().toLowerCase())),
+    );
+
+    if (!normalizedBasePlanKey) {
       throw new BadRequestException('Missing basePlanKey.');
     }
 
-    const plan = PLAN_CATALOG.find((candidate) => candidate.key === basePlanKey);
+    const plan = PLAN_CATALOG.find(
+      (candidate) => candidate.key === normalizedBasePlanKey,
+    );
 
     if (!plan) {
-      throw new NotFoundException(`Plan not found: ${basePlanKey}`);
+      throw new NotFoundException(`Plan not found: ${normalizedBasePlanKey}`);
     }
 
-    const selectedOptionDefinitions = selectedOptions.map((optionKey) => {
+    const selectedOptionDefinitions = normalizedSelectedOptions.map((optionKey) => {
       const option = PACKAGE_OPTIONS_CATALOG.find(
         (candidate) => candidate.key === optionKey,
       );
@@ -181,30 +325,15 @@ export class EntitlementsService {
     }
 
     return {
-      capability: 'entitlements',
-      status: 'preview',
-      selection: {
-        basePlan: plan,
-        selectedOptions: selectedOptionDefinitions,
-      },
-      commercialEffects: {
-        basePlanPriceMonthly: plan.basePriceMonthly,
-        optionPriceDeltas: selectedOptionDefinitions.map((option) => ({
-          key: option.key,
-          billingMode: option.billingMode,
-          priceDelta: option.defaultPriceDelta,
-        })),
-        totalPriceComputation: 'operator-price-book-required',
-      },
-      provisioningEffects: {
-        requiresConnectorKeys: Array.from(
-          new Set(selectedOptionDefinitions.flatMap((option) => option.dependencyKeys)),
-        ),
-        downstreamSystems: Array.from(
-          new Set(selectedOptionDefinitions.map((option) => option.downstreamSystem)),
-        ),
-      },
-      next: ['persist-package-assignment', 'apply-entitlements', 'run-provisioning-flow'],
+      plan,
+      selectedOptions: normalizedSelectedOptions,
+      selectedOptionDefinitions,
     };
+  }
+
+  private buildScopeKey(tenantSlug: string, workspaceSlug?: string | null) {
+    return workspaceSlug
+      ? `${tenantSlug}:workspace:${workspaceSlug}`
+      : `${tenantSlug}:tenant:default`;
   }
 }
