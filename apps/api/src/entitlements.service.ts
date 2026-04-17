@@ -225,6 +225,7 @@ export class EntitlementsService {
       context.tenant.slug,
       context.activeWorkspace?.slug,
     );
+    const source = input.source?.trim() || 'aifut-admin';
 
     const assignment = await this.prisma.tenantPackageAssignment.upsert({
       where: { scopeKey },
@@ -241,7 +242,7 @@ export class EntitlementsService {
         },
         provisioningState:
           validated.selectedOptions.length > 0 ? 'pending' : 'inactive',
-        source: input.source?.trim() || 'aifut-admin',
+        source,
       },
       create: {
         tenantId: context.tenant.id,
@@ -259,7 +260,7 @@ export class EntitlementsService {
         },
         provisioningState:
           validated.selectedOptions.length > 0 ? 'pending' : 'inactive',
-        source: input.source?.trim() || 'aifut-admin',
+        source,
       },
       select: {
         id: true,
@@ -274,13 +275,139 @@ export class EntitlementsService {
       },
     });
 
+    const entitlementSync = await this.syncEntitlementsFromAssignment({
+      tenantId: context.tenant.id,
+      basePlanKey: validated.plan.key,
+      selectedOptions: validated.selectedOptions,
+      source,
+    });
+
     return {
       capability: 'entitlements',
       status: 'assigned',
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       assignment,
-      next: ['sync-feature-entitlements', 'connect-price-book', 'run-downstream-provisioning'],
+      entitlementSync,
+      next: ['connect-price-book', 'run-downstream-provisioning', 'workspace-scope-entitlements'],
+    };
+  }
+
+  async syncCurrentPackage(input: {
+    tenantSlug?: string;
+    userEmail?: string;
+    workspaceSlug?: string;
+    source?: string;
+  }) {
+    const context = await this.actorContext.resolve(input);
+    const scopeKey = this.buildScopeKey(
+      context.tenant.slug,
+      context.activeWorkspace?.slug,
+    );
+    const assignment = await this.prisma.tenantPackageAssignment.findUnique({
+      where: { scopeKey },
+      select: {
+        id: true,
+        basePlanKey: true,
+        selectedOptions: true,
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(`Package assignment not found for scope: ${scopeKey}`);
+    }
+
+    const entitlementSync = await this.syncEntitlementsFromAssignment({
+      tenantId: context.tenant.id,
+      basePlanKey: assignment.basePlanKey,
+      selectedOptions: assignment.selectedOptions,
+      source: input.source?.trim() || 'package-sync',
+    });
+
+    return {
+      capability: 'entitlements',
+      status: 'synced',
+      tenant: context.tenant,
+      workspace: context.activeWorkspace,
+      assignment,
+      entitlementSync,
+      next: ['price-book-linkage', 'downstream-provisioning-reconciliation'],
+    };
+  }
+
+  private async syncEntitlementsFromAssignment(input: {
+    tenantId: string;
+    basePlanKey: string;
+    selectedOptions: string[];
+    source: string;
+  }) {
+    const basePlanEntitlementKey = 'package.base-plan';
+    const featureKeys = PACKAGE_OPTIONS_CATALOG.map((option) => option.entitlementKey);
+
+    await this.prisma.entitlement.upsert({
+      where: {
+        tenantId_key: {
+          tenantId: input.tenantId,
+          key: basePlanEntitlementKey,
+        },
+      },
+      update: {
+        kind: EntitlementKind.FEATURE,
+        value: input.basePlanKey,
+        source: input.source,
+        endsAt: null,
+      },
+      create: {
+        tenantId: input.tenantId,
+        key: basePlanEntitlementKey,
+        kind: EntitlementKind.FEATURE,
+        value: input.basePlanKey,
+        source: input.source,
+      },
+    });
+
+    const selectedFeatureKeys = PACKAGE_OPTIONS_CATALOG.filter((option) =>
+      input.selectedOptions.includes(option.key),
+    ).map((option) => option.entitlementKey);
+
+    const now = new Date();
+
+    await Promise.all(
+      featureKeys.map((featureKey) => {
+        const enabled = selectedFeatureKeys.includes(featureKey);
+
+        return this.prisma.entitlement.upsert({
+          where: {
+            tenantId_key: {
+              tenantId: input.tenantId,
+              key: featureKey,
+            },
+          },
+          update: {
+            kind: EntitlementKind.FEATURE,
+            value: enabled ? 'enabled' : 'disabled',
+            source: input.source,
+            endsAt: enabled ? null : now,
+          },
+          create: {
+            tenantId: input.tenantId,
+            key: featureKey,
+            kind: EntitlementKind.FEATURE,
+            value: enabled ? 'enabled' : 'disabled',
+            source: input.source,
+            endsAt: enabled ? null : now,
+          },
+        });
+      }),
+    );
+
+    return {
+      basePlanEntitlementKey,
+      selectedFeatureKeys,
+      disabledFeatureKeys: featureKeys.filter(
+        (featureKey) => !selectedFeatureKeys.includes(featureKey),
+      ),
+      syncedAt: now.toISOString(),
     };
   }
 

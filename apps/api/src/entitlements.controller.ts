@@ -83,6 +83,27 @@ export class EntitlementsController {
     });
   }
 
+  @Post('sync-package-entitlements')
+  async syncPackageEntitlements(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      source?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.entitlements.syncCurrentPackage({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+    });
+  }
+
   @Get('roadmap')
   roadmap() {
     return {
