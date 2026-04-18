@@ -11,6 +11,7 @@ import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 type CreateConnectionInput = {
   tenantSlug?: string;
   workspaceSlug?: string;
+  hostname?: string;
   connectorKey?: string;
   name?: string;
   slug?: string;
@@ -159,6 +160,8 @@ export class ConnectionInstancesService {
         tenantSlug: input.tenantSlug,
         userEmail: input.userEmail,
         workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
       },
       {
         minimumRole: MembershipRole.OPERATOR,

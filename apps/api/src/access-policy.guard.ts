@@ -54,6 +54,7 @@ export class AccessPolicyGuard implements CanActivate {
           request.query?.hostname,
           request.body?.hostname,
         ),
+        enforceWorkspaceDomainMatch: true,
       },
       requirement,
     );

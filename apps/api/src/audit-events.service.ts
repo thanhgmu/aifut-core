@@ -12,6 +12,7 @@ type WriteAuditEventInput = {
   tenantSlug?: string;
   userEmail?: string;
   workspaceSlug?: string;
+  hostname?: string;
   actorType?: AuditActorType;
   action?: string;
   targetType?: string;
@@ -39,6 +40,8 @@ export class AuditEventsService {
         tenantSlug: input.tenantSlug,
         userEmail: input.userEmail,
         workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
       },
       {
         minimumRole: MembershipRole.MEMBER,
@@ -62,6 +65,8 @@ export class AuditEventsService {
             workspaceSlug: context.activeWorkspace?.slug ?? null,
             membershipRole: context.activeMembership?.role ?? null,
             usedDefaultWorkspace: context.resolution.usedDefaultWorkspace,
+            usedHostnameResolution: context.resolution.usedHostnameResolution,
+            hostname: context.resolution.hostname,
           },
         }),
       },
@@ -90,12 +95,14 @@ export class AuditEventsService {
     tenantSlug?: string;
     userEmail?: string;
     workspaceSlug?: string;
+    hostname?: string;
     limit?: number;
   }) {
     const context = await this.actorContext.resolve({
       tenantSlug: input.tenantSlug,
       userEmail: input.userEmail,
       workspaceSlug: input.workspaceSlug,
+      hostname: input.hostname,
     });
 
     const take = this.normalizeLimit(input.limit);
@@ -148,6 +155,7 @@ export class AuditEventsService {
     tenantSlug?: string;
     userEmail?: string;
     workspaceSlug?: string;
+    hostname?: string;
     eventId?: string;
   }) {
     const eventId = input.eventId?.trim();
@@ -160,6 +168,7 @@ export class AuditEventsService {
       tenantSlug: input.tenantSlug,
       userEmail: input.userEmail,
       workspaceSlug: input.workspaceSlug,
+      hostname: input.hostname,
     });
 
     const event = await this.prisma.auditEvent.findFirst({

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { PrismaService } from './prisma.service';
 type ResolveHostnameInput = {
   hostname?: string;
   workspaceSlug?: string;
+  enforceWorkspaceMatch?: boolean;
 };
 
 @Injectable()
@@ -17,6 +19,7 @@ export class TenantDomainResolutionService {
   async resolveHostname(input: ResolveHostnameInput) {
     const hostname = this.normalizeHostname(input.hostname);
     const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
+    const enforceWorkspaceMatch = input.enforceWorkspaceMatch ?? false;
 
     if (!hostname) {
       throw new BadRequestException(
@@ -55,6 +58,17 @@ export class TenantDomainResolutionService {
       throw new NotFoundException(`Tenant domain not found for hostname: ${hostname}`);
     }
 
+    if (
+      enforceWorkspaceMatch &&
+      workspaceSlug &&
+      domain.workspace?.slug &&
+      domain.workspace.slug !== workspaceSlug
+    ) {
+      throw new ForbiddenException(
+        `Hostname ${hostname} is bound to workspace ${domain.workspace.slug}, not ${workspaceSlug}.`,
+      );
+    }
+
     const resolvedWorkspace =
       workspaceSlug && domain.workspace?.slug !== workspaceSlug
         ? null
@@ -78,6 +92,7 @@ export class TenantDomainResolutionService {
         workspaceSlugMatchedDomain: workspaceSlug
           ? domain.workspace?.slug === workspaceSlug
           : Boolean(domain.workspace),
+        enforceWorkspaceMatch,
       },
       next: [
         'host-header-tenant-resolution',

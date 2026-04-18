@@ -350,10 +350,16 @@ export class EntitlementsService {
   }
 
   async assignPackage(input: AssignPackageInput) {
-    const { context } = await this.accessPolicy.resolveAndRequire(input, {
-      minimumRole: MembershipRole.ADMIN,
-      scope: 'tenant-admin',
-    });
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        ...input,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.ADMIN,
+        scope: 'tenant-admin',
+      },
+    );
     const validated = this.validateSelection(
       input.basePlanKey,
       input.selectedOptions,
@@ -436,10 +442,16 @@ export class EntitlementsService {
     workspaceSlug?: string;
     source?: string;
   }) {
-    const { context } = await this.accessPolicy.resolveAndRequire(input, {
-      minimumRole: MembershipRole.ADMIN,
-      scope: 'tenant-admin',
-    });
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        ...input,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.ADMIN,
+        scope: 'tenant-admin',
+      },
+    );
     const scopeKey = this.buildScopeKey(
       context.tenant.slug,
       context.activeWorkspace?.slug,

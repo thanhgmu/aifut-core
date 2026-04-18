@@ -7,6 +7,7 @@ export type ActorContextInput = {
   userEmail?: string;
   workspaceSlug?: string;
   hostname?: string;
+  enforceWorkspaceDomainMatch?: boolean;
 };
 
 @Injectable()
@@ -38,6 +39,7 @@ export class ActorContextService {
       : await this.tenantDomainResolution.resolveHostname({
           hostname: input.hostname,
           workspaceSlug,
+          enforceWorkspaceMatch: input.enforceWorkspaceDomainMatch,
         });
 
     const resolvedTenantSlug = tenantSlug ?? domainResolution?.tenant.slug;
