@@ -38,7 +38,7 @@ Missing foundations:
 ### P2 — Auth and actor context
 - [x] Add `AuthModule`.
 - [ ] Add login/session issuance flow.
-- [ ] Add actor extraction middleware/guard.
+- [x] Add actor extraction middleware/guard.
 - [x] Add tenant resolution strategy.
 - [x] Add `/auth/me` and current-context endpoints.
 

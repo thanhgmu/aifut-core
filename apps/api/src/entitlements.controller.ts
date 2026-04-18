@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
+import { AccessPolicyGuard } from './access-policy.guard';
+import { RequireAccessPolicy } from './access-policy.decorator';
 import {
   ENTITLEMENTS_FOUNDATION_ROADMAP,
   PACKAGE_OPTIONS_BLUEPRINT,
@@ -77,6 +88,8 @@ export class EntitlementsController {
   }
 
   @Post('assign-package')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({ minimumRole: MembershipRole.ADMIN })
   async assignPackage(
     @Body()
     body: {
@@ -100,6 +113,8 @@ export class EntitlementsController {
   }
 
   @Post('sync-package-entitlements')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({ minimumRole: MembershipRole.ADMIN })
   async syncPackageEntitlements(
     @Body()
     body: {

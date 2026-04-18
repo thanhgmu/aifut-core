@@ -1,5 +1,16 @@
-import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
-import { AuditActorType } from '@prisma/client';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { AuditActorType, MembershipRole } from '@prisma/client';
+import { RequireAccessPolicy } from './access-policy.decorator';
+import { AccessPolicyGuard } from './access-policy.guard';
 import { AUDIT_FOUNDATION_ROADMAP } from './audit.constants';
 import { AuditEventsService } from './audit-events.service';
 
@@ -24,6 +35,11 @@ export class AuditController {
   }
 
   @Post('events')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.MEMBER,
+    requireWorkspace: true,
+  })
   async write(
     @Body()
     body: {

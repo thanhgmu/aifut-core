@@ -4,14 +4,7 @@ import {
   ActorContextInput,
   ActorContextService,
 } from './actor-context.service';
-
-const ROLE_PRIORITY: Record<MembershipRole, number> = {
-  OWNER: 500,
-  ADMIN: 400,
-  OPERATOR: 300,
-  MEMBER: 200,
-  VIEWER: 100,
-};
+import { ROLE_PRIORITY } from './access-policy.constants';
 
 @Injectable()
 export class AccessPolicyService {

@@ -25,7 +25,9 @@ Current architectural emphasis:
 - health and root platform status
 - tenancy summary and roadmap
 - auth context foundation
+- current actor and access boundary endpoints
 - membership resolution foundation
+- request-level access-policy guard foundation
 - connector registry and integration templates
 - integration infrastructure profile
 - connection instance persistence foundation
