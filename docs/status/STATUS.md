@@ -30,6 +30,7 @@ Current architectural emphasis:
 - request-level access-policy guard foundation
 - guarded integration, entitlement, and audit write paths
 - policy scopes now distinguish tenant-admin, operator-control, and workspace-member actions
+- service-layer access invariants now backstop guarded write paths
 - connector registry and integration templates
 - integration infrastructure profile
 - connection instance persistence foundation

@@ -95,6 +95,7 @@ export class IntegrationsController {
     @Body()
     body: {
       tenantSlug?: string;
+      userEmail?: string;
       workspaceSlug?: string;
       connectorKey?: string;
       name?: string;
@@ -110,10 +111,12 @@ export class IntegrationsController {
       };
     },
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
   ) {
     return this.connectionInstances.createConnection({
       ...body,
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
     });
   }
 

@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EntitlementKind } from '@prisma/client';
+import { EntitlementKind, MembershipRole } from '@prisma/client';
+import { AccessPolicyService } from './access-policy.service';
 import { ActorContextService } from './actor-context.service';
 import { PrismaService } from './prisma.service';
 import { PACKAGE_OPTIONS_BLUEPRINT } from './entitlements.constants';
@@ -75,6 +76,7 @@ export class EntitlementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly actorContext: ActorContextService,
+    private readonly accessPolicy: AccessPolicyService,
   ) {}
 
   capabilities() {
@@ -348,7 +350,10 @@ export class EntitlementsService {
   }
 
   async assignPackage(input: AssignPackageInput) {
-    const context = await this.actorContext.resolve(input);
+    const { context } = await this.accessPolicy.resolveAndRequire(input, {
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
     const validated = this.validateSelection(
       input.basePlanKey,
       input.selectedOptions,
@@ -431,7 +436,10 @@ export class EntitlementsService {
     workspaceSlug?: string;
     source?: string;
   }) {
-    const context = await this.actorContext.resolve(input);
+    const { context } = await this.accessPolicy.resolveAndRequire(input, {
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
     const scopeKey = this.buildScopeKey(
       context.tenant.slug,
       context.activeWorkspace?.slug,

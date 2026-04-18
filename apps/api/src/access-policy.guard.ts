@@ -1,16 +1,9 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { MembershipRole } from '@prisma/client';
 import { AccessPolicyService } from './access-policy.service';
 import {
   AccessPolicyRequirement,
   ACCESS_POLICY_METADATA_KEY,
-  ROLE_PRIORITY,
 } from './access-policy.constants';
 
 type RequestWithContext = {
@@ -38,78 +31,29 @@ export class AccessPolicyGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<RequestWithContext>();
-    const resolved = await this.accessPolicy.resolve({
-      tenantSlug: this.pickString(
-        request.headers?.['x-tenant-slug'],
-        request.query?.tenantSlug,
-        request.body?.tenantSlug,
-      ),
-      userEmail: this.pickString(
-        request.headers?.['x-user-email'],
-        request.query?.userEmail,
-        request.body?.userEmail,
-      ),
-      workspaceSlug: this.pickString(
-        request.headers?.['x-workspace-slug'],
-        request.query?.workspaceSlug,
-        request.body?.workspaceSlug,
-      ),
-    });
-
-    const role = (resolved.boundary.role ?? null) as MembershipRole | null;
-
-    if (requirement.minimumRole && !this.hasAtLeastRole(role, requirement.minimumRole)) {
-      throw new ForbiddenException(
-        `Requires at least ${requirement.minimumRole} role in the active tenant/workspace scope.`,
-      );
-    }
-
-    if (requirement.requireWorkspace && !resolved.context.activeWorkspace) {
-      throw new ForbiddenException(
-        'This action requires an explicit workspace scope.',
-      );
-    }
-
-    if (requirement.scope && !this.matchesScope(requirement.scope, resolved.boundary)) {
-      throw new ForbiddenException(
-        `This action requires ${requirement.scope} access in the active tenant/workspace scope.`,
-      );
-    }
+    const resolved = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: this.pickString(
+          request.headers?.['x-tenant-slug'],
+          request.query?.tenantSlug,
+          request.body?.tenantSlug,
+        ),
+        userEmail: this.pickString(
+          request.headers?.['x-user-email'],
+          request.query?.userEmail,
+          request.body?.userEmail,
+        ),
+        workspaceSlug: this.pickString(
+          request.headers?.['x-workspace-slug'],
+          request.query?.workspaceSlug,
+          request.body?.workspaceSlug,
+        ),
+      },
+      requirement,
+    );
 
     request.accessPolicy = resolved;
     return true;
-  }
-
-  private matchesScope(
-    scope: AccessPolicyRequirement['scope'],
-    boundary: {
-      canManageTenant?: boolean;
-      canManageMemberships?: boolean;
-      canUseOperatorControls?: boolean;
-      canViewAudit?: boolean;
-      scope?: string;
-    },
-  ) {
-    switch (scope) {
-      case 'tenant-admin':
-        return Boolean(boundary.canManageTenant);
-      case 'membership-admin':
-        return Boolean(boundary.canManageMemberships);
-      case 'operator-control':
-        return Boolean(boundary.canUseOperatorControls);
-      case 'workspace-member-action':
-        return Boolean(boundary.canViewAudit && boundary.scope === 'workspace');
-      default:
-        return true;
-    }
-  }
-
-  private hasAtLeastRole(role: MembershipRole | null, minimum: MembershipRole) {
-    if (!role) {
-      return false;
-    }
-
-    return ROLE_PRIORITY[role] >= ROLE_PRIORITY[minimum];
   }
 
   private pickString(...values: unknown[]) {

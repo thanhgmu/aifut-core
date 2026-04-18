@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditActorType } from '@prisma/client';
+import { AuditActorType, MembershipRole } from '@prisma/client';
+import { AccessPolicyService } from './access-policy.service';
 import { ActorContextService } from './actor-context.service';
 import { PrismaService } from './prisma.service';
 
@@ -23,6 +24,7 @@ export class AuditEventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly actorContext: ActorContextService,
+    private readonly accessPolicy: AccessPolicyService,
   ) {}
 
   async write(input: WriteAuditEventInput) {
@@ -32,11 +34,18 @@ export class AuditEventsService {
       throw new BadRequestException('Missing audit action.');
     }
 
-    const context = await this.actorContext.resolve({
-      tenantSlug: input.tenantSlug,
-      userEmail: input.userEmail,
-      workspaceSlug: input.workspaceSlug,
-    });
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+      },
+      {
+        minimumRole: MembershipRole.MEMBER,
+        requireWorkspace: true,
+        scope: 'workspace-member-action',
+      },
+    );
 
     const created = await this.prisma.auditEvent.create({
       data: {

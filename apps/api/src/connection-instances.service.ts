@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { MembershipRole, Prisma } from '@prisma/client';
+import { AccessPolicyService } from './access-policy.service';
 import { PrismaService } from './prisma.service';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 
@@ -26,7 +27,10 @@ type CreateConnectionInput = {
 
 @Injectable()
 export class ConnectionInstancesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accessPolicy: AccessPolicyService,
+  ) {}
 
   async listTenantConnections(tenantSlug?: string) {
     const normalizedTenantSlug = tenantSlug?.trim().toLowerCase();
@@ -149,9 +153,21 @@ export class ConnectionInstancesService {
     };
   }
 
-  async createConnection(input: CreateConnectionInput) {
-    const tenantSlug = input.tenantSlug?.trim().toLowerCase();
-    const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
+  async createConnection(input: CreateConnectionInput & { userEmail?: string }) {
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const tenantSlug = context.tenant.slug;
+    const workspaceSlug = context.activeWorkspace?.slug ?? input.workspaceSlug?.trim().toLowerCase();
     const connectorKey = input.connectorKey?.trim().toLowerCase();
     const name = input.name?.trim();
     const slug = input.slug?.trim().toLowerCase();
@@ -211,7 +227,7 @@ export class ConnectionInstancesService {
     const created = await this.prisma.integrationConnection.create({
       data: {
         tenantId: tenant.id,
-        workspaceId: workspace?.id,
+        workspaceId: workspace?.id ?? context.activeWorkspace?.id,
         name,
         slug,
         provider: connector.key,

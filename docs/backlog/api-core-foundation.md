@@ -47,6 +47,7 @@ Missing foundations:
 - [x] Add workspace selection / current workspace contract.
 - [x] Add policy checks for operator vs tenant user.
 - [x] Add policy-scope distinction for tenant admin vs operator vs workspace member actions.
+- [x] Add service-layer access invariants for guarded write paths.
 
 ### P4 — Integration substrate
 - [x] Add connector registry contract.

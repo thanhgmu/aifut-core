@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import {
   ActorContextInput,
   ActorContextService,
 } from './actor-context.service';
-import { ROLE_PRIORITY } from './access-policy.constants';
+import {
+  AccessPolicyRequirement,
+  ROLE_PRIORITY,
+} from './access-policy.constants';
 
 @Injectable()
 export class AccessPolicyService {
@@ -55,6 +58,37 @@ export class AccessPolicyService {
     };
   }
 
+  async resolveAndRequire(
+    input: ActorContextInput,
+    requirement: AccessPolicyRequirement,
+  ) {
+    const resolved = await this.resolve(input);
+    const role = (resolved.boundary.role ?? null) as MembershipRole | null;
+
+    if (
+      requirement.minimumRole &&
+      !this.hasAtLeastRole(role, requirement.minimumRole)
+    ) {
+      throw new ForbiddenException(
+        `Requires at least ${requirement.minimumRole} role in the active tenant/workspace scope.`,
+      );
+    }
+
+    if (requirement.requireWorkspace && !resolved.context.activeWorkspace) {
+      throw new ForbiddenException(
+        'This action requires an explicit workspace scope.',
+      );
+    }
+
+    if (requirement.scope && !this.matchesScope(requirement.scope, resolved.boundary)) {
+      throw new ForbiddenException(
+        `This action requires ${requirement.scope} access in the active tenant/workspace scope.`,
+      );
+    }
+
+    return resolved;
+  }
+
   private hasAtLeastRole(
     role: MembershipRole | null,
     minimum: MembershipRole,
@@ -64,5 +98,29 @@ export class AccessPolicyService {
     }
 
     return ROLE_PRIORITY[role] >= ROLE_PRIORITY[minimum];
+  }
+
+  private matchesScope(
+    scope: AccessPolicyRequirement['scope'],
+    boundary: {
+      canManageTenant?: boolean;
+      canManageMemberships?: boolean;
+      canUseOperatorControls?: boolean;
+      canViewAudit?: boolean;
+      scope?: string;
+    },
+  ) {
+    switch (scope) {
+      case 'tenant-admin':
+        return Boolean(boundary.canManageTenant);
+      case 'membership-admin':
+        return Boolean(boundary.canManageMemberships);
+      case 'operator-control':
+        return Boolean(boundary.canUseOperatorControls);
+      case 'workspace-member-action':
+        return Boolean(boundary.canViewAudit && boundary.scope === 'workspace');
+      default:
+        return true;
+    }
   }
 }
