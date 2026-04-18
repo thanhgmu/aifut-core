@@ -36,16 +36,16 @@ Missing foundations:
 - [ ] Add `Entitlement` / plan boundary model.
 
 ### P2 — Auth and actor context
-- [ ] Add `AuthModule`.
+- [x] Add `AuthModule`.
 - [ ] Add login/session issuance flow.
 - [ ] Add actor extraction middleware/guard.
-- [ ] Add tenant resolution strategy.
-- [ ] Add `/auth/me` and current-context endpoints.
+- [x] Add tenant resolution strategy.
+- [x] Add `/auth/me` and current-context endpoints.
 
 ### P3 — Workspace and policy boundaries
-- [ ] Add membership-aware tenant access checks.
-- [ ] Add workspace selection / current workspace contract.
-- [ ] Add policy checks for operator vs tenant user.
+- [x] Add membership-aware tenant access checks.
+- [x] Add workspace selection / current workspace contract.
+- [x] Add policy checks for operator vs tenant user.
 
 ### P4 — Integration substrate
 - [x] Add connector registry contract.

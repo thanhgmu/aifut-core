@@ -35,8 +35,8 @@ export class AppController {
       endpoints: {
         health: '/health',
         tenancy: ['/tenancy/summary', '/tenancy/current', '/tenancy/roadmap'],
-        auth: ['/auth/context'],
-        memberships: ['/memberships/resolve'],
+        auth: ['/auth/context', '/auth/me'],
+        memberships: ['/memberships/resolve', '/memberships/policy'],
         audit: ['/audit/events', '/audit/events/:eventId', '/audit/roadmap'],
         entitlements: [
           '/entitlements/capabilities',
