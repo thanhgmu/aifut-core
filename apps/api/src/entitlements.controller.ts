@@ -89,7 +89,10 @@ export class EntitlementsController {
 
   @Post('assign-package')
   @UseGuards(AccessPolicyGuard)
-  @RequireAccessPolicy({ minimumRole: MembershipRole.ADMIN })
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
   async assignPackage(
     @Body()
     body: {
@@ -114,7 +117,10 @@ export class EntitlementsController {
 
   @Post('sync-package-entitlements')
   @UseGuards(AccessPolicyGuard)
-  @RequireAccessPolicy({ minimumRole: MembershipRole.ADMIN })
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
   async syncPackageEntitlements(
     @Body()
     body: {

@@ -29,6 +29,7 @@ Current architectural emphasis:
 - membership resolution foundation
 - request-level access-policy guard foundation
 - guarded integration, entitlement, and audit write paths
+- policy scopes now distinguish tenant-admin, operator-control, and workspace-member actions
 - connector registry and integration templates
 - integration infrastructure profile
 - connection instance persistence foundation

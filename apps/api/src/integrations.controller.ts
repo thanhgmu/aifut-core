@@ -87,7 +87,10 @@ export class IntegrationsController {
 
   @Post('connections')
   @UseGuards(AccessPolicyGuard)
-  @RequireAccessPolicy({ minimumRole: MembershipRole.OPERATOR })
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
   async createConnection(
     @Body()
     body: {

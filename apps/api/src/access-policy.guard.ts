@@ -70,8 +70,38 @@ export class AccessPolicyGuard implements CanActivate {
       );
     }
 
+    if (requirement.scope && !this.matchesScope(requirement.scope, resolved.boundary)) {
+      throw new ForbiddenException(
+        `This action requires ${requirement.scope} access in the active tenant/workspace scope.`,
+      );
+    }
+
     request.accessPolicy = resolved;
     return true;
+  }
+
+  private matchesScope(
+    scope: AccessPolicyRequirement['scope'],
+    boundary: {
+      canManageTenant?: boolean;
+      canManageMemberships?: boolean;
+      canUseOperatorControls?: boolean;
+      canViewAudit?: boolean;
+      scope?: string;
+    },
+  ) {
+    switch (scope) {
+      case 'tenant-admin':
+        return Boolean(boundary.canManageTenant);
+      case 'membership-admin':
+        return Boolean(boundary.canManageMemberships);
+      case 'operator-control':
+        return Boolean(boundary.canUseOperatorControls);
+      case 'workspace-member-action':
+        return Boolean(boundary.canViewAudit && boundary.scope === 'workspace');
+      default:
+        return true;
+    }
   }
 
   private hasAtLeastRole(role: MembershipRole | null, minimum: MembershipRole) {

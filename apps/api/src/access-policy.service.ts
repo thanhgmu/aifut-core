@@ -15,6 +15,13 @@ export class AccessPolicyService {
     const role = (context.activeMembership?.role ?? null) as MembershipRole | null;
     const hasWorkspaceScope = Boolean(context.activeWorkspace);
 
+    const canManageTenant = this.hasAtLeastRole(role, MembershipRole.ADMIN);
+    const canManageWorkspace = this.hasAtLeastRole(role, MembershipRole.OPERATOR);
+    const canManageMemberships = this.hasAtLeastRole(role, MembershipRole.ADMIN);
+    const canOperateAutomations = this.hasAtLeastRole(role, MembershipRole.OPERATOR);
+    const canUseOperatorControls = this.hasAtLeastRole(role, MembershipRole.OPERATOR);
+    const canViewAudit = this.hasAtLeastRole(role, MembershipRole.MEMBER);
+
     return {
       context,
       boundary: {
@@ -24,12 +31,18 @@ export class AccessPolicyService {
         workspaceRequiredForWrites: hasWorkspaceScope,
         canReadTenant: Boolean(role),
         canReadWorkspace: hasWorkspaceScope,
-        canManageTenant: this.hasAtLeastRole(role, MembershipRole.ADMIN),
-        canManageWorkspace: this.hasAtLeastRole(role, MembershipRole.OPERATOR),
-        canManageMemberships: this.hasAtLeastRole(role, MembershipRole.ADMIN),
-        canOperateAutomations: this.hasAtLeastRole(role, MembershipRole.OPERATOR),
-        canUseOperatorControls: this.hasAtLeastRole(role, MembershipRole.OPERATOR),
-        canViewAudit: this.hasAtLeastRole(role, MembershipRole.MEMBER),
+        canManageTenant,
+        canManageWorkspace,
+        canManageMemberships,
+        canOperateAutomations,
+        canUseOperatorControls,
+        canViewAudit,
+        allowedScopes: {
+          tenantAdmin: canManageTenant,
+          membershipAdmin: canManageMemberships,
+          operatorControl: canUseOperatorControls,
+          workspaceMemberAction: canViewAudit && hasWorkspaceScope,
+        },
         recommendedGuardrail: hasWorkspaceScope
           ? 'enforce-workspace-match-on-write-paths'
           : 'require-explicit-workspace-selection-for-workspace-bound-actions',

@@ -39,6 +39,7 @@ export class AuditController {
   @RequireAccessPolicy({
     minimumRole: MembershipRole.MEMBER,
     requireWorkspace: true,
+    scope: 'workspace-member-action',
   })
   async write(
     @Body()
