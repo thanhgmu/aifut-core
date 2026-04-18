@@ -1,24 +1,29 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 
 export type ActorContextInput = {
   tenantSlug?: string;
   userEmail?: string;
   workspaceSlug?: string;
+  hostname?: string;
 };
 
 @Injectable()
 export class ActorContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantDomainResolution: TenantDomainResolutionService,
+  ) {}
 
   async resolve(input: ActorContextInput) {
     const tenantSlug = input.tenantSlug?.trim().toLowerCase();
     const userEmail = input.userEmail?.trim().toLowerCase();
     const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
 
-    if (!tenantSlug) {
+    if (!tenantSlug && !input.hostname?.trim()) {
       throw new BadRequestException(
-        'Missing tenant slug. Provide x-tenant-slug header or tenantSlug query param.',
+        'Missing tenant slug or hostname. Provide x-tenant-slug, x-forwarded-host/host header, or matching query params.',
       );
     }
 
@@ -28,8 +33,23 @@ export class ActorContextService {
       );
     }
 
+    const domainResolution = tenantSlug
+      ? null
+      : await this.tenantDomainResolution.resolveHostname({
+          hostname: input.hostname,
+          workspaceSlug,
+        });
+
+    const resolvedTenantSlug = tenantSlug ?? domainResolution?.tenant.slug;
+
+    if (!resolvedTenantSlug) {
+      throw new BadRequestException(
+        'Unable to resolve tenant slug from the provided tenant slug or hostname.',
+      );
+    }
+
     const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+      where: { slug: resolvedTenantSlug },
       select: {
         id: true,
         name: true,
@@ -39,7 +59,9 @@ export class ActorContextService {
     });
 
     if (!tenant) {
-      throw new NotFoundException(`Tenant not found for slug: ${tenantSlug}`);
+      throw new NotFoundException(
+        `Tenant not found for slug: ${resolvedTenantSlug}`,
+      );
     }
 
     const user = await this.prisma.user.findFirst({
@@ -57,7 +79,7 @@ export class ActorContextService {
 
     if (!user) {
       throw new NotFoundException(
-        `User ${userEmail} not found in tenant ${tenantSlug}`,
+        `User ${userEmail} not found in tenant ${resolvedTenantSlug}`,
       );
     }
 
@@ -86,6 +108,14 @@ export class ActorContextService {
         workspaceSlug && membership.workspace?.slug.toLowerCase() === workspaceSlug,
     );
 
+    if (!activeMembership && domainResolution?.workspace?.slug) {
+      activeMembership = memberships.find(
+        (membership) =>
+          membership.workspace?.slug.toLowerCase() ===
+          domainResolution.workspace?.slug.toLowerCase(),
+      );
+    }
+
     if (!activeMembership) {
       activeMembership = memberships.find((membership) => membership.isDefault);
     }
@@ -113,11 +143,15 @@ export class ActorContextService {
         workspace: membership.workspace,
       })),
       resolution: {
-        tenantSlug,
+        tenantSlug: resolvedTenantSlug,
         userEmail,
-        workspaceSlug: workspaceSlug ?? null,
+        workspaceSlug: workspaceSlug ?? domainResolution?.workspace?.slug ?? null,
+        hostname: domainResolution?.hostname ?? input.hostname?.trim().toLowerCase() ?? null,
+        usedHostnameResolution: Boolean(domainResolution),
         usedDefaultWorkspace: Boolean(
-          !workspaceSlug && activeMembership?.workspace,
+          !workspaceSlug &&
+            !domainResolution?.workspace &&
+            activeMembership?.workspace,
         ),
       },
     };

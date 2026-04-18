@@ -30,9 +30,12 @@ export class AuthController {
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
     @Query('tenantSlug') tenantSlugQuery?: string,
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
   ) {
     return {
       capability: 'auth',
@@ -41,6 +44,7 @@ export class AuthController {
         tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
         userEmail: userEmailHeader ?? userEmailQuery,
         workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+        hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
       }),
       next: ['session-issuance-and-rotation', 'request-guard-enforcement'],
     };
@@ -51,14 +55,18 @@ export class AuthController {
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
     @Query('tenantSlug') tenantSlugQuery?: string,
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
   ) {
     const resolved = await this.accessPolicy.resolve({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
     });
 
     return {

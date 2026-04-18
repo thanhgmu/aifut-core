@@ -5,6 +5,7 @@ import { AccessPolicyService } from './access-policy.service';
 import { ActorContextService } from './actor-context.service';
 import { TenancyController } from './tenancy.controller';
 import { PrismaService } from './prisma.service';
+import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 
 @Module({
   controllers: [TenancyController],
@@ -13,6 +14,7 @@ import { PrismaService } from './prisma.service';
     ActorContextService,
     AccessPolicyService,
     AccessPolicyGuard,
+    TenantDomainResolutionService,
     Reflector,
   ],
   exports: [
@@ -20,6 +22,7 @@ import { PrismaService } from './prisma.service';
     ActorContextService,
     AccessPolicyService,
     AccessPolicyGuard,
+    TenantDomainResolutionService,
   ],
 })
 export class TenancyModule {}

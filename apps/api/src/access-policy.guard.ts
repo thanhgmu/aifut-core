@@ -48,6 +48,12 @@ export class AccessPolicyGuard implements CanActivate {
           request.query?.workspaceSlug,
           request.body?.workspaceSlug,
         ),
+        hostname: this.pickString(
+          request.headers?.['x-forwarded-host'],
+          request.headers?.host,
+          request.query?.hostname,
+          request.body?.hostname,
+        ),
       },
       requirement,
     );

@@ -1,6 +1,7 @@
 import { Controller, Get, Headers, Query } from '@nestjs/common';
 import { ActorContextService } from './actor-context.service';
 import { PrismaService } from './prisma.service';
+import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
 
 @Controller('tenancy')
@@ -8,6 +9,7 @@ export class TenancyController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly actorContext: ActorContextService,
+    private readonly tenantDomainResolution: TenantDomainResolutionService,
   ) {}
 
   @Get('summary')
@@ -32,14 +34,18 @@ export class TenancyController {
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
     @Query('tenantSlug') tenantSlugQuery?: string,
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
   ) {
     const context = await this.actorContext.resolve({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
     });
 
     const [domains, storagePolicies] = await Promise.all([
@@ -114,6 +120,23 @@ export class TenancyController {
         'workspace-policy-enforcement',
         'storage-routing-guardrails',
       ],
+    };
+  }
+
+  @Get('resolve-host')
+  async resolveHost(
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('workspaceSlug') workspaceSlug?: string,
+  ) {
+    return {
+      capability: 'tenancy',
+      status: 'resolved',
+      hostResolution: await this.tenantDomainResolution.resolveHostname({
+        hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+        workspaceSlug,
+      }),
     };
   }
 
