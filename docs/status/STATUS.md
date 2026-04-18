@@ -28,6 +28,7 @@ Current architectural emphasis:
 - current actor and access boundary endpoints
 - membership resolution foundation
 - request-level access-policy guard foundation
+- guarded integration, entitlement, and audit write paths
 - connector registry and integration templates
 - integration infrastructure profile
 - connection instance persistence foundation

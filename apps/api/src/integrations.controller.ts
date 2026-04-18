@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
+import { RequireAccessPolicy } from './access-policy.decorator';
+import { AccessPolicyGuard } from './access-policy.guard';
 import { ConnectionInstancesService } from './connection-instances.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
@@ -75,6 +86,8 @@ export class IntegrationsController {
   }
 
   @Post('connections')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({ minimumRole: MembershipRole.OPERATOR })
   async createConnection(
     @Body()
     body: {

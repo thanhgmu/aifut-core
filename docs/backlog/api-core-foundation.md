@@ -55,6 +55,7 @@ Missing foundations:
 - [ ] Add credential reference abstraction.
 - [ ] Add integration health/verification path.
 - [x] Add mapping profile + sync policy surfaces.
+- [x] Add request-level access policy to integration write paths.
 
 ### P4A — Infrastructure affiliate and token governance
 - [ ] Add affiliate-aware domain/hosting/VPS offer model.
