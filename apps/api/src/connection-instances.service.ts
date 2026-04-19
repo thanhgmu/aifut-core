@@ -7,6 +7,7 @@ import { MembershipRole, Prisma } from '@prisma/client';
 import { AccessPolicyService } from './access-policy.service';
 import { PrismaService } from './prisma.service';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
+import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
 type CreateConnectionInput = {
   tenantSlug?: string;
@@ -14,6 +15,7 @@ type CreateConnectionInput = {
   hostname?: string;
   connectorKey?: string;
   name?: string;
+  storagePolicyKey?: string;
   slug?: string;
   config?: Record<string, unknown>;
   secretsRef?: string;
@@ -31,6 +33,7 @@ export class ConnectionInstancesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessPolicy: AccessPolicyService,
+    private readonly storageRoutingPolicy: StorageRoutingPolicyService,
   ) {}
 
   async listTenantConnections(tenantSlug?: string) {
@@ -194,6 +197,17 @@ export class ConnectionInstancesService {
     const connector = CONNECTOR_REGISTRY_FOUNDATION.find(
       (candidate) => candidate.key === connectorKey,
     );
+
+    if (input.storagePolicyKey) {
+      await this.storageRoutingPolicy.requireWritePolicy({
+        tenantSlug: context.tenant.slug,
+        userEmail: context.user.email,
+        workspaceSlug: context.activeWorkspace?.slug ?? input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+        policyKey: input.storagePolicyKey,
+      });
+    }
 
     if (!connector) {
       throw new NotFoundException(`Connector not found for key: ${connectorKey}`);
