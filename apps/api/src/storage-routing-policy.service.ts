@@ -11,6 +11,7 @@ import { PrismaService } from './prisma.service';
 type StorageWriteRequirement = {
   policyKey?: string;
   allowTenantScope?: boolean;
+  writePath?: string;
 };
 
 @Injectable()
@@ -20,7 +21,9 @@ export class StorageRoutingPolicyService {
     private readonly actorContext: ActorContextService,
   ) {}
 
-  async getEffectivePolicy(input: ActorContextInput & { policyKey?: string }) {
+  async getEffectivePolicy(
+    input: ActorContextInput & { policyKey?: string; writePath?: string },
+  ) {
     const context = await this.actorContext.resolve(input);
     const policyKey = input.policyKey?.trim().toLowerCase();
 
@@ -122,13 +125,105 @@ export class StorageRoutingPolicyService {
       );
     }
 
+    const topology = this.buildTopology({
+      tenantSlug: resolved.context.tenant.slug,
+      workspaceSlug: resolved.effectivePolicy.workspaceId
+        ? resolved.context.activeWorkspace?.slug ??
+          resolved.resolution.activeWorkspaceSlug
+        : null,
+      policyKey: resolved.policyKey,
+      mode: resolved.effectivePolicy.mode,
+    });
+
+    const enforcedWritePath = input.writePath
+      ? this.enforceWritePath({
+          rootPrefix: topology.rootPrefix,
+          requestedPath: input.writePath,
+        })
+      : null;
+
     return {
       ...resolved,
+      storageTopology: topology,
       writeGuardrail: {
         mode: resolved.effectivePolicy.mode,
         requiresWorkspaceScopedPolicy: Boolean(resolved.context.activeWorkspace),
         meterWritesOnPlatform: resolved.effectivePolicy.meteringEnabled,
+        rootPrefix: topology.rootPrefix,
+        enforcedWritePath,
       },
     };
+  }
+
+  private buildTopology(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    policyKey: string;
+    mode: TenantStorageMode;
+  }) {
+    const tenantSegment = this.normalizePathSegment(input.tenantSlug, 'tenant slug');
+    const policySegment = this.normalizePathSegment(input.policyKey, 'storage policy key');
+    const workspaceSegment = input.workspaceSlug
+      ? this.normalizePathSegment(input.workspaceSlug, 'workspace slug')
+      : null;
+
+    const rootPrefix = workspaceSegment
+      ? `tenants/${tenantSegment}/workspaces/${workspaceSegment}/storage/${policySegment}`
+      : `tenants/${tenantSegment}/storage/${policySegment}`;
+
+    return {
+      rootPrefix,
+      ownershipScope: workspaceSegment ? 'workspace' : 'tenant',
+      mode: input.mode,
+      workspaceSlug: workspaceSegment,
+    };
+  }
+
+  private enforceWritePath(input: { rootPrefix: string; requestedPath: string }) {
+    const normalizedRequestedPath = this.normalizeRelativePath(input.requestedPath);
+
+    if (!normalizedRequestedPath) {
+      return input.rootPrefix;
+    }
+
+    if (normalizedRequestedPath.startsWith(`${input.rootPrefix}/`)) {
+      return normalizedRequestedPath;
+    }
+
+    return `${input.rootPrefix}/${normalizedRequestedPath}`;
+  }
+
+  private normalizeRelativePath(value: string) {
+    const normalized = value.trim().replace(/\\+/g, '/').replace(/^\/+|\/+$/g, '');
+
+    if (!normalized) {
+      return '';
+    }
+
+    const segments = normalized.split('/').filter(Boolean);
+
+    for (const segment of segments) {
+      this.normalizePathSegment(segment, 'storage write path');
+    }
+
+    return segments.join('/');
+  }
+
+  private normalizePathSegment(value: string, label: string) {
+    const normalized = value.trim().toLowerCase();
+
+    if (!normalized) {
+      throw new BadRequestException(`Missing ${label}.`);
+    }
+
+    if (normalized === '.' || normalized === '..' || normalized.includes('/')) {
+      throw new BadRequestException(`Invalid ${label}.`);
+    }
+
+    if (!/^[a-z0-9][a-z0-9._-]*$/i.test(normalized)) {
+      throw new BadRequestException(`Invalid ${label}.`);
+    }
+
+    return normalized;
   }
 }

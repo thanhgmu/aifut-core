@@ -75,6 +75,7 @@ export class IntegrationsController {
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
     @Query('policyKey') policyKey?: string,
+    @Query('writePath') writePath?: string,
   ) {
     return {
       capability: 'integrations',
@@ -85,6 +86,7 @@ export class IntegrationsController {
         workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
         hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
         policyKey,
+        writePath,
       }),
     };
   }

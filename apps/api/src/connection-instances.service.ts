@@ -198,16 +198,17 @@ export class ConnectionInstancesService {
       (candidate) => candidate.key === connectorKey,
     );
 
-    if (input.storagePolicyKey) {
-      await this.storageRoutingPolicy.requireWritePolicy({
-        tenantSlug: context.tenant.slug,
-        userEmail: context.user.email,
-        workspaceSlug: context.activeWorkspace?.slug ?? input.workspaceSlug,
-        hostname: input.hostname,
-        enforceWorkspaceDomainMatch: true,
-        policyKey: input.storagePolicyKey,
-      });
-    }
+    const storageWritePolicy = input.storagePolicyKey
+      ? await this.storageRoutingPolicy.requireWritePolicy({
+          tenantSlug: context.tenant.slug,
+          userEmail: context.user.email,
+          workspaceSlug: context.activeWorkspace?.slug ?? input.workspaceSlug,
+          hostname: input.hostname,
+          enforceWorkspaceDomainMatch: true,
+          policyKey: input.storagePolicyKey,
+          writePath: `${slug}/connection-config`,
+        })
+      : null;
 
     if (!connector) {
       throw new NotFoundException(`Connector not found for key: ${connectorKey}`);
@@ -250,7 +251,9 @@ export class ConnectionInstancesService {
         provider: connector.key,
         category: this.mapConnectorCategoryToIntegrationCategory(connector.category),
         status: 'PENDING',
-        config: this.toJsonValue(input.config),
+        config: this.toJsonValue(
+          this.buildConnectionConfig(input.config, storageWritePolicy),
+        ),
         secretsRef: input.secretsRef,
         mappingMode: input.mappingProfile?.mode ?? 'template-first',
         mappedObjects: input.mappingProfile?.objects ?? [],
@@ -330,6 +333,43 @@ export class ConnectionInstancesService {
 
   private toJsonValue(value?: Record<string, unknown>) {
     return value as Prisma.InputJsonValue | undefined;
+  }
+
+  private buildConnectionConfig(
+    config: Record<string, unknown> | undefined,
+    storageWritePolicy: Awaited<
+      ReturnType<StorageRoutingPolicyService['requireWritePolicy']>
+    > | null,
+  ) {
+    if (!storageWritePolicy) {
+      return config;
+    }
+
+    if (
+      config &&
+      typeof config._platform === 'object' &&
+      config._platform !== null
+    ) {
+      throw new BadRequestException(
+        'Connection config cannot override reserved _platform storage routing metadata.',
+      );
+    }
+
+    return {
+      ...(config ?? {}),
+      _platform: {
+        storageRouting: {
+          policyKey: storageWritePolicy.policyKey,
+          mode: storageWritePolicy.writeGuardrail.mode,
+          rootPrefix: storageWritePolicy.storageTopology.rootPrefix,
+          enforcedWritePath: storageWritePolicy.writeGuardrail.enforcedWritePath,
+          ownershipScope: storageWritePolicy.storageTopology.ownershipScope,
+          workspaceSlug: storageWritePolicy.storageTopology.workspaceSlug,
+          meterWritesOnPlatform:
+            storageWritePolicy.writeGuardrail.meterWritesOnPlatform,
+        },
+      },
+    };
   }
 
   private mapConnectorCategoryToIntegrationCategory(category: string) {
