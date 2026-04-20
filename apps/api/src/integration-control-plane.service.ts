@@ -1,0 +1,270 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
+import { StorageRoutingPolicyService } from './storage-routing-policy.service';
+
+@Injectable()
+export class IntegrationControlPlaneService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageRoutingPolicy: StorageRoutingPolicyService,
+  ) {}
+
+  async summarizeTenantControlPlane(input: {
+    tenantSlug?: string;
+    workspaceSlug?: string;
+    userEmail?: string;
+    hostname?: string;
+  }) {
+    const tenantSlug = input.tenantSlug?.trim().toLowerCase();
+
+    if (!tenantSlug) {
+      throw new BadRequestException(
+        'Missing tenant slug. Provide x-tenant-slug header or tenantSlug query param.',
+      );
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        workspaces: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+          orderBy: { name: 'asc' },
+        },
+        domains: {
+          select: {
+            hostname: true,
+            kind: true,
+            status: true,
+            isPrimary: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                slug: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
+        },
+        storagePolicies: {
+          select: {
+            key: true,
+            mode: true,
+            storageClass: true,
+            targetRef: true,
+            backupTargetRef: true,
+            meteringEnabled: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                slug: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: [{ workspaceId: 'desc' }, { key: 'asc' }],
+        },
+        integrations: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            provider: true,
+            category: true,
+            status: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                slug: true,
+                name: true,
+              },
+            },
+            routingMode: true,
+            targetBaseUrl: true,
+            targetEnvironment: true,
+            targetRegion: true,
+            secretsRef: true,
+            mappingMode: true,
+            mappedObjects: true,
+            syncPolicy: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: [{ category: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant not found for slug: ${tenantSlug}`);
+    }
+
+    const requestedWorkspaceSlug = input.workspaceSlug?.trim().toLowerCase();
+    const activeWorkspace = requestedWorkspaceSlug
+      ? tenant.workspaces.find((workspace) => workspace.slug === requestedWorkspaceSlug) ?? null
+      : null;
+
+    if (requestedWorkspaceSlug && !activeWorkspace) {
+      throw new NotFoundException(
+        `Workspace not found for slug ${requestedWorkspaceSlug} in tenant ${tenantSlug}`,
+      );
+    }
+
+    const connectors = new Map<string, (typeof CONNECTOR_REGISTRY_FOUNDATION)[number]>(
+      CONNECTOR_REGISTRY_FOUNDATION.map((connector) => [connector.key, connector]),
+    );
+
+    const filteredDomains = activeWorkspace
+      ? tenant.domains.filter(
+          (domain) => !domain.workspaceId || domain.workspaceId === activeWorkspace.id,
+        )
+      : tenant.domains;
+
+    const filteredPolicies = activeWorkspace
+      ? tenant.storagePolicies.filter(
+          (policy) => !policy.workspaceId || policy.workspaceId === activeWorkspace.id,
+        )
+      : tenant.storagePolicies;
+
+    const filteredConnections = activeWorkspace
+      ? tenant.integrations.filter(
+          (integration) =>
+            !integration.workspaceId || integration.workspaceId === activeWorkspace.id,
+        )
+      : tenant.integrations;
+
+    const effectiveStoragePolicies = await Promise.all(
+      filteredPolicies.map(async (policy) => ({
+        key: policy.key,
+        workspace: policy.workspace,
+        effective: await this.storageRoutingPolicy.getEffectivePolicy({
+          tenantSlug,
+          workspaceSlug: policy.workspace?.slug ?? activeWorkspace?.slug,
+          userEmail: input.userEmail,
+          hostname: input.hostname,
+          policyKey: policy.key,
+        }),
+      })),
+    );
+
+    return {
+      capability: 'integrations',
+      surface: 'control-plane',
+      status: 'resolved',
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+      },
+      activeWorkspace,
+      controlPlane: {
+        integrationAbstractionLayer: {
+          enabled: true,
+          connectorRegistrySize: CONNECTOR_REGISTRY_FOUNDATION.length,
+          supports: [
+            'connector',
+            'credential-reference',
+            'sync-policy',
+            'event-mapping',
+            'command-action-mapping',
+            'health-status',
+            'capability-contract',
+          ],
+        },
+        unifiedBusinessContext: {
+          tenantAware: true,
+          workspaceAware: true,
+          actorAware: true,
+          billingAware: true,
+          analyticsAware: true,
+          policyAware: true,
+        },
+        operatorPlane: {
+          connectedSystems: filteredConnections.length,
+          workspaceCount: tenant.workspaces.length,
+          domainCount: filteredDomains.length,
+          storagePolicyCount: filteredPolicies.length,
+        },
+      },
+      domains: filteredDomains.map((domain) => ({
+        hostname: domain.hostname,
+        kind: domain.kind,
+        status: domain.status,
+        isPrimary: domain.isPrimary,
+        workspace: domain.workspace,
+      })),
+      storagePolicies: effectiveStoragePolicies.map(({ key, workspace, effective }) => ({
+        key,
+        workspace,
+        mode: effective.effectivePolicy?.mode ?? null,
+        storageClass: effective.effectivePolicy?.storageClass ?? null,
+        targetRefPresent: Boolean(effective.effectivePolicy?.targetRef),
+        backupTargetRefPresent: Boolean(effective.effectivePolicy?.backupTargetRef),
+        meteringEnabled: effective.effectivePolicy?.meteringEnabled ?? false,
+        topology: effective.effectivePolicy
+          ? {
+              workspaceScoped: effective.resolution.workspaceScoped,
+              activeWorkspaceSlug: effective.resolution.activeWorkspaceSlug,
+            }
+          : null,
+      })),
+      connections: filteredConnections.map((connection) => {
+        const connector = connectors.get(connection.provider.toLowerCase()) ?? null;
+
+        return {
+          id: connection.id,
+          name: connection.name,
+          slug: connection.slug,
+          provider: connection.provider,
+          category: connection.category,
+          status: connection.status,
+          workspace: connection.workspace,
+          credentialReferenceStatus: connection.secretsRef
+            ? 'reference-present'
+            : 'not-declared',
+          mappingMode: connection.mappingMode,
+          mappedObjects: connection.mappedObjects,
+          syncPolicyDeclared: Boolean(connection.syncPolicy),
+          endpoint: {
+            routingMode: connection.routingMode,
+            targetBaseUrl: connection.targetBaseUrl,
+            targetEnvironment: connection.targetEnvironment,
+            targetRegion: connection.targetRegion,
+          },
+          capabilityContract: connector
+            ? {
+                connectorKey: connector.key,
+                authModes: connector.authModes,
+                syncDirections: connector.syncDirections,
+                capabilities: connector.capabilities,
+                audience: connector.audience,
+              }
+            : null,
+          healthStatus: {
+            state: connection.status,
+            verification: connection.status === 'ACTIVE' ? 'verified-or-activated' : 'review-pending',
+          },
+          createdAt: connection.createdAt,
+          updatedAt: connection.updatedAt,
+        };
+      }),
+      recommendedNextMilestones: [
+        'connector-health-diagnostics-surface',
+        'wizard-driven-setup-session-contract',
+        'ai-assisted-mapping-and-policy-drafting',
+      ],
+    };
+  }
+}

@@ -12,6 +12,7 @@ import { RequireAccessPolicy } from './access-policy.decorator';
 import { AccessPolicyGuard } from './access-policy.guard';
 import { ConnectionInstancesService } from './connection-instances.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
+import { IntegrationControlPlaneService } from './integration-control-plane.service';
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
@@ -21,6 +22,7 @@ export class IntegrationsController {
     private readonly infrastructureProfileService: InfrastructureProfileService,
     private readonly connectionInstances: ConnectionInstancesService,
     private readonly storageRoutingPolicy: StorageRoutingPolicyService,
+    private readonly integrationControlPlane: IntegrationControlPlaneService,
   ) {}
 
   @Get('capabilities')
@@ -103,6 +105,26 @@ export class IntegrationsController {
         tenantSlugHeader ?? tenantSlugQuery,
       ),
     };
+  }
+
+  @Get('control-plane')
+  async controlPlane(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    return this.integrationControlPlane.summarizeTenantControlPlane({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
   }
 
   @Post('connections')
