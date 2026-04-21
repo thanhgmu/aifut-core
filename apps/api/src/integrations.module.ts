@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConnectionInstancesService } from './connection-instances.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
+import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationControlPlaneService } from './integration-control-plane.service';
 import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { IntegrationsController } from './integrations.controller';
@@ -16,6 +17,7 @@ import { TenancyModule } from './tenancy.module';
     IntegrationControlPlaneService,
     IntegrationSetupService,
     IntegrationDiagnosticsService,
+    IntegrationAiDraftingService,
   ],
 })
 export class IntegrationsModule {}

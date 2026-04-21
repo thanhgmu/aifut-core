@@ -81,6 +81,21 @@ export const CONNECTOR_REGISTRY_FOUNDATION = [
     audience: 'operator-and-partner',
   },
   {
+    key: 'nexovaflow',
+    name: 'NexovaFlow Operations Connector',
+    category: 'crm',
+    authModes: ['api-key', 'basic', 'custom'],
+    syncDirections: ['pull', 'push', 'bidirectional', 'event-driven'],
+    capabilities: [
+      'crm-bridge',
+      'natural-language-ops-bridge',
+      'lead-task-action-contracts',
+      'workflow-handoff',
+      'perfex-compatible-adapter',
+    ],
+    audience: 'operator-and-partner',
+  },
+  {
     key: 'shopify',
     name: 'Shopify Connector',
     category: 'commerce',

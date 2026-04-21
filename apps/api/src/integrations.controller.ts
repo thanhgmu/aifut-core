@@ -12,6 +12,7 @@ import { RequireAccessPolicy } from './access-policy.decorator';
 import { AccessPolicyGuard } from './access-policy.guard';
 import { ConnectionInstancesService } from './connection-instances.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
+import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationControlPlaneService } from './integration-control-plane.service';
 import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
@@ -27,6 +28,7 @@ export class IntegrationsController {
     private readonly integrationControlPlane: IntegrationControlPlaneService,
     private readonly integrationSetup: IntegrationSetupService,
     private readonly integrationDiagnostics: IntegrationDiagnosticsService,
+    private readonly integrationAiDrafting: IntegrationAiDraftingService,
   ) {}
 
   @Get('capabilities')
@@ -169,6 +171,28 @@ export class IntegrationsController {
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
       connectionSlug,
       connectorKey,
+    });
+  }
+
+  @Post('ai-draft')
+  aiDraft(
+    @Body()
+    body: {
+      connectorKey?: string;
+      prompt?: string;
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      storagePolicyKey?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.integrationAiDrafting.draftFromNaturalLanguage({
+      connectorKey: body.connectorKey,
+      prompt: body.prompt,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      storagePolicyKey: body.storagePolicyKey,
     });
   }
 
