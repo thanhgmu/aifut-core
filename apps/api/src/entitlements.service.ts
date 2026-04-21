@@ -26,6 +26,13 @@ type AssignPackageInput = {
   source?: string;
 };
 
+type ConnectorCommercializationInput = {
+  tenantSlug?: string;
+  userEmail?: string;
+  workspaceSlug?: string;
+  connectorKey?: string;
+};
+
 const PLAN_CATALOG = [
   {
     key: 'core.starter',
@@ -484,6 +491,181 @@ export class EntitlementsService {
       assignment,
       entitlementSync,
       next: ['price-book-linkage', 'downstream-provisioning-reconciliation'],
+    };
+  }
+
+  async getConnectorCommercializationState(input: ConnectorCommercializationInput) {
+    const context = await this.actorContext.resolve(input);
+    const connectorKey = input.connectorKey?.trim().toLowerCase();
+
+    if (!connectorKey) {
+      throw new BadRequestException('Missing connectorKey.');
+    }
+
+    const connectorDependencyKey = `connector.${connectorKey}`;
+    const matchingOptions = PACKAGE_OPTIONS_CATALOG.filter((option) =>
+      option.dependencyKeys.some((dependencyKey) => dependencyKey === connectorDependencyKey),
+    );
+
+    const [assignment, entitlements, connections] = await Promise.all([
+      this.prisma.tenantPackageAssignment.findFirst({
+        where: {
+          tenantId: context.tenant.id,
+          ...(context.activeWorkspace
+            ? {
+                OR: [
+                  { workspaceId: context.activeWorkspace.id },
+                  { workspaceId: null },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        select: {
+          id: true,
+          scopeKey: true,
+          basePlanKey: true,
+          selectedOptions: true,
+          billingSnapshot: true,
+          provisioningState: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: context.tenant.id,
+          key: {
+            in: matchingOptions.map((option) => option.entitlementKey),
+          },
+        },
+        orderBy: [{ key: 'asc' }],
+        select: {
+          key: true,
+          kind: true,
+          value: true,
+          source: true,
+          endsAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.integrationConnection.findMany({
+        where: {
+          tenantId: context.tenant.id,
+          provider: connectorKey,
+          ...(context.activeWorkspace
+            ? {
+                OR: [
+                  { workspaceId: context.activeWorkspace.id },
+                  { workspaceId: null },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    return {
+      capability: 'entitlements',
+      status: 'resolved',
+      tenant: context.tenant,
+      workspace: context.activeWorkspace,
+      connector: {
+        key: connectorKey,
+        connectionCount: connections.length,
+        activeConnectionCount: connections.filter(
+          (connection) => connection.status === 'ACTIVE',
+        ).length,
+        connections,
+      },
+      commercialization: {
+        assignment,
+        options: matchingOptions.map((option) => {
+          const entitlement = entitlements.find(
+            (candidate) => candidate.key === option.entitlementKey,
+          );
+          const selected = assignment?.selectedOptions.includes(option.key) ?? false;
+          const connectorReady = connections.some(
+            (connection) => connection.status === 'ACTIVE',
+          );
+
+          return {
+            ...option,
+            selected,
+            connectorReady,
+            entitlement,
+            commercializationState: selected
+              ? connectorReady
+                ? 'commercializable'
+                : 'selected-but-connector-not-active'
+              : 'available-not-selected',
+          };
+        }),
+        operatorActions: [
+          'review-package-option',
+          'confirm-entitlement-state',
+          'check-connector-health',
+          'provision-or-reconcile-downstream-capability',
+        ],
+      },
+      next: ['connector-option-provisioning-preview', 'price-book-binding', 'usage-metering-linkage'],
+    };
+  }
+
+  previewConnectorOptionProvisioning(input: {
+    connectorKey?: string;
+    selectedOptions?: string[];
+  }) {
+    const connectorKey = input.connectorKey?.trim().toLowerCase();
+
+    if (!connectorKey) {
+      throw new BadRequestException('Missing connectorKey.');
+    }
+
+    const normalizedOptions = Array.from(
+      new Set((input.selectedOptions ?? []).map((item) => item.trim().toLowerCase())),
+    );
+
+    const connectorDependencyKey = `connector.${connectorKey}`;
+    const matchingOptions = PACKAGE_OPTIONS_CATALOG.filter(
+      (option) =>
+        option.dependencyKeys.some((dependencyKey) => dependencyKey === connectorDependencyKey) &&
+        (normalizedOptions.length === 0 || normalizedOptions.includes(option.key)),
+    );
+
+    if (matchingOptions.length === 0) {
+      throw new NotFoundException(
+        `No package options found for connector: ${connectorKey}`,
+      );
+    }
+
+    return {
+      capability: 'entitlements',
+      status: 'preview',
+      connector: connectorKey,
+      provisioningPreview: matchingOptions.map((option) => ({
+        optionKey: option.key,
+        downstreamSystem: option.downstreamSystem,
+        entitlementKey: option.entitlementKey,
+        billingMode: option.billingMode,
+        operatorConfiguration: option.operatorConfiguration,
+        provisioningStates: option.provisioningStates,
+        steps: [
+          'ensure-connector-active',
+          'assign-or-confirm-package-option',
+          'sync-entitlement',
+          'trigger-downstream-provisioning',
+          'verify-health-and-usage-visibility',
+        ],
+      })),
+      next: ['assign-package-option', 'sync-entitlements', 'record-provisioning-run'],
     };
   }
 

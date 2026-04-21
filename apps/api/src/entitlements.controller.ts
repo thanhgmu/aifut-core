@@ -70,6 +70,24 @@ export class EntitlementsController {
     });
   }
 
+  @Get('connector-commercialization')
+  async connectorCommercialization(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('connectorKey') connectorKey?: string,
+  ) {
+    return this.entitlements.getConnectorCommercializationState({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      connectorKey,
+    });
+  }
+
   @Get('preview-selection')
   previewSelection(
     @Query('basePlanKey') basePlanKey?: string,
@@ -83,6 +101,23 @@ export class EntitlementsController {
 
     return this.entitlements.previewSelection({
       basePlanKey,
+      selectedOptions,
+    });
+  }
+
+  @Get('preview-connector-provisioning')
+  previewConnectorProvisioning(
+    @Query('connectorKey') connectorKey?: string,
+    @Query('selectedOption') selectedOption?: string | string[],
+  ) {
+    const selectedOptions = Array.isArray(selectedOption)
+      ? selectedOption
+      : selectedOption
+        ? [selectedOption]
+        : [];
+
+    return this.entitlements.previewConnectorOptionProvisioning({
+      connectorKey,
       selectedOptions,
     });
   }
