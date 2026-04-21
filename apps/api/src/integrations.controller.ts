@@ -13,7 +13,9 @@ import { AccessPolicyGuard } from './access-policy.guard';
 import { ConnectionInstancesService } from './connection-instances.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 import { IntegrationControlPlaneService } from './integration-control-plane.service';
+import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
+import { IntegrationSetupService } from './integration-setup.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
 @Controller('integrations')
@@ -23,6 +25,8 @@ export class IntegrationsController {
     private readonly connectionInstances: ConnectionInstancesService,
     private readonly storageRoutingPolicy: StorageRoutingPolicyService,
     private readonly integrationControlPlane: IntegrationControlPlaneService,
+    private readonly integrationSetup: IntegrationSetupService,
+    private readonly integrationDiagnostics: IntegrationDiagnosticsService,
   ) {}
 
   @Get('capabilities')
@@ -124,6 +128,47 @@ export class IntegrationsController {
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+  }
+
+  @Get('setup-session')
+  async setupSession(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('connectorKey') connectorKey?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('storagePolicyKey') storagePolicyKey?: string,
+  ) {
+    return this.integrationSetup.buildSetupSession({
+      connectorKey,
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      storagePolicyKey,
+    });
+  }
+
+  @Get('diagnostics')
+  async diagnostics(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('connectionSlug') connectionSlug?: string,
+    @Query('connectorKey') connectorKey?: string,
+  ) {
+    return this.integrationDiagnostics.diagnose({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      connectionSlug,
+      connectorKey,
     });
   }
 
