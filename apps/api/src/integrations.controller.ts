@@ -17,6 +17,7 @@ import { IntegrationControlPlaneService } from './integration-control-plane.serv
 import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
 import { IntegrationSetupService } from './integration-setup.service';
+import { IntegrationWorkflowService } from './integration-workflow.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
 @Controller('integrations')
@@ -29,6 +30,7 @@ export class IntegrationsController {
     private readonly integrationSetup: IntegrationSetupService,
     private readonly integrationDiagnostics: IntegrationDiagnosticsService,
     private readonly integrationAiDrafting: IntegrationAiDraftingService,
+    private readonly integrationWorkflow: IntegrationWorkflowService,
   ) {}
 
   @Get('capabilities')
@@ -193,6 +195,52 @@ export class IntegrationsController {
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
       workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
       storagePolicyKey: body.storagePolicyKey,
+    });
+  }
+
+  @Post('workflow/setup-drafts')
+  saveSetupDraft(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      connectorKey?: string;
+      prompt?: string;
+      storagePolicyKey?: string;
+      draftKey?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.integrationWorkflow.saveSetupDraft({
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      connectorKey: body.connectorKey,
+      prompt: body.prompt,
+      storagePolicyKey: body.storagePolicyKey,
+      draftKey: body.draftKey,
+    });
+  }
+
+  @Post('workflow/diagnostic-runs')
+  recordDiagnosticRun(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      connectionSlug?: string;
+      connectorKey?: string;
+      runKey?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.integrationWorkflow.recordDiagnosticRun({
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      connectionSlug: body.connectionSlug,
+      connectorKey: body.connectorKey,
+      runKey: body.runKey,
     });
   }
 

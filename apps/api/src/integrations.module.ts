@@ -6,6 +6,7 @@ import { IntegrationControlPlaneService } from './integration-control-plane.serv
 import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationSetupService } from './integration-setup.service';
+import { IntegrationWorkflowService } from './integration-workflow.service';
 import { TenancyModule } from './tenancy.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { TenancyModule } from './tenancy.module';
     IntegrationSetupService,
     IntegrationDiagnosticsService,
     IntegrationAiDraftingService,
+    IntegrationWorkflowService,
   ],
 })
 export class IntegrationsModule {}
