@@ -8,6 +8,7 @@ import { PrismaService } from './prisma.service';
 import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationDiagnosticsService } from './integration-diagnostics.service';
 import { IntegrationSetupService } from './integration-setup.service';
+import { ConnectionInstancesService } from './connection-instances.service';
 
 type SaveSetupDraftInput = {
   tenantSlug?: string;
@@ -26,6 +27,16 @@ type RecordDiagnosticRunInput = {
   runKey?: string;
 };
 
+type ReviewAndActivateInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  reviewSummary?: string;
+  activationMode?: 'manual-review' | 'verified-ready';
+};
+
 @Injectable()
 export class IntegrationWorkflowService {
   constructor(
@@ -33,6 +44,7 @@ export class IntegrationWorkflowService {
     private readonly integrationSetup: IntegrationSetupService,
     private readonly integrationAiDrafting: IntegrationAiDraftingService,
     private readonly integrationDiagnostics: IntegrationDiagnosticsService,
+    private readonly connectionInstances: ConnectionInstancesService,
   ) {}
 
   async saveSetupDraft(input: SaveSetupDraftInput) {
@@ -204,6 +216,44 @@ export class IntegrationWorkflowService {
       summary: primaryDiagnostic.summary,
       recommendedActions: primaryDiagnostic.recommendedActions,
       next: ['review-operator-actions', 'rerun-diagnostics-after-fixes', 'activate-connection-when-ready'],
+    };
+  }
+
+  async reviewAndActivate(input: ReviewAndActivateInput) {
+    const tenant = await this.requireTenant(input.tenantSlug);
+
+    const diagnostics = await this.integrationDiagnostics.diagnose({
+      tenantSlug: tenant.slug,
+      workspaceSlug: input.workspaceSlug,
+      connectionSlug: input.connectionSlug,
+    });
+
+    if (!diagnostics.diagnostics.length) {
+      throw new NotFoundException('No matching integration connections found for activation review.');
+    }
+
+    const primaryDiagnostic = diagnostics.diagnostics[0];
+
+    const activation = await this.connectionInstances.activateConnection({
+      tenantSlug: tenant.slug,
+      workspaceSlug: input.workspaceSlug,
+      userEmail: input.userEmail,
+      hostname: input.hostname,
+      connectionSlug: primaryDiagnostic.connection.slug,
+      reviewSummary:
+        input.reviewSummary?.trim() ||
+        `Activated after operator review with ${primaryDiagnostic.summary.issueCount} outstanding issues noted.`,
+      activationMode: input.activationMode ?? 'manual-review',
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'workflow-state',
+      status: 'reviewed-and-activated',
+      diagnosticsSummary: primaryDiagnostic.summary,
+      recommendedActions: primaryDiagnostic.recommendedActions,
+      activation,
+      next: ['monitor-post-activation-health', 'track-usage', 'connect-commercialization-boundaries'],
     };
   }
 

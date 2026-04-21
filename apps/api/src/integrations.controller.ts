@@ -244,6 +244,35 @@ export class IntegrationsController {
     });
   }
 
+  @Post('workflow/review-activation')
+  reviewAndActivate(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      userEmail?: string;
+      hostname?: string;
+      connectionSlug?: string;
+      reviewSummary?: string;
+      activationMode?: 'manual-review' | 'verified-ready';
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+  ) {
+    return this.integrationWorkflow.reviewAndActivate({
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
+      connectionSlug: body.connectionSlug,
+      reviewSummary: body.reviewSummary,
+      activationMode: body.activationMode,
+    });
+  }
+
   @Post('connections')
   @UseGuards(AccessPolicyGuard)
   @RequireAccessPolicy({

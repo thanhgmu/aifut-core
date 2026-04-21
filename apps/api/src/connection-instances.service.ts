@@ -290,6 +290,130 @@ export class ConnectionInstancesService {
     };
   }
 
+  async activateConnection(input: {
+    tenantSlug?: string;
+    workspaceSlug?: string;
+    connectionSlug?: string;
+    userEmail?: string;
+    hostname?: string;
+    reviewSummary?: string;
+    activationMode?: 'manual-review' | 'verified-ready';
+  }) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: [
+          ...(context.activeWorkspace
+            ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+            : [{ workspaceId: null }, {}]),
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        mappingMode: true,
+        mappedObjects: true,
+        fieldMappings: true,
+        eventMappings: true,
+        syncPolicy: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+
+    const review = {
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: context.user.email,
+      reviewSummary: input.reviewSummary?.trim() || 'Operator review completed.',
+      activationMode: input.activationMode ?? 'manual-review',
+      workspaceSlug: connection.workspace?.slug ?? context.activeWorkspace?.slug ?? null,
+    };
+
+    const activated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: 'ACTIVE',
+        lastVerifiedAt: new Date(),
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...((config._platform as Record<string, unknown> | undefined) ?? {}),
+            review,
+            activation: {
+              state: 'active',
+              activatedAt: new Date().toISOString(),
+              activatedBy: context.user.email,
+            },
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        lastVerifiedAt: true,
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      status: 'activated',
+      connection: activated,
+      review,
+      next: ['monitor-health', 'enable-sync-jobs', 'track-usage-and-billing'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
