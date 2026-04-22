@@ -12,7 +12,8 @@ Current architectural emphasis:
 - future hosting-affiliate and token-governance boundaries
 
 ## Latest confirmed milestones
-- in-progress, uncommitted: tenancy operations now include guarded workspace creation plus domain and storage-policy upsert surfaces, and the API build/test suite passes with those endpoints present.
+- in-progress, uncommitted: integrations now include credential-reference blueprint/preview surfaces plus guarded connection verification, and the API build/test suite passes with those endpoints present.
+- `e6c5b76` feat(tenancy): add guarded tenant operations surfaces
 - `0b80bc1` docs(architecture): lock control-plane topology model
 - `a7a6fea` feat(entitlements): add admin package builder contract
 - `fcd5ac7` feat(entitlements): sync package assignments to entitlements
@@ -36,6 +37,8 @@ Current architectural emphasis:
 - connector registry and integration templates
 - integration infrastructure profile
 - connection instance persistence foundation
+- credential reference blueprint/preview foundation
+- guarded connection verification foundation
 - domain routing foundation
 - storage routing foundation
 - package option commercialization and entitlement sync foundation
@@ -46,7 +49,7 @@ Current architectural emphasis:
 - API build: passing as of latest local verification
 
 ## Current best next steps
-1. Add credential reference abstraction plus integration verification/health diagnostics so connector setup can move from design-time to runtime-safe operation.
+1. Persist verification history and richer health state so integrations can be monitored over time instead of only checked ad hoc.
 2. Expand tenant operations from admin-only surfaces into fuller provisioning flows, including default-owner/bootstrap handling where needed.
 3. Add hosting-affiliate domain/VPS offer foundation.
 4. Add token pool, quota, and bring-your-own-API governance foundation.

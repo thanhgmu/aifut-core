@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConnectionInstancesService } from './connection-instances.service';
+import { CredentialReferencesService } from './credential-references.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationControlPlaneService } from './integration-control-plane.service';
@@ -15,6 +16,7 @@ import { TenancyModule } from './tenancy.module';
   providers: [
     InfrastructureProfileService,
     ConnectionInstancesService,
+    CredentialReferencesService,
     IntegrationControlPlaneService,
     IntegrationSetupService,
     IntegrationDiagnosticsService,

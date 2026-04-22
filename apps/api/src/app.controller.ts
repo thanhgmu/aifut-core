@@ -59,7 +59,10 @@ export class AppController {
         ],
         integrations: [
           '/integrations/infrastructure-profile',
+          '/integrations/credential-reference-blueprint',
+          '/integrations/credential-reference-preview',
           '/integrations/connections',
+          '/integrations/connections/verify',
           '/integrations/setup-blueprint',
         ],
         connectors: ['/connectors/registry', '/connectors/templates'],

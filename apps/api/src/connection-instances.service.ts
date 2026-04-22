@@ -28,6 +28,16 @@ type CreateConnectionInput = {
   };
 };
 
+type VerifyConnectionInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  verificationMode?: 'dry-run' | 'operator-check' | 'connector-probe';
+  verificationNotes?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -120,6 +130,17 @@ export class ConnectionInstancesService {
           credentialReferenceStatus: integration.secretsRef
             ? 'reference-present'
             : 'not-declared',
+          credentialReference: integration.secretsRef
+            ? {
+                ref: integration.secretsRef,
+                ownership:
+                  integration.secretsRef.startsWith('platform:')
+                    ? 'platform-provided'
+                    : integration.secretsRef.startsWith('affiliate:')
+                      ? 'affiliate-provided'
+                      : 'tenant-provided',
+              }
+            : null,
           configStatus: integration.config ? 'declared' : 'not-declared',
           lastVerifiedAt: integration.lastVerifiedAt,
           mappingProfile: {
@@ -414,6 +435,168 @@ export class ConnectionInstancesService {
     };
   }
 
+  async verifyConnection(input: VerifyConnectionInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        secretsRef: true,
+        targetBaseUrl: true,
+        config: true,
+        mappedObjects: true,
+        eventMappings: true,
+        syncPolicy: true,
+        lastVerifiedAt: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const checks = [
+      {
+        key: 'credential-reference',
+        passed: Boolean(connection.secretsRef),
+        detail: connection.secretsRef
+          ? `Credential reference ${connection.secretsRef} is attached.`
+          : 'Missing credential reference.',
+      },
+      {
+        key: 'endpoint',
+        passed: this.hasTargetBaseUrl(connection.config, connection.targetBaseUrl),
+        detail: this.hasTargetBaseUrl(connection.config, connection.targetBaseUrl)
+          ? 'Remote endpoint is declared.'
+          : 'Missing remote endpoint/base URL.',
+      },
+      {
+        key: 'mapping',
+        passed: connection.mappedObjects.length > 0,
+        detail:
+          connection.mappedObjects.length > 0
+            ? `Mapped objects: ${connection.mappedObjects.join(', ')}`
+            : 'No mapped objects selected.',
+      },
+      {
+        key: 'sync-policy',
+        passed: Boolean(connection.eventMappings || connection.syncPolicy),
+        detail:
+          connection.eventMappings || connection.syncPolicy
+            ? 'Sync policy or event mappings are declared.'
+            : 'Missing sync policy and event mappings.',
+      },
+    ];
+
+    const passed = checks.every((check) => check.passed);
+    const verificationMode = input.verificationMode ?? 'operator-check';
+    const timestamp = new Date();
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: passed ? 'ACTIVE' : connection.status,
+        lastVerifiedAt: timestamp,
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            verification: {
+              checkedAt: timestamp.toISOString(),
+              checkedBy: context.user.email,
+              mode: verificationMode,
+              notes: input.verificationNotes?.trim() || null,
+              passed,
+              checks: checks.map((check) => ({
+                key: check.key,
+                passed: check.passed,
+                detail: check.detail,
+              })),
+            },
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        lastVerifiedAt: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-verification',
+      status: passed ? 'verified' : 'needs-setup',
+      connection: updated,
+      verification: {
+        mode: verificationMode,
+        checkedAt: timestamp.toISOString(),
+        checkedBy: context.user.email,
+        passed,
+        checks,
+      },
+      next: passed
+        ? ['activate-or-monitor-connection', 'start-health-history']
+        : ['attach-credentials', 'declare-endpoint', 'complete-mapping'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
@@ -494,6 +677,19 @@ export class ConnectionInstancesService {
         },
       },
     };
+  }
+
+  private hasTargetBaseUrl(config: unknown, targetBaseUrl?: string | null) {
+    if (typeof targetBaseUrl === 'string' && targetBaseUrl.trim()) {
+      return true;
+    }
+
+    if (!config || typeof config !== 'object') {
+      return false;
+    }
+
+    const record = config as Record<string, unknown>;
+    return typeof record.baseUrl === 'string' && record.baseUrl.trim().length > 0;
   }
 
   private mapConnectorCategoryToIntegrationCategory(category: string) {

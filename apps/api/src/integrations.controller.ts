@@ -11,6 +11,7 @@ import { MembershipRole } from '@prisma/client';
 import { RequireAccessPolicy } from './access-policy.decorator';
 import { AccessPolicyGuard } from './access-policy.guard';
 import { ConnectionInstancesService } from './connection-instances.service';
+import { CredentialReferencesService } from './credential-references.service';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationControlPlaneService } from './integration-control-plane.service';
@@ -25,6 +26,7 @@ export class IntegrationsController {
   constructor(
     private readonly infrastructureProfileService: InfrastructureProfileService,
     private readonly connectionInstances: ConnectionInstancesService,
+    private readonly credentialReferences: CredentialReferencesService,
     private readonly storageRoutingPolicy: StorageRoutingPolicyService,
     private readonly integrationControlPlane: IntegrationControlPlaneService,
     private readonly integrationSetup: IntegrationSetupService,
@@ -99,6 +101,49 @@ export class IntegrationsController {
         writePath,
       }),
     };
+  }
+
+  @Get('credential-reference-blueprint')
+  credentialReferenceBlueprint(@Query('connectorKey') connectorKey?: string) {
+    return this.credentialReferences.getBlueprint(connectorKey);
+  }
+
+  @Post('credential-reference-preview')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  credentialReferencePreview(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      userEmail?: string;
+      hostname?: string;
+      connectorKey?: string;
+      reference?: string;
+      authMode?: string;
+      ownershipMode?: 'platform-provided' | 'tenant-provided' | 'affiliate-provided';
+      label?: string;
+      packagePolicy?: {
+        allowTenantExternalCredentials?: boolean;
+        allowPlatformBrokeredCredentials?: boolean;
+      };
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+  ) {
+    return this.credentialReferences.previewReference({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
+    });
   }
 
   @Get('connections')
@@ -308,6 +353,38 @@ export class IntegrationsController {
     return this.connectionInstances.createConnection({
       ...body,
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
+    });
+  }
+
+  @Post('connections/verify')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  verifyConnection(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      userEmail?: string;
+      hostname?: string;
+      connectionSlug?: string;
+      verificationMode?: 'dry-run' | 'operator-check' | 'connector-probe';
+      verificationNotes?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+  ) {
+    return this.connectionInstances.verifyConnection({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
       userEmail: userEmailHeader ?? body.userEmail,
       hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
     });
