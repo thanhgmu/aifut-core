@@ -58,7 +58,7 @@ Each connector definition should describe:
 - whether the connector is first-party, marketplace-provided, or tenant-custom
 
 Examples:
-- Perfex connector
+- NexovaFlow/Perfex connector
 - Shopify connector
 - WooCommerce connector
 - Moodle connector
@@ -69,11 +69,15 @@ Examples:
 ### 2. Connection instance layer
 A tenant should not connect to a connector definition directly. It should create a connection instance.
 
+For tenant-app systems such as NexovaFlow, the connection instance also needs a topology assignment so AIFUT can decide whether the tenant runs on a shared runtime, a split database/schema, or a dedicated runtime.
+
 A connection instance should capture:
 - tenant/workspace ownership
 - connector key/provider
 - credential reference or auth material reference
 - remote base URL / account info
+- topology mode (`shared`, `split`, `dedicated`)
+- storage routing policy reference
 - sync policy
 - event mapping profile
 - status and health
@@ -193,6 +197,7 @@ These offer the best leverage earliest:
 - n8n bridge
 - storage connector profile
 - messaging channel adapters
+- NexovaFlow/Perfex tenant-app adapter because it is already in hand and can validate the tenant-app topology model
 
 ### High-value named connectors next
 - Shopify / WooCommerce

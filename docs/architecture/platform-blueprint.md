@@ -47,6 +47,13 @@ Responsibilities:
 - storage metering for billing
 - sync/replication contracts when tenant data lives outside platform-managed infra
 - explicit storage routing policy per tenant/workspace
+- topology routing between shared, split, and dedicated tenant-app data layouts
+
+Design rule:
+AIFUT must support at least three tenant data topologies without changing the control-plane model:
+1. shared runtime + shared database with tenant-scoped records
+2. shared runtime + split database/schema per tenant
+3. dedicated runtime + dedicated storage per tenant or reseller
 
 ### 3A. Infrastructure affiliate and token governance layer
 Responsibilities:
@@ -119,6 +126,7 @@ Responsibilities:
 ### Use adapters/integrations where helpful
 - n8n for workflow visualization/execution
 - external AI providers
+- Perfex/NexovaFlow as tenant-app capability surfaces, never the platform kernel
 - third-party affiliate system only as temporary or replaceable capability
 
 ### Do not use as long-term platform core
@@ -144,3 +152,12 @@ These can be integrated later as edge systems or migration sources, but they sho
 AIFUT should be built as a **platform kernel first, applications second, marketplace third**.
 
 That sequence maximizes long-term leverage, minimizes lock-in, and keeps the system operable by an extremely lean team.
+
+## Tenant-app integration rule
+When integrating a system such as NexovaFlow, AIFUT should borrow useful tenancy/runtime patterns from SaaS wrappers around that ecosystem, but AIFUT must still own:
+- tenancy truth
+- domain and topology routing
+- package and token governance
+- storage and backup policy
+- connector capability contracts
+- marketplace and affiliate commercialization boundaries
