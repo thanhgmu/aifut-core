@@ -7,6 +7,7 @@ import { TenancyController } from './tenancy.controller';
 import { PrismaService } from './prisma.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
+import { TenancyOperationsService } from './tenancy-operations.service';
 
 @Module({
   controllers: [TenancyController],
@@ -17,6 +18,7 @@ import { TenantDomainResolutionService } from './tenant-domain-resolution.servic
     AccessPolicyGuard,
     TenantDomainResolutionService,
     StorageRoutingPolicyService,
+    TenancyOperationsService,
     Reflector,
   ],
   exports: [
@@ -26,6 +28,7 @@ import { TenantDomainResolutionService } from './tenant-domain-resolution.servic
     AccessPolicyGuard,
     TenantDomainResolutionService,
     StorageRoutingPolicyService,
+    TenancyOperationsService,
   ],
 })
 export class TenancyModule {}

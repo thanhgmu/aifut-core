@@ -1,8 +1,20 @@
-import { Controller, Get, Headers, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { MembershipRole, TenantDomainKind, TenantDomainStatus, TenantStorageMode } from '@prisma/client';
+import { AccessPolicyGuard } from './access-policy.guard';
+import { RequireAccessPolicy } from './access-policy.decorator';
 import { ActorContextService } from './actor-context.service';
 import { PrismaService } from './prisma.service';
 import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
+import { TenancyOperationsService } from './tenancy-operations.service';
 
 @Controller('tenancy')
 export class TenancyController {
@@ -10,6 +22,7 @@ export class TenancyController {
     private readonly prisma: PrismaService,
     private readonly actorContext: ActorContextService,
     private readonly tenantDomainResolution: TenantDomainResolutionService,
+    private readonly tenancyOperations: TenancyOperationsService,
   ) {}
 
   @Get('summary')
@@ -138,6 +151,96 @@ export class TenancyController {
         workspaceSlug,
       }),
     };
+  }
+
+  @Post('workspaces')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async createWorkspace(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      name?: string;
+      slug?: string;
+      makeDefaultForUser?: boolean;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    return this.tenancyOperations.createWorkspace({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+    });
+  }
+
+  @Post('domains')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async upsertDomain(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      hostname?: string;
+      kind?: TenantDomainKind;
+      status?: TenantDomainStatus;
+      isPrimary?: boolean;
+      provider?: string;
+      provisioningMode?: string;
+      dnsTarget?: string;
+      certificateStatus?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.tenancyOperations.upsertDomain({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+    });
+  }
+
+  @Post('storage-policies')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async upsertStoragePolicy(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      key?: string;
+      mode?: TenantStorageMode;
+      storageClass?: string;
+      targetRef?: string;
+      targetRegion?: string;
+      backupTargetRef?: string;
+      meteringEnabled?: boolean;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.tenancyOperations.upsertStoragePolicy({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+    });
   }
 
   @Get('roadmap')

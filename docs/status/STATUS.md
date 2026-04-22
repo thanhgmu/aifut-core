@@ -12,6 +12,7 @@ Current architectural emphasis:
 - future hosting-affiliate and token-governance boundaries
 
 ## Latest confirmed milestones
+- in-progress, uncommitted: tenancy operations now include guarded workspace creation plus domain and storage-policy upsert surfaces, and the API build/test suite passes with those endpoints present.
 - `0b80bc1` docs(architecture): lock control-plane topology model
 - `a7a6fea` feat(entitlements): add admin package builder contract
 - `fcd5ac7` feat(entitlements): sync package assignments to entitlements
@@ -24,7 +25,7 @@ Current architectural emphasis:
 
 ## Current API foundation surfaces
 - health and root platform status
-- tenancy summary and roadmap
+- tenancy summary, current context, host resolution, and guarded tenant operations for workspaces/domains/storage policies
 - auth context foundation
 - current actor and access boundary endpoints
 - membership resolution foundation
@@ -45,8 +46,8 @@ Current architectural emphasis:
 - API build: passing as of latest local verification
 
 ## Current best next steps
-1. Turn tenancy, memberships, and storage topology from read-model foundation into tenant operations, starting with tenant/workspace provisioning and domain-policy management surfaces.
-2. Add credential reference abstraction plus integration verification/health diagnostics so connector setup can move from design-time to runtime-safe operation.
+1. Add credential reference abstraction plus integration verification/health diagnostics so connector setup can move from design-time to runtime-safe operation.
+2. Expand tenant operations from admin-only surfaces into fuller provisioning flows, including default-owner/bootstrap handling where needed.
 3. Add hosting-affiliate domain/VPS offer foundation.
 4. Add token pool, quota, and bring-your-own-API governance foundation.
 5. Keep NexovaFlow aligned as a tenant-app connector pattern, not a control-plane dependency.
