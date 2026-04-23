@@ -9,6 +9,7 @@ The platform core should instead become the control plane that can:
 - observe health and sync drift
 - orchestrate workflows and AI actions across them
 - monetize the resulting solutions, workflows, and packaged operating surfaces
+- let non-technical users connect and manage systems safely
 
 This document translates that thesis into a concrete architecture direction for `aifut-core`.
 
@@ -24,6 +25,7 @@ That means AIFUT should own:
 - health and observability
 - marketplace/commercialization boundaries
 - workflow and AI orchestration contracts
+- resource governance for storage, AI tokens, and external services
 
 And it should treat business applications as one of three things:
 - first-party native modules
@@ -46,7 +48,7 @@ The connector registry is the normalized catalog of what AIFUT can connect to.
 
 Each connector definition should describe:
 - connector key
-- category (`crm`, `commerce`, `lms`, `workflow`, `analytics`, `messaging`, `ai`, `storage`, `other`)
+- category (`crm`, `commerce`, `lms`, `workflow`, `analytics`, `messaging`, `ai`, `storage`, `infra`, `other`)
 - provider name
 - auth modes (`api-key`, `oauth2`, `basic`, `webhook-shared-secret`, `custom`)
 - supported capabilities
@@ -65,6 +67,8 @@ Examples:
 - n8n bridge
 - generic REST connector
 - webhook bridge connector
+- AI provider connector
+- domain/hosting provider connector
 
 ### 2. Connection instance layer
 A tenant should not connect to a connector definition directly. It should create a connection instance.
@@ -80,6 +84,7 @@ A connection instance should capture:
 - storage routing policy reference
 - sync policy
 - event mapping profile
+- command/action mapping profile
 - status and health
 - verification timestamps
 - error state summary
@@ -98,6 +103,7 @@ The normalized context should allow the platform to answer:
 - which policy or entitlement applies?
 - what workflow/action should follow?
 - what billing/usage event should be emitted?
+- what analytics or behavior event should be recorded?
 
 This means connectors should map external data into platform primitives such as:
 - actor
@@ -109,6 +115,7 @@ This means connectors should map external data into platform primitives such as:
 - workflow event
 - audit event
 - entitlement/usage event
+- behavioral signal
 
 ### 4. Integration UX layer
 The platform must support non-technical users, not just API-driven operators.
@@ -119,11 +126,12 @@ Therefore integrations should support three usability tiers:
 The user picks a known integration template such as:
 - Connect Shopify
 - Connect WooCommerce
-- Connect Perfex CRM
+- Connect Perfex CRM / NexovaFlow
 - Connect Moodle
 - Connect n8n
 - Connect WhatsApp
 - Connect Google Sheets
+- Connect a custom REST app
 
 The user should then follow a guided wizard:
 1. choose provider
@@ -167,6 +175,7 @@ AIFUT should track at least:
 - mapping gaps
 - rate limit warnings
 - degraded mode flags
+- consumer usage and recent activity where applicable
 
 This is mandatory if a single operator is expected to manage a large tenant base.
 
@@ -180,6 +189,7 @@ Commercializable items should include:
 - vertical solutions
 - onboarding/setup services
 - support packages
+- automation add-ons
 
 Commercialization rules should support:
 - approval before listing
@@ -187,6 +197,19 @@ Commercialization rules should support:
 - demo/trial paths
 - plan/add-on attachment
 - reseller/affiliate revenue sharing
+
+### 7. Resource and package governance layer
+Integrations may depend on resources such as:
+- AIFUT-provided AI tokens
+- AIFUT-provided storage
+- affiliate-backed hosting/VPS/domain offers
+- tenant-provided credentials and infrastructure
+
+The control plane must therefore track:
+- whether a connector uses platform resources or tenant-owned resources
+- whether package policy allows that integration/resource class
+- how usage should be billed, limited, surfaced, or bypassed
+- what upgrade path should be shown to the tenant
 
 ## Recommended connector types for phase sequencing
 
@@ -197,6 +220,7 @@ These offer the best leverage earliest:
 - n8n bridge
 - storage connector profile
 - messaging channel adapters
+- AI provider connector profile
 - NexovaFlow/Perfex tenant-app adapter because it is already in hand and can validate the tenant-app topology model
 
 ### High-value named connectors next
@@ -205,6 +229,7 @@ These offer the best leverage earliest:
 - Moodle / LMS connector
 - Google Sheets / lightweight ops data
 - payment provider connectors
+- domain/hosting provider connectors
 
 ## Rules for build vs buy
 
@@ -216,11 +241,13 @@ These offer the best leverage earliest:
 - integration UX/wizard contract
 - AI-assisted integration setup contract
 - monetization/approval boundaries
+- package/resource governance boundaries
 
 ### Integrate or adapt
 - business systems themselves (CRM, commerce, LMS)
 - workflow execution engines where useful
 - affiliate engine where it accelerates but does not own the platform kernel
+- reference SaaS modules as pattern material only
 
 ## Immediate backend consequences
 The API should evolve toward these concrete surfaces:
@@ -230,6 +257,7 @@ The API should evolve toward these concrete surfaces:
 - generic connector profile for tenant-owned systems
 - mapping profile and sync policy endpoints
 - workflow handoff endpoints
+- package/resource policy surfaces per connection
 
 ## Success criteria
 This layer is successful when:
@@ -238,3 +266,4 @@ This layer is successful when:
 3. the operator can observe health and errors centrally
 4. workflows and AI actions can operate against normalized platform context
 5. the resulting integrations can be packaged and monetized within tenant boundaries
+6. resource governance stays correct whether AIFUT or the tenant provides the underlying infrastructure
