@@ -20,6 +20,7 @@ AIFUT should let a user or operator:
 - keep data in shared, split, or dedicated topology
 - back up by tenant, workspace, app, or user scope depending on policy
 - connect existing external systems without rewriting everything
+- display and control relevant applications across device types and across online or local environments
 - orchestrate systems and workflows through natural language
 - expose packaged solutions, templates, workflows, and services in a marketplace
 - monetize software, setup, support, and service bundles with affiliate-aware economics
@@ -157,6 +158,11 @@ Every important system capability should eventually have both a structured admin
 - Tenants may use subdomains or full custom domains.
 - AIFUT may also offer partner/affiliate-backed domains, hosting, and VPS resources.
 - Domain and infrastructure offers must be visible and configurable inside AIFUT control surfaces.
+- AIFUT should be able to connect to and surface applications that run in online environments or in local environments, as long as policy, routing, and connectivity requirements are satisfied.
+
+### Device and surface truth
+- AIFUT should be usable across device types and should be able to present or connect relevant application surfaces in a way appropriate to each device context.
+- Multi-device support is part of the platform direction, not optional polish.
 
 ### Integration truth
 - User-owned apps and external platforms must be able to connect without forcing platform rewrites.
