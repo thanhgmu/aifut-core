@@ -15,6 +15,7 @@ import { PrismaService } from './prisma.service';
 import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
 import { TenancyOperationsService } from './tenancy-operations.service';
+import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
 @Controller('tenancy')
 export class TenancyController {
@@ -23,6 +24,7 @@ export class TenancyController {
     private readonly actorContext: ActorContextService,
     private readonly tenantDomainResolution: TenantDomainResolutionService,
     private readonly tenancyOperations: TenancyOperationsService,
+    private readonly storageRoutingPolicy: StorageRoutingPolicyService,
   ) {}
 
   @Get('summary')
@@ -142,6 +144,7 @@ export class TenancyController {
     @Headers('host') hostHeader?: string,
     @Query('hostname') hostnameQuery?: string,
     @Query('workspaceSlug') workspaceSlug?: string,
+    @Query('enforceWorkspaceMatch') enforceWorkspaceMatch?: string,
   ) {
     return {
       capability: 'tenancy',
@@ -149,7 +152,50 @@ export class TenancyController {
       hostResolution: await this.tenantDomainResolution.resolveHostname({
         hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
         workspaceSlug,
+        enforceWorkspaceMatch:
+          enforceWorkspaceMatch === 'true' || enforceWorkspaceMatch === '1',
       }),
+    };
+  }
+
+  @Get('storage-policy')
+  async resolveStoragePolicy(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('policyKey') policyKey?: string,
+    @Query('writePath') writePath?: string,
+    @Query('requireWritePolicy') requireWritePolicy?: string,
+    @Query('allowTenantScope') allowTenantScope?: string,
+  ) {
+    const input = {
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      policyKey,
+      writePath,
+    };
+
+    const resolved =
+      requireWritePolicy === 'true' || requireWritePolicy === '1'
+        ? await this.storageRoutingPolicy.requireWritePolicy({
+            ...input,
+            allowTenantScope:
+              allowTenantScope === 'true' || allowTenantScope === '1',
+          })
+        : await this.storageRoutingPolicy.getEffectivePolicy(input);
+
+    return {
+      capability: 'tenancy',
+      status: 'resolved',
+      storagePolicy: resolved,
     };
   }
 
