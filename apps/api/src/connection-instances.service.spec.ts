@@ -220,7 +220,11 @@ describe('ConnectionInstancesService', () => {
       healthSummary: {
         latestStatus: 'verified',
         repeatFailureCount: 1,
+        recoveryStreak: 1,
         shouldAlertOperator: false,
+        cooldown: {
+          active: false,
+        },
       },
     });
     expect(Array.isArray(result.healthTimeline)).toBe(true);
@@ -305,5 +309,61 @@ describe('ConnectionInstancesService', () => {
         }),
       }),
     );
+  });
+
+  it('should expose cooldown and recovery streak after repeated failures', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValue({
+      id: 'conn_5',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T10:05:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T10:00:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T10:05:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(result.healthSummary).toMatchObject({
+      latestStatus: 'needs-setup',
+      repeatFailureCount: 2,
+      recoveryStreak: 0,
+      shouldAlertOperator: true,
+      cooldown: {
+        active: true,
+        reason: 'recent-verification-failure',
+      },
+    });
   });
 });

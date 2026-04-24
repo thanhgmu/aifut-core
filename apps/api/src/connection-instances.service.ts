@@ -697,6 +697,10 @@ export class ConnectionInstancesService {
     const timeline = Array.isArray(platform.healthTimeline)
       ? platform.healthTimeline
       : [];
+    const normalizedTimeline = timeline.filter(
+      (entry): entry is Record<string, unknown> =>
+        Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry),
+    );
     const repeatFailureCount = timeline.filter(
       (entry) =>
         Boolean(entry) &&
@@ -711,6 +715,8 @@ export class ConnectionInstancesService {
       !Array.isArray(timeline[timeline.length - 1])
         ? (timeline[timeline.length - 1] as Record<string, unknown>)
         : null;
+    const recoveryStreak = this.calculateRecoveryStreak(normalizedTimeline);
+    const cooldown = this.calculateCooldownWindow(normalizedTimeline);
 
     return {
       capability: 'integrations',
@@ -732,9 +738,11 @@ export class ConnectionInstancesService {
       healthSummary: {
         latestStatus: latestTimelineEntry?.status ?? null,
         repeatFailureCount,
+        recoveryStreak,
         alertThresholds: {
           repeatedFailures: 3,
         },
+        cooldown,
         shouldAlertOperator:
           repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup',
       },
@@ -868,5 +876,55 @@ export class ConnectionInstancesService {
       : [];
 
     return [...timeline.slice(-9), entry];
+  }
+
+  private calculateRecoveryStreak(timeline: Record<string, unknown>[]) {
+    let streak = 0;
+
+    for (let index = timeline.length - 1; index >= 0; index -= 1) {
+      const status = timeline[index].status;
+
+      if (status === 'verified' || status === 'active') {
+        streak += 1;
+        continue;
+      }
+
+      break;
+    }
+
+    return streak;
+  }
+
+  private calculateCooldownWindow(timeline: Record<string, unknown>[]) {
+    const latestFailure = [...timeline]
+      .reverse()
+      .find((entry) => entry.status === 'needs-setup');
+
+    if (!latestFailure || typeof latestFailure.at !== 'string') {
+      return {
+        active: false,
+        reason: null,
+        until: null,
+      };
+    }
+
+    const failedAt = new Date(latestFailure.at);
+
+    if (Number.isNaN(failedAt.getTime())) {
+      return {
+        active: false,
+        reason: null,
+        until: null,
+      };
+    }
+
+    const cooldownUntil = new Date(failedAt.getTime() + 15 * 60 * 1000);
+    const active = cooldownUntil.getTime() > Date.now();
+
+    return {
+      active,
+      reason: active ? 'recent-verification-failure' : null,
+      until: active ? cooldownUntil.toISOString() : null,
+    };
   }
 }
