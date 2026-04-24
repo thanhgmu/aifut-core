@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MembershipRole } from '@prisma/client';
 import { ConnectionInstancesService } from './connection-instances.service';
@@ -8,15 +9,25 @@ import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 describe('ConnectionInstancesService', () => {
   let service: ConnectionInstancesService;
   let prisma: {
-    integrationConnection: { findFirst: jest.Mock; update: jest.Mock };
+    integrationConnection: {
+      findFirst: jest.Mock;
+      update: jest.Mock;
+      create: jest.Mock;
+    };
+    tenant: { findUnique: jest.Mock };
   };
   let accessPolicy: { resolveAndRequire: jest.Mock };
+  let storageRoutingPolicy: { requireWritePolicy: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
       integrationConnection: {
         findFirst: jest.fn(),
         update: jest.fn(),
+        create: jest.fn(),
+      },
+      tenant: {
+        findUnique: jest.fn(),
       },
     };
 
@@ -24,15 +35,16 @@ describe('ConnectionInstancesService', () => {
       resolveAndRequire: jest.fn(),
     };
 
+    storageRoutingPolicy = {
+      requireWritePolicy: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConnectionInstancesService,
         { provide: PrismaService, useValue: prisma },
         { provide: AccessPolicyService, useValue: accessPolicy },
-        {
-          provide: StorageRoutingPolicyService,
-          useValue: { requireWritePolicy: jest.fn() },
-        },
+        { provide: StorageRoutingPolicyService, useValue: storageRoutingPolicy },
       ],
     }).compile();
 
@@ -156,6 +168,96 @@ describe('ConnectionInstancesService', () => {
         data: expect.objectContaining({
           status: 'PENDING',
         }),
+      }),
+    );
+  });
+
+  it('should reject connection creation when the requested workspace does not belong to the tenant', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: null,
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      slug: 'acme',
+      workspaces: [{ id: 'ws_1', slug: 'ops' }],
+    });
+
+    await expect(
+      service.createConnection({
+        tenantSlug: 'acme',
+        workspaceSlug: 'sales',
+        userEmail: 'ops@acme.test',
+        connectorKey: 'n8n',
+        name: 'Sales Bridge',
+        slug: 'sales-bridge',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('should enforce storage write policy during connection creation when storage policy is declared', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    storageRoutingPolicy.requireWritePolicy.mockResolvedValue({
+      policyKey: 'configs',
+      storageTopology: {
+        rootPrefix: 'tenants/acme/workspaces/ops/storage/configs',
+        ownershipScope: 'workspace',
+        workspaceSlug: 'ops',
+      },
+      writeGuardrail: {
+        mode: 'PLATFORM_MANAGED',
+        enforcedWritePath:
+          'tenants/acme/workspaces/ops/storage/configs/n8n-main/connection-config',
+      },
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      slug: 'acme',
+      workspaces: [{ id: 'ws_1', slug: 'ops' }],
+    });
+    prisma.integrationConnection.create.mockResolvedValue({
+      id: 'conn_create_1',
+      name: 'N8N Main',
+      slug: 'n8n-main',
+      provider: 'n8n',
+      category: 'COMMUNICATION',
+      status: 'PENDING',
+      secretsRef: null,
+      mappingMode: 'template-first',
+      mappedObjects: [],
+      fieldMappings: null,
+      eventMappings: null,
+      syncPolicy: null,
+      createdAt: new Date('2026-04-24T19:30:00.000Z'),
+    });
+
+    await service.createConnection({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectorKey: 'n8n',
+      name: 'N8N Main',
+      slug: 'n8n-main',
+      storagePolicyKey: 'configs',
+    });
+
+    expect(storageRoutingPolicy.requireWritePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        policyKey: 'configs',
+        writePath: 'n8n-main/connection-config',
       }),
     );
   });
@@ -309,6 +411,27 @@ describe('ConnectionInstancesService', () => {
         }),
       }),
     );
+  });
+
+  it('should reject activation when the target connection does not exist', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.activateConnection({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        userEmail: 'ops@acme.test',
+        connectionSlug: 'missing-connection',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('should expose cooldown and recovery streak after repeated failures', async () => {
