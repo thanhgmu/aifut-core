@@ -74,6 +74,15 @@ type UnsuppressHealthAlertInput = {
   note?: string;
 };
 
+type AddRecoveryNoteInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -746,6 +755,7 @@ export class ConnectionInstancesService {
     const recoveryStreak = this.calculateRecoveryStreak(normalizedTimeline);
     const cooldown = this.calculateCooldownWindow(normalizedTimeline);
     const suppression = this.resolveSuppression(platform.alertSuppression);
+    const recoveryNote = this.resolveRecoveryNote(platform.recoveryNote);
     const alertCandidate =
       repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
 
@@ -775,6 +785,7 @@ export class ConnectionInstancesService {
         },
         cooldown,
         suppression,
+        recoveryNote,
         shouldAlertOperator: alertCandidate && !suppression.active,
       },
       healthTimeline: timeline,
@@ -1155,6 +1166,127 @@ export class ConnectionInstancesService {
     };
   }
 
+  async addRecoveryNote(input: AddRecoveryNoteInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+    const note = input.note?.trim();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    if (!note) {
+      throw new BadRequestException('Missing recovery note.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const recordedAt = new Date().toISOString();
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            recoveryNote: {
+              note,
+              recordedAt,
+              recordedBy: context.user.email,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'recovery-note',
+              status: 'recovery-noted',
+              at: recordedAt,
+              actor: context.user.email,
+              detail: {
+                note,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-recovery-note',
+      status: 'recovery-noted',
+      connection: updated,
+      recoveryNote: {
+        note,
+        recordedAt,
+        recordedBy: context.user.email,
+      },
+      next: ['monitor-post-recovery-health', 'close-operator-loop'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
@@ -1357,6 +1489,22 @@ export class ConnectionInstancesService {
         ? record.suppressedBy
         : null,
       note: active && typeof record.note === 'string' ? record.note : null,
+    };
+  }
+
+  private resolveRecoveryNote(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+
+    return {
+      note: typeof record.note === 'string' ? record.note : null,
+      recordedAt:
+        typeof record.recordedAt === 'string' ? record.recordedAt : null,
+      recordedBy:
+        typeof record.recordedBy === 'string' ? record.recordedBy : null,
     };
   }
 }

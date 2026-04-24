@@ -670,4 +670,127 @@ describe('ConnectionInstancesService', () => {
       shouldAlertOperator: true,
     });
   });
+
+  it('should record a recovery note and expose it in the health summary', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_9',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'ACTIVE',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'verified',
+              at: '2099-04-24T18:05:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_9',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'ACTIVE',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const noteResult = await service.addRecoveryNote({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      note: 'Recovered after connector credential rotation.',
+    });
+
+    expect(noteResult).toMatchObject({
+      surface: 'connection-health-recovery-note',
+      status: 'recovery-noted',
+      recoveryNote: {
+        note: 'Recovered after connector credential rotation.',
+        recordedBy: 'ops@acme.test',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'recovery-note',
+                  status: 'recovery-noted',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_9',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'ACTIVE',
+      lastVerifiedAt: new Date('2026-04-24T18:05:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          recoveryNote: {
+            note: 'Recovered after connector credential rotation.',
+            recordedAt: '2099-04-24T18:08:00.000Z',
+            recordedBy: 'ops@acme.test',
+          },
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'verified',
+              at: '2099-04-24T18:05:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'recovery-note',
+              status: 'recovery-noted',
+              at: '2099-04-24T18:08:00.000Z',
+              actor: 'ops@acme.test',
+              detail: {
+                note: 'Recovered after connector credential rotation.',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'recovery-noted',
+      recoveryNote: {
+        note: 'Recovered after connector credential rotation.',
+        recordedBy: 'ops@acme.test',
+      },
+    });
+  });
 });
