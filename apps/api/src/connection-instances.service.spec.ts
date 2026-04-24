@@ -543,4 +543,131 @@ describe('ConnectionInstancesService', () => {
       shouldAlertOperator: false,
     });
   });
+
+  it('should unsuppress operator alerts and append an unsuppressed timeline event', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_8',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          alertSuppression: {
+            active: true,
+            suppressedAt: '2099-04-24T17:40:00.000Z',
+            suppressedUntil: '2099-04-24T18:10:00.000Z',
+            suppressedBy: 'ops@acme.test',
+            note: 'Suppress during vendor maintenance.',
+          },
+          healthTimeline: [
+            {
+              type: 'suppression',
+              status: 'suppressed',
+              at: '2099-04-24T17:40:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_8',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const unsuppressResult = await service.unsuppressHealthAlert({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      note: 'Maintenance window ended.',
+    });
+
+    expect(unsuppressResult).toMatchObject({
+      surface: 'connection-health-unsuppression',
+      status: 'unsuppressed',
+      suppression: {
+        active: false,
+        liftedBy: 'ops@acme.test',
+        note: 'Maintenance window ended.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'suppression',
+                  status: 'unsuppressed',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_8',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T10:05:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          alertSuppression: {
+            active: false,
+            suppressedAt: '2099-04-24T17:40:00.000Z',
+            suppressedUntil: null,
+            suppressedBy: null,
+            note: null,
+            liftedAt: '2099-04-24T17:50:00.000Z',
+            liftedBy: 'ops@acme.test',
+            liftNote: 'Maintenance window ended.',
+          },
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T17:35:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'needs-setup',
+      suppression: {
+        active: false,
+      },
+      shouldAlertOperator: true,
+    });
+  });
 });
