@@ -417,6 +417,37 @@ export class IntegrationsController {
     });
   }
 
+  @Post('connections/acknowledge-health-alert')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  acknowledgeConnectionHealthAlert(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      userEmail?: string;
+      hostname?: string;
+      connectionSlug?: string;
+      note?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+  ) {
+    return this.connectionInstances.acknowledgeHealthAlert({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
+    });
+  }
+
   @Get('setup-blueprint')
   setupBlueprint(@Query('connectorKey') connectorKey?: string) {
     return {

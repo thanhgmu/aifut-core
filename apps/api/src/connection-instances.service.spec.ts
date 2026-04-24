@@ -366,4 +366,76 @@ describe('ConnectionInstancesService', () => {
       },
     });
   });
+
+  it('should append acknowledgement events into the health timeline', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValue({
+      id: 'conn_6',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2026-04-24T17:35:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_6',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const result = await service.acknowledgeHealthAlert({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      note: 'Seen by operator.',
+    });
+
+    expect(result).toMatchObject({
+      surface: 'connection-health-acknowledgement',
+      status: 'acknowledged',
+      acknowledgement: {
+        acknowledgedBy: 'ops@acme.test',
+        note: 'Seen by operator.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'acknowledgement',
+                  status: 'acknowledged',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+  });
 });

@@ -46,6 +46,15 @@ type ConnectionHealthTimelineInput = {
   connectionSlug?: string;
 };
 
+type AcknowledgeHealthAlertInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -748,6 +757,122 @@ export class ConnectionInstancesService {
       },
       healthTimeline: timeline,
       next: ['monitor-repeat-failures', 'add-operator-alert-thresholds'],
+    };
+  }
+
+  async acknowledgeHealthAlert(input: AcknowledgeHealthAlertInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const acknowledgedAt = new Date().toISOString();
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            alertAcknowledgement: {
+              acknowledgedAt,
+              acknowledgedBy: context.user.email,
+              note: input.note?.trim() || null,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'acknowledgement',
+              status: 'acknowledged',
+              at: acknowledgedAt,
+              actor: context.user.email,
+              detail: {
+                note: input.note?.trim() || null,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-acknowledgement',
+      status: 'acknowledged',
+      connection: updated,
+      acknowledgement: {
+        acknowledgedAt,
+        acknowledgedBy: context.user.email,
+        note: input.note?.trim() || null,
+      },
+      next: ['monitor-recovery', 'optionally-suppress-alerts'],
     };
   }
 
