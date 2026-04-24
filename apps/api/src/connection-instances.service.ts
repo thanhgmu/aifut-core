@@ -390,6 +390,11 @@ export class ConnectionInstancesService {
       connection.config && typeof connection.config === 'object'
         ? { ...(connection.config as Record<string, unknown>) }
         : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const activatedAt = new Date().toISOString();
 
     const review = {
       reviewedAt: new Date().toISOString(),
@@ -407,13 +412,24 @@ export class ConnectionInstancesService {
         config: this.toJsonValue({
           ...config,
           _platform: {
-            ...((config._platform as Record<string, unknown> | undefined) ?? {}),
+            ...platform,
             review,
             activation: {
               state: 'active',
-              activatedAt: new Date().toISOString(),
+              activatedAt,
               activatedBy: context.user.email,
             },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'activation',
+              status: 'active',
+              at: activatedAt,
+              actor: context.user.email,
+              detail: {
+                activationMode: input.activationMode ?? 'manual-review',
+                reviewSummary: review.reviewSummary,
+                workspaceSlug: review.workspaceSlug,
+              },
+            }),
           },
         }),
       },
@@ -681,6 +697,20 @@ export class ConnectionInstancesService {
     const timeline = Array.isArray(platform.healthTimeline)
       ? platform.healthTimeline
       : [];
+    const repeatFailureCount = timeline.filter(
+      (entry) =>
+        Boolean(entry) &&
+        typeof entry === 'object' &&
+        !Array.isArray(entry) &&
+        (entry as Record<string, unknown>).status === 'needs-setup',
+    ).length;
+    const latestTimelineEntry =
+      timeline.length > 0 &&
+      timeline[timeline.length - 1] &&
+      typeof timeline[timeline.length - 1] === 'object' &&
+      !Array.isArray(timeline[timeline.length - 1])
+        ? (timeline[timeline.length - 1] as Record<string, unknown>)
+        : null;
 
     return {
       capability: 'integrations',
@@ -699,6 +729,15 @@ export class ConnectionInstancesService {
         platform.verification && typeof platform.verification === 'object'
           ? platform.verification
           : null,
+      healthSummary: {
+        latestStatus: latestTimelineEntry?.status ?? null,
+        repeatFailureCount,
+        alertThresholds: {
+          repeatedFailures: 3,
+        },
+        shouldAlertOperator:
+          repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup',
+      },
       healthTimeline: timeline,
       next: ['monitor-repeat-failures', 'add-operator-alert-thresholds'],
     };
