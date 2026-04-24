@@ -24,6 +24,12 @@ describe('IntegrationsController', () => {
     getConnectionHealthTimeline: jest.Mock;
   };
   let integrationSetup: { buildSetupSession: jest.Mock };
+  let integrationDiagnostics: { diagnose: jest.Mock };
+  let integrationWorkflow: {
+    saveSetupDraft: jest.Mock;
+    recordDiagnosticRun: jest.Mock;
+    reviewAndActivate: jest.Mock;
+  };
 
   beforeEach(async () => {
     infrastructureProfileService = {
@@ -44,6 +50,16 @@ describe('IntegrationsController', () => {
       buildSetupSession: jest.fn(),
     };
 
+    integrationDiagnostics = {
+      diagnose: jest.fn(),
+    };
+
+    integrationWorkflow = {
+      saveSetupDraft: jest.fn(),
+      recordDiagnosticRun: jest.fn(),
+      reviewAndActivate: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IntegrationsController],
       providers: [
@@ -53,9 +69,9 @@ describe('IntegrationsController', () => {
         { provide: StorageRoutingPolicyService, useValue: storageRoutingPolicy },
         { provide: IntegrationControlPlaneService, useValue: { summarizeTenantControlPlane: jest.fn() } },
         { provide: IntegrationSetupService, useValue: integrationSetup },
-        { provide: IntegrationDiagnosticsService, useValue: { diagnose: jest.fn() } },
+        { provide: IntegrationDiagnosticsService, useValue: integrationDiagnostics },
         { provide: IntegrationAiDraftingService, useValue: { draftFromNaturalLanguage: jest.fn() } },
-        { provide: IntegrationWorkflowService, useValue: { saveSetupDraft: jest.fn() } },
+        { provide: IntegrationWorkflowService, useValue: integrationWorkflow },
         { provide: AccessPolicyService, useValue: { resolveAndRequire: jest.fn() } },
         { provide: Reflector, useValue: { getAllAndOverride: jest.fn() } },
       ],
@@ -196,5 +212,122 @@ describe('IntegrationsController', () => {
       surface: 'connection-health-timeline',
       healthTimeline: [{ type: 'verification', status: 'verified' }],
     });
+  });
+
+  it('should forward diagnostics routing with header precedence over query params', async () => {
+    integrationDiagnostics.diagnose.mockResolvedValue({
+      capability: 'integrations',
+      diagnostics: [],
+    });
+
+    const result = await controller.diagnostics(
+      'acme-header',
+      'ops-header',
+      'acme-query',
+      'ops-query',
+      'n8n-main',
+      'n8n',
+    );
+
+    expect(integrationDiagnostics.diagnose).toHaveBeenCalledWith({
+      tenantSlug: 'acme-header',
+      workspaceSlug: 'ops-header',
+      connectionSlug: 'n8n-main',
+      connectorKey: 'n8n',
+    });
+    expect(result).toMatchObject({ capability: 'integrations' });
+  });
+
+  it('should route workflow setup draft payload with header tenant/workspace precedence', async () => {
+    integrationWorkflow.saveSetupDraft.mockResolvedValue({
+      surface: 'workflow-state',
+      status: 'draft-saved',
+    });
+
+    const result = await controller.saveSetupDraft(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        connectorKey: 'n8n',
+        prompt: 'Connect n8n',
+        storagePolicyKey: 'configs',
+        draftKey: 'n8n-draft',
+      },
+      'header-tenant',
+      'header-workspace',
+    );
+
+    expect(integrationWorkflow.saveSetupDraft).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      connectorKey: 'n8n',
+      prompt: 'Connect n8n',
+      storagePolicyKey: 'configs',
+      draftKey: 'n8n-draft',
+    });
+    expect(result).toMatchObject({ status: 'draft-saved' });
+  });
+
+  it('should route workflow diagnostic runs through the workflow service', async () => {
+    integrationWorkflow.recordDiagnosticRun.mockResolvedValue({
+      surface: 'workflow-state',
+      status: 'diagnostic-recorded',
+    });
+
+    const result = await controller.recordDiagnosticRun(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        connectionSlug: 'n8n-main',
+        connectorKey: 'n8n',
+        runKey: 'n8n-health',
+      },
+      'header-tenant',
+      'header-workspace',
+    );
+
+    expect(integrationWorkflow.recordDiagnosticRun).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      connectionSlug: 'n8n-main',
+      connectorKey: 'n8n',
+      runKey: 'n8n-health',
+    });
+    expect(result).toMatchObject({ status: 'diagnostic-recorded' });
+  });
+
+  it('should route workflow review activation with header and forwarded-host precedence', async () => {
+    integrationWorkflow.reviewAndActivate.mockResolvedValue({
+      surface: 'workflow-state',
+      status: 'reviewed-and-activated',
+    });
+
+    const result = await controller.reviewAndActivate(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        userEmail: 'body@acme.test',
+        hostname: 'body.acme.test',
+        connectionSlug: 'n8n-main',
+        reviewSummary: 'Looks good',
+        activationMode: 'verified-ready',
+      },
+      'header-tenant',
+      'header-workspace',
+      'header@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+    );
+
+    expect(integrationWorkflow.reviewAndActivate).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      userEmail: 'header@acme.test',
+      hostname: 'forwarded.acme.test',
+      connectionSlug: 'n8n-main',
+      reviewSummary: 'Looks good',
+      activationMode: 'verified-ready',
+    });
+    expect(result).toMatchObject({ status: 'reviewed-and-activated' });
   });
 });
