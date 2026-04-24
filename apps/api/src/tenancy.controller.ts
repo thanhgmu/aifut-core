@@ -7,7 +7,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { MembershipRole, TenantDomainKind, TenantDomainStatus, TenantStorageMode } from '@prisma/client';
+import {
+  MembershipRole,
+  Prisma,
+  TenantDomainKind,
+  TenantDomainStatus,
+  TenantStorageMode,
+} from '@prisma/client';
 import { AccessPolicyGuard } from './access-policy.guard';
 import { RequireAccessPolicy } from './access-policy.decorator';
 import { ActorContextService } from './actor-context.service';
@@ -282,6 +288,36 @@ export class TenancyController {
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
   ) {
     return this.tenancyOperations.upsertStoragePolicy({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+    });
+  }
+
+  @Post('package-assignments')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async upsertPackageAssignment(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      basePlanKey?: string;
+      selectedOptions?: string[];
+      provisioningState?: string;
+      source?: string;
+      billingSnapshot?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | null;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    return this.tenancyOperations.upsertPackageAssignment({
       ...body,
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
       userEmail: userEmailHeader ?? body.userEmail,

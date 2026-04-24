@@ -15,6 +15,12 @@ describe('TenancyController', () => {
     getEffectivePolicy: jest.Mock;
     requireWritePolicy: jest.Mock;
   };
+  let tenancyOperations: {
+    createWorkspace: jest.Mock;
+    upsertDomain: jest.Mock;
+    upsertStoragePolicy: jest.Mock;
+    upsertPackageAssignment: jest.Mock;
+  };
 
   beforeEach(async () => {
     tenantDomainResolution = {
@@ -24,6 +30,13 @@ describe('TenancyController', () => {
     storageRoutingPolicy = {
       getEffectivePolicy: jest.fn(),
       requireWritePolicy: jest.fn(),
+    };
+
+    tenancyOperations = {
+      createWorkspace: jest.fn(),
+      upsertDomain: jest.fn(),
+      upsertStoragePolicy: jest.fn(),
+      upsertPackageAssignment: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -63,11 +76,7 @@ describe('TenancyController', () => {
         },
         {
           provide: TenancyOperationsService,
-          useValue: {
-            createWorkspace: jest.fn(),
-            upsertDomain: jest.fn(),
-            upsertStoragePolicy: jest.fn(),
-          },
+          useValue: tenancyOperations,
         },
         {
           provide: StorageRoutingPolicyService,
@@ -181,6 +190,44 @@ describe('TenancyController', () => {
           enforcedWritePath: 'tenants/acme/storage/assets/uploads/logo.png',
         },
       },
+    });
+  });
+
+  it('should forward package assignment writes to tenancy operations', async () => {
+    tenancyOperations.upsertPackageAssignment.mockResolvedValue({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:workspace:ops' },
+    });
+
+    const result = await controller.upsertPackageAssignment(
+      {
+        tenantSlug: 'ignored',
+        userEmail: 'ignored@acme.test',
+        workspaceSlug: 'ignored',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        provisioningState: 'pending',
+        source: 'admin-ui',
+        billingSnapshot: { basePlanPriceMonthly: 'set-by-operator' },
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertPackageAssignment).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      basePlanKey: 'core.growth',
+      selectedOptions: ['nexovaflow.automation'],
+      provisioningState: 'pending',
+      source: 'admin-ui',
+      billingSnapshot: { basePlanPriceMonthly: 'set-by-operator' },
+    });
+    expect(result).toMatchObject({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:workspace:ops' },
     });
   });
 });

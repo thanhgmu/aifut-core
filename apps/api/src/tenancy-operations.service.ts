@@ -8,6 +8,7 @@ import {
   TenantDomainKind,
   TenantDomainStatus,
   TenantStorageMode,
+  Prisma,
 } from '@prisma/client';
 import { AccessPolicyService } from './access-policy.service';
 import { ActorContextInput } from './actor-context.service';
@@ -42,6 +43,15 @@ type UpsertStoragePolicyInput = TenancyOperationInput & {
   targetRegion?: string | null;
   backupTargetRef?: string | null;
   meteringEnabled?: boolean;
+};
+
+type UpsertPackageAssignmentInput = TenancyOperationInput & {
+  workspaceSlug?: string;
+  basePlanKey?: string;
+  selectedOptions?: string[];
+  provisioningState?: string | null;
+  source?: string | null;
+  billingSnapshot?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | null;
 };
 
 @Injectable()
@@ -291,6 +301,80 @@ export class TenancyOperationsService {
         ownershipMode: policy.mode,
       },
       next: ['storage-write-enforcement', 'backup-policy-validation'],
+    };
+  }
+
+  async upsertPackageAssignment(input: UpsertPackageAssignmentInput) {
+    const resolved = await this.accessPolicy.resolveAndRequire(input, {
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
+
+    const basePlanKey = this.normalizeSlug(input.basePlanKey, 'base plan key');
+    const workspace = await this.resolveWorkspace({
+      tenantId: resolved.context.tenant.id,
+      workspaceSlug: input.workspaceSlug,
+    });
+    const tenantSlug = resolved.context.tenant.slug;
+    const scopeKey = workspace
+      ? `${tenantSlug}:workspace:${workspace.slug}`
+      : `${tenantSlug}:tenant:default`;
+    const selectedOptions = Array.from(
+      new Set(
+        (input.selectedOptions ?? [])
+          .map((option) => this.normalizeSlug(option, 'package option key')),
+      ),
+    );
+
+    const assignment = await this.prisma.tenantPackageAssignment.upsert({
+      where: { scopeKey },
+      update: {
+        tenantId: resolved.context.tenant.id,
+        workspaceId: workspace?.id ?? null,
+        basePlanKey,
+        selectedOptions,
+        billingSnapshot: input.billingSnapshot ?? undefined,
+        provisioningState: this.normalizeOptional(input.provisioningState) ??
+          (selectedOptions.length > 0 ? 'pending' : 'inactive'),
+        source: this.normalizeOptional(input.source),
+      },
+      create: {
+        tenantId: resolved.context.tenant.id,
+        workspaceId: workspace?.id ?? null,
+        scopeKey,
+        basePlanKey,
+        selectedOptions,
+        billingSnapshot: input.billingSnapshot ?? undefined,
+        provisioningState: this.normalizeOptional(input.provisioningState) ??
+          (selectedOptions.length > 0 ? 'pending' : 'inactive'),
+        source: this.normalizeOptional(input.source),
+      },
+      select: {
+        id: true,
+        scopeKey: true,
+        basePlanKey: true,
+        selectedOptions: true,
+        billingSnapshot: true,
+        provisioningState: true,
+        source: true,
+        workspaceId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      capability: 'tenancy',
+      status: 'package-assignment-upserted',
+      tenant: resolved.context.tenant,
+      workspace,
+      packageAssignment: assignment,
+      topology: {
+        scope: workspace ? 'workspace' : 'tenant',
+        commercialScopeKey: scopeKey,
+        selectedOptionsCount: selectedOptions.length,
+      },
+      next: ['entitlement-sync', 'connector-provisioning-reconciliation'],
     };
   }
 
