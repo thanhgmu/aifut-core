@@ -1,0 +1,152 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { EntitlementKind, MembershipRole } from '@prisma/client';
+import { EntitlementsService } from './entitlements.service';
+import { PrismaService } from './prisma.service';
+import { ActorContextService } from './actor-context.service';
+import { AccessPolicyService } from './access-policy.service';
+
+describe('EntitlementsService', () => {
+  let service: EntitlementsService;
+  let prisma: {
+    tenantPackageAssignment: { findMany: jest.Mock; upsert: jest.Mock };
+    entitlement: { findMany: jest.Mock; upsert: jest.Mock };
+    integrationConnection: { findMany: jest.Mock };
+  };
+  let actorContext: { resolve: jest.Mock };
+  let accessPolicy: { resolveAndRequire: jest.Mock };
+
+  beforeEach(async () => {
+    prisma = {
+      tenantPackageAssignment: {
+        findMany: jest.fn(),
+        upsert: jest.fn(),
+      },
+      entitlement: {
+        findMany: jest.fn(),
+        upsert: jest.fn(),
+      },
+      integrationConnection: {
+        findMany: jest.fn(),
+      },
+    };
+
+    actorContext = {
+      resolve: jest.fn(),
+    };
+
+    accessPolicy = {
+      resolveAndRequire: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EntitlementsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ActorContextService, useValue: actorContext },
+        { provide: AccessPolicyService, useValue: accessPolicy },
+      ],
+    }).compile();
+
+    service = module.get<EntitlementsService>(EntitlementsService);
+  });
+
+  it('should expose workspace fallback to tenant assignment in current package state', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_1',
+        scopeKey: 'acme:tenant:default',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        billingSnapshot: null,
+        provisioningState: 'pending',
+        source: 'seed',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        id: 'ent_1',
+        key: 'feature.nexovaflow.automation',
+        kind: EntitlementKind.FEATURE,
+        value: 'enabled',
+        source: 'seed:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.getTenantPackageState({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+    });
+
+    expect(result.packageState.scope).toMatchObject({
+      requested: { scopeKey: 'acme:workspace:ops', scopeType: 'workspace' },
+      effective: { scopeKey: 'acme:tenant:default', scopeType: 'tenant' },
+      fallbackApplied: true,
+      entitlementBoundary: {
+        model: 'tenant-wide-entitlements',
+      },
+    });
+    expect(result.packageState.assignment).toMatchObject({
+      scopeKey: 'acme:tenant:default',
+      basePlanKey: 'core.growth',
+    });
+  });
+
+  it('should tag synced entitlements with assignment scope metadata', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.ADMIN },
+      },
+    });
+    prisma.tenantPackageAssignment.upsert.mockResolvedValue({
+      id: 'pkg_2',
+      scopeKey: 'acme:workspace:ops',
+      basePlanKey: 'core.growth',
+      selectedOptions: ['nexovaflow.automation'],
+      billingSnapshot: null,
+      provisioningState: 'pending',
+      source: 'aifut-admin',
+      createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-24T00:00:00.000Z'),
+    });
+    prisma.entitlement.upsert.mockResolvedValue({});
+
+    const result = await service.assignPackage({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      basePlanKey: 'core.growth',
+      selectedOptions: ['nexovaflow.automation'],
+      source: 'admin-ui',
+    });
+
+    expect(prisma.entitlement.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          source: 'admin-ui:acme:workspace:ops',
+        }),
+      }),
+    );
+    expect(result.scope).toMatchObject({
+      assignment: { scopeKey: 'acme:workspace:ops', scopeType: 'workspace' },
+      entitlementBoundary: {
+        workspaceScopedAssignment: true,
+      },
+    });
+    expect(result.entitlementSync.scope).toMatchObject({
+      assignment: { scopeKey: 'acme:workspace:ops' },
+      sourceTag: 'admin-ui:acme:workspace:ops',
+    });
+  });
+});

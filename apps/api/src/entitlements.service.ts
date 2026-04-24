@@ -33,6 +33,13 @@ type ConnectorCommercializationInput = {
   connectorKey?: string;
 };
 
+type ScopeDescriptor = {
+  scopeKey: string;
+  scopeType: 'tenant' | 'workspace';
+  workspaceSlug: string | null;
+  tenantSlug: string;
+};
+
 const PLAN_CATALOG = [
   {
     key: 'core.starter',
@@ -116,26 +123,17 @@ export class EntitlementsService {
     workspaceSlug?: string;
   }) {
     const context = await this.actorContext.resolve(input);
-    const scopeKey = this.buildScopeKey(
+    const requestedScope = this.describeScope(
       context.tenant.slug,
       context.activeWorkspace?.slug,
     );
 
-    const [assignment, entitlements, connections] = await Promise.all([
-      this.prisma.tenantPackageAssignment.findUnique({
-        where: { scopeKey },
-        select: {
-          id: true,
-          scopeKey: true,
-          basePlanKey: true,
-          selectedOptions: true,
-          billingSnapshot: true,
-          provisioningState: true,
-          source: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
+    const [assignmentResolution, entitlements, connections] = await Promise.all([
+      this.resolvePackageAssignmentForScope(
+        context.tenant.id,
+        context.tenant.slug,
+        context.activeWorkspace?.slug,
+      ),
       this.prisma.entitlement.findMany({
         where: {
           tenantId: context.tenant.id,
@@ -167,6 +165,8 @@ export class EntitlementsService {
         },
       }),
     ]);
+
+    const assignment = assignmentResolution.assignment;
 
     const activePlan = assignment
       ? PLAN_CATALOG.find((plan) => plan.key === assignment.basePlanKey) ?? null
@@ -216,7 +216,13 @@ export class EntitlementsService {
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       builder: {
-        scopeKey,
+        scope: {
+          requested: requestedScope,
+          effective: assignmentResolution.effectiveScope,
+          fallbackApplied: assignmentResolution.fallbackApplied,
+          entitlementBoundary: assignmentResolution.entitlementBoundary,
+        },
+        scopeKey: assignmentResolution.effectiveScope.scopeKey,
         activePlan,
         assignment,
         selectedOptions,
@@ -248,26 +254,17 @@ export class EntitlementsService {
     workspaceSlug?: string;
   }) {
     const context = await this.actorContext.resolve(input);
-    const scopeKey = this.buildScopeKey(
+    const requestedScope = this.describeScope(
       context.tenant.slug,
       context.activeWorkspace?.slug,
     );
 
-    const [assignment, entitlements] = await Promise.all([
-      this.prisma.tenantPackageAssignment.findUnique({
-        where: { scopeKey },
-        select: {
-          id: true,
-          scopeKey: true,
-          basePlanKey: true,
-          selectedOptions: true,
-          billingSnapshot: true,
-          provisioningState: true,
-          source: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
+    const [assignmentResolution, entitlements] = await Promise.all([
+      this.resolvePackageAssignmentForScope(
+        context.tenant.id,
+        context.tenant.slug,
+        context.activeWorkspace?.slug,
+      ),
       this.prisma.entitlement.findMany({
         where: {
           tenantId: context.tenant.id,
@@ -286,6 +283,8 @@ export class EntitlementsService {
       }),
     ]);
 
+    const assignment = assignmentResolution.assignment;
+
     const activeOptionKeys = entitlements
       .filter(
         (entitlement) =>
@@ -303,6 +302,12 @@ export class EntitlementsService {
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       packageState: {
+        scope: {
+          requested: requestedScope,
+          effective: assignmentResolution.effectiveScope,
+          fallbackApplied: assignmentResolution.fallbackApplied,
+          entitlementBoundary: assignmentResolution.entitlementBoundary,
+        },
         assignment,
         basePlan: assignment?.basePlanKey ?? 'operator-assigned',
         selectedOptions: assignment?.selectedOptions ?? [],
@@ -371,14 +376,14 @@ export class EntitlementsService {
       input.basePlanKey,
       input.selectedOptions,
     );
-    const scopeKey = this.buildScopeKey(
+    const assignmentScope = this.describeScope(
       context.tenant.slug,
       context.activeWorkspace?.slug,
     );
     const source = input.source?.trim() || 'aifut-admin';
 
     const assignment = await this.prisma.tenantPackageAssignment.upsert({
-      where: { scopeKey },
+      where: { scopeKey: assignmentScope.scopeKey },
       update: {
         basePlanKey: validated.plan.key,
         selectedOptions: validated.selectedOptions,
@@ -397,7 +402,7 @@ export class EntitlementsService {
       create: {
         tenantId: context.tenant.id,
         workspaceId: context.activeWorkspace?.id,
-        scopeKey,
+        scopeKey: assignmentScope.scopeKey,
         basePlanKey: validated.plan.key,
         selectedOptions: validated.selectedOptions,
         billingSnapshot: {
@@ -425,20 +430,23 @@ export class EntitlementsService {
       },
     });
 
-    const entitlementSync = await this.syncEntitlementsFromAssignment({
-      tenantId: context.tenant.id,
-      basePlanKey: validated.plan.key,
-      selectedOptions: validated.selectedOptions,
-      source,
-    });
-
     return {
       capability: 'entitlements',
       status: 'assigned',
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       assignment,
-      entitlementSync,
+      scope: {
+        assignment: assignmentScope,
+        entitlementBoundary: this.describeEntitlementBoundary(assignmentScope),
+      },
+      entitlementSync: await this.syncEntitlementsFromAssignment({
+        tenantId: context.tenant.id,
+        basePlanKey: validated.plan.key,
+        selectedOptions: validated.selectedOptions,
+        source,
+        scope: assignmentScope,
+      }),
       next: ['connect-price-book', 'run-downstream-provisioning', 'workspace-scope-entitlements'],
     };
   }
@@ -459,21 +467,17 @@ export class EntitlementsService {
         scope: 'tenant-admin',
       },
     );
-    const scopeKey = this.buildScopeKey(
+    const assignmentResolution = await this.resolvePackageAssignmentForScope(
+      context.tenant.id,
       context.tenant.slug,
       context.activeWorkspace?.slug,
     );
-    const assignment = await this.prisma.tenantPackageAssignment.findUnique({
-      where: { scopeKey },
-      select: {
-        id: true,
-        basePlanKey: true,
-        selectedOptions: true,
-      },
-    });
+    const assignment = assignmentResolution.assignment;
 
     if (!assignment) {
-      throw new NotFoundException(`Package assignment not found for scope: ${scopeKey}`);
+      throw new NotFoundException(
+        `Package assignment not found for scope: ${assignmentResolution.effectiveScope.scopeKey}`,
+      );
     }
 
     const entitlementSync = await this.syncEntitlementsFromAssignment({
@@ -481,6 +485,7 @@ export class EntitlementsService {
       basePlanKey: assignment.basePlanKey,
       selectedOptions: assignment.selectedOptions,
       source: input.source?.trim() || 'package-sync',
+      scope: assignmentResolution.effectiveScope,
     });
 
     return {
@@ -489,6 +494,15 @@ export class EntitlementsService {
       tenant: context.tenant,
       workspace: context.activeWorkspace,
       assignment,
+      scope: {
+        requested: this.describeScope(
+          context.tenant.slug,
+          context.activeWorkspace?.slug,
+        ),
+        effective: assignmentResolution.effectiveScope,
+        fallbackApplied: assignmentResolution.fallbackApplied,
+        entitlementBoundary: assignmentResolution.entitlementBoundary,
+      },
       entitlementSync,
       next: ['price-book-linkage', 'downstream-provisioning-reconciliation'],
     };
@@ -507,30 +521,12 @@ export class EntitlementsService {
       option.dependencyKeys.some((dependencyKey) => dependencyKey === connectorDependencyKey),
     );
 
-    const [assignment, entitlements, connections] = await Promise.all([
-      this.prisma.tenantPackageAssignment.findFirst({
-        where: {
-          tenantId: context.tenant.id,
-          ...(context.activeWorkspace
-            ? {
-                OR: [
-                  { workspaceId: context.activeWorkspace.id },
-                  { workspaceId: null },
-                ],
-              }
-            : {}),
-        },
-        orderBy: [{ updatedAt: 'desc' }],
-        select: {
-          id: true,
-          scopeKey: true,
-          basePlanKey: true,
-          selectedOptions: true,
-          billingSnapshot: true,
-          provisioningState: true,
-          updatedAt: true,
-        },
-      }),
+    const [assignmentResolution, entitlements, connections] = await Promise.all([
+      this.resolvePackageAssignmentForScope(
+        context.tenant.id,
+        context.tenant.slug,
+        context.activeWorkspace?.slug,
+      ),
       this.prisma.entitlement.findMany({
         where: {
           tenantId: context.tenant.id,
@@ -572,6 +568,8 @@ export class EntitlementsService {
       }),
     ]);
 
+    const assignment = assignmentResolution.assignment;
+
     return {
       capability: 'entitlements',
       status: 'resolved',
@@ -586,6 +584,15 @@ export class EntitlementsService {
         connections,
       },
       commercialization: {
+        scope: {
+          requested: this.describeScope(
+            context.tenant.slug,
+            context.activeWorkspace?.slug,
+          ),
+          effective: assignmentResolution.effectiveScope,
+          fallbackApplied: assignmentResolution.fallbackApplied,
+          entitlementBoundary: assignmentResolution.entitlementBoundary,
+        },
         assignment,
         options: matchingOptions.map((option) => {
           const entitlement = entitlements.find(
@@ -674,9 +681,11 @@ export class EntitlementsService {
     basePlanKey: string;
     selectedOptions: string[];
     source: string;
+    scope: ScopeDescriptor;
   }) {
     const basePlanEntitlementKey = 'package.base-plan';
     const featureKeys = PACKAGE_OPTIONS_CATALOG.map((option) => option.entitlementKey);
+    const scopedSource = `${input.source}:${input.scope.scopeKey}`;
 
     await this.prisma.entitlement.upsert({
       where: {
@@ -688,7 +697,7 @@ export class EntitlementsService {
       update: {
         kind: EntitlementKind.FEATURE,
         value: input.basePlanKey,
-        source: input.source,
+        source: scopedSource,
         endsAt: null,
       },
       create: {
@@ -696,7 +705,7 @@ export class EntitlementsService {
         key: basePlanEntitlementKey,
         kind: EntitlementKind.FEATURE,
         value: input.basePlanKey,
-        source: input.source,
+        source: scopedSource,
       },
     });
 
@@ -720,7 +729,7 @@ export class EntitlementsService {
           update: {
             kind: EntitlementKind.FEATURE,
             value: enabled ? 'enabled' : 'disabled',
-            source: input.source,
+            source: scopedSource,
             endsAt: enabled ? null : now,
           },
           create: {
@@ -728,7 +737,7 @@ export class EntitlementsService {
             key: featureKey,
             kind: EntitlementKind.FEATURE,
             value: enabled ? 'enabled' : 'disabled',
-            source: input.source,
+            source: scopedSource,
             endsAt: enabled ? null : now,
           },
         });
@@ -736,6 +745,11 @@ export class EntitlementsService {
     );
 
     return {
+      scope: {
+        assignment: input.scope,
+        entitlementBoundary: this.describeEntitlementBoundary(input.scope),
+        sourceTag: scopedSource,
+      },
       basePlanEntitlementKey,
       selectedFeatureKeys,
       disabledFeatureKeys: featureKeys.filter(
@@ -796,5 +810,78 @@ export class EntitlementsService {
     return workspaceSlug
       ? `${tenantSlug}:workspace:${workspaceSlug}`
       : `${tenantSlug}:tenant:default`;
+  }
+
+  private describeScope(tenantSlug: string, workspaceSlug?: string | null): ScopeDescriptor {
+    return {
+      scopeKey: this.buildScopeKey(tenantSlug, workspaceSlug),
+      scopeType: workspaceSlug ? 'workspace' : 'tenant',
+      workspaceSlug: workspaceSlug ?? null,
+      tenantSlug,
+    };
+  }
+
+  private describeEntitlementBoundary(scope: ScopeDescriptor) {
+    return {
+      model: 'tenant-wide-entitlements',
+      assignmentScope: scope.scopeType,
+      assignmentScopeKey: scope.scopeKey,
+      workspaceScopedAssignment: scope.scopeType === 'workspace',
+      note:
+        scope.scopeType === 'workspace'
+          ? 'Workspace-scoped package selection is recorded separately, but current entitlement records remain tenant-wide and must be interpreted with the attached scope metadata.'
+          : 'Tenant-scoped package selection and entitlement records are aligned at the tenant boundary.',
+    };
+  }
+
+  private async resolvePackageAssignmentForScope(
+    tenantId: string,
+    tenantSlug: string,
+    workspaceSlug?: string | null,
+  ) {
+    const requestedScope = this.describeScope(tenantSlug, workspaceSlug);
+    const fallbackScope = this.describeScope(tenantSlug);
+    const scopeKeys = requestedScope.scopeType === 'workspace'
+      ? [requestedScope.scopeKey, fallbackScope.scopeKey]
+      : [requestedScope.scopeKey];
+
+    const assignments = await this.prisma.tenantPackageAssignment.findMany({
+      where: {
+        tenantId,
+        scopeKey: { in: scopeKeys },
+      },
+      select: {
+        id: true,
+        scopeKey: true,
+        basePlanKey: true,
+        selectedOptions: true,
+        billingSnapshot: true,
+        provisioningState: true,
+        source: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const assignment = assignments.find(
+      (candidate) => candidate.scopeKey === requestedScope.scopeKey,
+    ) ?? assignments.find((candidate) => candidate.scopeKey === fallbackScope.scopeKey) ?? null;
+
+    const effectiveScope = assignment
+      ? assignment.scopeKey === fallbackScope.scopeKey
+        ? fallbackScope
+        : requestedScope
+      : requestedScope;
+
+    return {
+      assignment,
+      requestedScope,
+      effectiveScope,
+      fallbackApplied:
+        Boolean(assignment) &&
+        requestedScope.scopeType === 'workspace' &&
+        effectiveScope.scopeKey !== requestedScope.scopeKey,
+      entitlementBoundary: this.describeEntitlementBoundary(effectiveScope),
+    };
   }
 }
