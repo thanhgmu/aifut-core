@@ -55,6 +55,16 @@ type AcknowledgeHealthAlertInput = {
   note?: string;
 };
 
+type SuppressHealthAlertInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  note?: string;
+  durationMinutes?: number;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -726,6 +736,9 @@ export class ConnectionInstancesService {
         : null;
     const recoveryStreak = this.calculateRecoveryStreak(normalizedTimeline);
     const cooldown = this.calculateCooldownWindow(normalizedTimeline);
+    const suppression = this.resolveSuppression(platform.alertSuppression);
+    const alertCandidate =
+      repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
 
     return {
       capability: 'integrations',
@@ -752,8 +765,8 @@ export class ConnectionInstancesService {
           repeatedFailures: 3,
         },
         cooldown,
-        shouldAlertOperator:
-          repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup',
+        suppression,
+        shouldAlertOperator: alertCandidate && !suppression.active,
       },
       healthTimeline: timeline,
       next: ['monitor-repeat-failures', 'add-operator-alert-thresholds'],
@@ -873,6 +886,137 @@ export class ConnectionInstancesService {
         note: input.note?.trim() || null,
       },
       next: ['monitor-recovery', 'optionally-suppress-alerts'],
+    };
+  }
+
+  async suppressHealthAlert(input: SuppressHealthAlertInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const durationMinutes = Number(input.durationMinutes ?? 60);
+
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      throw new BadRequestException('durationMinutes must be greater than 0.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const suppressedAt = new Date();
+    const suppressedUntil = new Date(
+      suppressedAt.getTime() + durationMinutes * 60 * 1000,
+    ).toISOString();
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            alertSuppression: {
+              active: true,
+              suppressedAt: suppressedAt.toISOString(),
+              suppressedUntil,
+              suppressedBy: context.user.email,
+              note: input.note?.trim() || null,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'suppression',
+              status: 'suppressed',
+              at: suppressedAt.toISOString(),
+              actor: context.user.email,
+              detail: {
+                note: input.note?.trim() || null,
+                durationMinutes,
+                suppressedUntil,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-suppression',
+      status: 'suppressed',
+      connection: updated,
+      suppression: {
+        active: true,
+        suppressedUntil,
+        suppressedBy: context.user.email,
+        note: input.note?.trim() || null,
+        durationMinutes,
+      },
+      next: ['monitor-recovery', 'lift-suppression-when-safe'],
     };
   }
 
@@ -1050,6 +1194,34 @@ export class ConnectionInstancesService {
       active,
       reason: active ? 'recent-verification-failure' : null,
       until: active ? cooldownUntil.toISOString() : null,
+    };
+  }
+
+  private resolveSuppression(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {
+        active: false,
+        suppressedUntil: null,
+        suppressedBy: null,
+        note: null,
+      };
+    }
+
+    const record = value as Record<string, unknown>;
+    const suppressedUntil =
+      typeof record.suppressedUntil === 'string' ? record.suppressedUntil : null;
+    const until = suppressedUntil ? new Date(suppressedUntil) : null;
+    const active = Boolean(
+      suppressedUntil && until && !Number.isNaN(until.getTime()) && until.getTime() > Date.now(),
+    );
+
+    return {
+      active,
+      suppressedUntil: active ? suppressedUntil : null,
+      suppressedBy: active && typeof record.suppressedBy === 'string'
+        ? record.suppressedBy
+        : null,
+      note: active && typeof record.note === 'string' ? record.note : null,
     };
   }
 }

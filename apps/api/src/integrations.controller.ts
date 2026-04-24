@@ -448,6 +448,38 @@ export class IntegrationsController {
     });
   }
 
+  @Post('connections/suppress-health-alert')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  suppressConnectionHealthAlert(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      workspaceSlug?: string;
+      userEmail?: string;
+      hostname?: string;
+      connectionSlug?: string;
+      note?: string;
+      durationMinutes?: number;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+  ) {
+    return this.connectionInstances.suppressHealthAlert({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      userEmail: userEmailHeader ?? body.userEmail,
+      hostname: forwardedHostHeader ?? hostHeader ?? body.hostname,
+    });
+  }
+
   @Get('setup-blueprint')
   setupBlueprint(@Query('connectorKey') connectorKey?: string) {
     return {
