@@ -159,4 +159,63 @@ describe('ConnectionInstancesService', () => {
       }),
     );
   });
+
+  it('should return stored connection health timeline entries', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValue({
+      id: 'conn_3',
+      name: 'NexovaFlow Main',
+      slug: 'nexovaflow-main',
+      provider: 'nexovaflow',
+      status: 'ACTIVE',
+      lastVerifiedAt: new Date('2026-04-24T09:05:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          verification: {
+            checkedAt: '2026-04-24T09:05:00.000Z',
+            checkedBy: 'ops@acme.test',
+            mode: 'operator-check',
+            passed: true,
+          },
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'verified',
+              at: '2026-04-24T09:05:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'nexovaflow-main',
+    });
+
+    expect(result).toMatchObject({
+      surface: 'connection-health-timeline',
+      status: 'resolved',
+      latestVerification: {
+        checkedBy: 'ops@acme.test',
+        mode: 'operator-check',
+      },
+    });
+    expect(Array.isArray(result.healthTimeline)).toBe(true);
+    expect(result.healthTimeline[0]).toMatchObject({
+      type: 'verification',
+      status: 'verified',
+    });
+  });
 });

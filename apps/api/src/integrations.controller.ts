@@ -390,6 +390,33 @@ export class IntegrationsController {
     });
   }
 
+  @Get('connections/health-timeline')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  connectionHealthTimeline(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('connectionSlug') connectionSlug?: string,
+  ) {
+    return this.connectionInstances.getConnectionHealthTimeline({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      connectionSlug,
+    });
+  }
+
   @Get('setup-blueprint')
   setupBlueprint(@Query('connectorKey') connectorKey?: string) {
     return {

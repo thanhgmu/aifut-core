@@ -38,6 +38,14 @@ type VerifyConnectionInput = {
   verificationNotes?: string;
 };
 
+type ConnectionHealthTimelineInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -537,6 +545,18 @@ export class ConnectionInstancesService {
       config._platform && typeof config._platform === 'object'
         ? { ...(config._platform as Record<string, unknown>) }
         : {};
+    const verificationRecord = {
+      checkedAt: timestamp.toISOString(),
+      checkedBy: context.user.email,
+      mode: verificationMode,
+      notes: input.verificationNotes?.trim() || null,
+      passed,
+      checks: checks.map((check) => ({
+        key: check.key,
+        passed: check.passed,
+        detail: check.detail,
+      })),
+    };
 
     const updated = await this.prisma.integrationConnection.update({
       where: { id: connection.id },
@@ -547,18 +567,18 @@ export class ConnectionInstancesService {
           ...config,
           _platform: {
             ...platform,
-            verification: {
-              checkedAt: timestamp.toISOString(),
-              checkedBy: context.user.email,
-              mode: verificationMode,
-              notes: input.verificationNotes?.trim() || null,
-              passed,
-              checks: checks.map((check) => ({
-                key: check.key,
-                passed: check.passed,
-                detail: check.detail,
-              })),
-            },
+            verification: verificationRecord,
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'verification',
+              status: passed ? 'verified' : 'needs-setup',
+              at: verificationRecord.checkedAt,
+              actor: context.user.email,
+              detail: {
+                mode: verificationMode,
+                notes: verificationRecord.notes,
+                checks: verificationRecord.checks,
+              },
+            }),
           },
         }),
       },
@@ -594,6 +614,93 @@ export class ConnectionInstancesService {
       next: passed
         ? ['activate-or-monitor-connection', 'start-health-history']
         : ['attach-credentials', 'declare-endpoint', 'complete-mapping'],
+    };
+  }
+
+  async getConnectionHealthTimeline(input: ConnectionHealthTimelineInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        lastVerifiedAt: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? (connection.config as Record<string, unknown>)
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? (config._platform as Record<string, unknown>)
+        : {};
+    const timeline = Array.isArray(platform.healthTimeline)
+      ? platform.healthTimeline
+      : [];
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-timeline',
+      status: 'resolved',
+      connection: {
+        id: connection.id,
+        name: connection.name,
+        slug: connection.slug,
+        provider: connection.provider,
+        status: connection.status,
+        lastVerifiedAt: connection.lastVerifiedAt,
+        workspace: connection.workspace,
+      },
+      latestVerification:
+        platform.verification && typeof platform.verification === 'object'
+          ? platform.verification
+          : null,
+      healthTimeline: timeline,
+      next: ['monitor-repeat-failures', 'add-operator-alert-thresholds'],
     };
   }
 
@@ -711,5 +818,16 @@ export class ConnectionInstancesService {
       default:
         return 'OTHER';
     }
+  }
+
+  private appendTimelineEntry(existing: unknown, entry: Record<string, unknown>) {
+    const timeline = Array.isArray(existing)
+      ? existing.filter(
+          (candidate): candidate is Record<string, unknown> =>
+            Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate),
+        )
+      : [];
+
+    return [...timeline.slice(-9), entry];
   }
 }

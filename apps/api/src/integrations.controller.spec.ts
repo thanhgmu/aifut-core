@@ -19,7 +19,10 @@ describe('IntegrationsController', () => {
     getDomainRoutingPolicy: jest.Mock;
   };
   let storageRoutingPolicy: { getEffectivePolicy: jest.Mock };
-  let connectionInstances: { listTenantConnections: jest.Mock };
+  let connectionInstances: {
+    listTenantConnections: jest.Mock;
+    getConnectionHealthTimeline: jest.Mock;
+  };
   let integrationSetup: { buildSetupSession: jest.Mock };
 
   beforeEach(async () => {
@@ -34,6 +37,7 @@ describe('IntegrationsController', () => {
 
     connectionInstances = {
       listTenantConnections: jest.fn(),
+      getConnectionHealthTimeline: jest.fn(),
     };
 
     integrationSetup = {
@@ -159,6 +163,38 @@ describe('IntegrationsController', () => {
     expect(result).toMatchObject({
       connectorKey: 'nexovaflow',
       storagePolicyKey: 'assets',
+    });
+  });
+
+  it('should return connection health timeline for operator surfaces', async () => {
+    connectionInstances.getConnectionHealthTimeline.mockResolvedValue({
+      surface: 'connection-health-timeline',
+      healthTimeline: [{ type: 'verification', status: 'verified' }],
+    });
+
+    const result = await controller.connectionHealthTimeline(
+      'acme',
+      'ops',
+      'ops@acme.test',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'nexovaflow-main',
+    );
+
+    expect(connectionInstances.getConnectionHealthTimeline).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      hostname: 'ops.acme.test',
+      connectionSlug: 'nexovaflow-main',
+    });
+    expect(result).toMatchObject({
+      surface: 'connection-health-timeline',
+      healthTimeline: [{ type: 'verification', status: 'verified' }],
     });
   });
 });
