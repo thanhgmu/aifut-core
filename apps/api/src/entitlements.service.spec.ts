@@ -78,6 +78,18 @@ describe('EntitlementsService', () => {
         startsAt: null,
         endsAt: null,
         createdAt: new Date('2026-04-24T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T00:01:00.000Z'),
+      },
+      {
+        id: 'ent_2',
+        key: 'package.base-plan',
+        kind: EntitlementKind.FEATURE,
+        value: 'core.growth',
+        source: 'seed:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T00:01:00.000Z'),
       },
     ]);
 
@@ -98,6 +110,29 @@ describe('EntitlementsService', () => {
     expect(result.packageState.assignment).toMatchObject({
       scopeKey: 'acme:tenant:default',
       basePlanKey: 'core.growth',
+    });
+    expect(result.packageState.entitlementSyncSummary).toMatchObject({
+      requestedScope: { scopeKey: 'acme:workspace:ops' },
+      effectiveScope: { scopeKey: 'acme:tenant:default' },
+      fallbackApplied: true,
+      counts: {
+        requestedScopeSourceMatches: 0,
+        effectiveScopeSourceMatches: 2,
+      },
+      basePlanEntitlement: {
+        key: 'package.base-plan',
+        value: 'core.growth',
+        source: 'seed:acme:tenant:default',
+        scopeAligned: true,
+      },
+      optionAudit: expect.arrayContaining([
+        expect.objectContaining({
+          optionKey: 'nexovaflow.automation',
+          value: 'enabled',
+          source: 'seed:acme:tenant:default',
+          scopeAligned: true,
+        }),
+      ]),
     });
   });
 

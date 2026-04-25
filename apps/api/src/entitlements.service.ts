@@ -279,6 +279,7 @@ export class EntitlementsService {
           startsAt: true,
           endsAt: true,
           createdAt: true,
+          updatedAt: true,
         },
       }),
     ]);
@@ -313,6 +314,12 @@ export class EntitlementsService {
         selectedOptions: assignment?.selectedOptions ?? [],
         activeOptionEntitlements: activeOptionKeys,
         entitlementCount: entitlements.length,
+        entitlementSyncSummary: this.describeEntitlementSyncSummary({
+          requestedScope,
+          effectiveScope: assignmentResolution.effectiveScope,
+          fallbackApplied: assignmentResolution.fallbackApplied,
+          entitlements,
+        }),
       },
       entitlements,
       next: ['price-book-linkage', 'workspace-scope-overrides', 'entitlement-sync-from-assignment'],
@@ -831,6 +838,67 @@ export class EntitlementsService {
         scope.scopeType === 'workspace'
           ? 'Workspace-scoped package selection is recorded separately, but current entitlement records remain tenant-wide and must be interpreted with the attached scope metadata.'
           : 'Tenant-scoped package selection and entitlement records are aligned at the tenant boundary.',
+    };
+  }
+
+  private describeEntitlementSyncSummary(input: {
+    requestedScope: ScopeDescriptor;
+    effectiveScope: ScopeDescriptor;
+    fallbackApplied: boolean;
+    entitlements: Array<{
+      key: string;
+      value: string;
+      source: string | null;
+      updatedAt?: Date | null;
+    }>;
+  }) {
+    const requestedScopeSuffix = `:${input.requestedScope.scopeKey}`;
+    const effectiveScopeSuffix = `:${input.effectiveScope.scopeKey}`;
+    const requestedScopeMatches = input.entitlements.filter((entitlement) =>
+      entitlement.source?.endsWith(requestedScopeSuffix),
+    );
+    const effectiveScopeMatches = input.entitlements.filter((entitlement) =>
+      entitlement.source?.endsWith(effectiveScopeSuffix),
+    );
+    const basePlanEntitlement = input.entitlements.find(
+      (entitlement) => entitlement.key === 'package.base-plan',
+    );
+
+    return {
+      requestedScope: input.requestedScope,
+      effectiveScope: input.effectiveScope,
+      fallbackApplied: input.fallbackApplied,
+      counts: {
+        requestedScopeSourceMatches: requestedScopeMatches.length,
+        effectiveScopeSourceMatches: effectiveScopeMatches.length,
+      },
+      basePlanEntitlement: basePlanEntitlement
+        ? {
+            key: basePlanEntitlement.key,
+            value: basePlanEntitlement.value,
+            source: basePlanEntitlement.source,
+            scopeAligned: Boolean(
+              basePlanEntitlement.source?.endsWith(effectiveScopeSuffix),
+            ),
+            updatedAt: basePlanEntitlement.updatedAt ?? null,
+          }
+        : null,
+      optionAudit: PACKAGE_OPTIONS_CATALOG.map((option) => {
+        const entitlement = input.entitlements.find(
+          (candidate) => candidate.key === option.entitlementKey,
+        );
+
+        return {
+          optionKey: option.key,
+          entitlementKey: option.entitlementKey,
+          value: entitlement?.value ?? null,
+          source: entitlement?.source ?? null,
+          scopeAligned: Boolean(
+            entitlement?.source?.endsWith(effectiveScopeSuffix),
+          ),
+          updatedAt: entitlement?.updatedAt ?? null,
+        };
+      }),
     };
   }
 
