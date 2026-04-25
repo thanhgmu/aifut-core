@@ -19,6 +19,7 @@ describe('IntegrationsController', () => {
     getDomainRoutingPolicy: jest.Mock;
   };
   let storageRoutingPolicy: { getEffectivePolicy: jest.Mock };
+  let integrationControlPlane: { summarizeTenantControlPlane: jest.Mock };
   let connectionInstances: {
     listTenantConnections: jest.Mock;
     getConnectionHealthTimeline: jest.Mock;
@@ -43,6 +44,10 @@ describe('IntegrationsController', () => {
 
     storageRoutingPolicy = {
       getEffectivePolicy: jest.fn(),
+    };
+
+    integrationControlPlane = {
+      summarizeTenantControlPlane: jest.fn(),
     };
 
     connectionInstances = {
@@ -75,7 +80,7 @@ describe('IntegrationsController', () => {
         { provide: ConnectionInstancesService, useValue: connectionInstances },
         { provide: CredentialReferencesService, useValue: { getBlueprint: jest.fn(), previewReference: jest.fn() } },
         { provide: StorageRoutingPolicyService, useValue: storageRoutingPolicy },
-        { provide: IntegrationControlPlaneService, useValue: { summarizeTenantControlPlane: jest.fn() } },
+        { provide: IntegrationControlPlaneService, useValue: integrationControlPlane },
         { provide: IntegrationSetupService, useValue: integrationSetup },
         { provide: IntegrationDiagnosticsService, useValue: integrationDiagnostics },
         { provide: IntegrationAiDraftingService, useValue: { draftFromNaturalLanguage: jest.fn() } },
@@ -222,10 +227,74 @@ describe('IntegrationsController', () => {
     });
   });
 
+  it('should forward control-plane routing and preserve commercialization summary fields', async () => {
+    integrationControlPlane.summarizeTenantControlPlane.mockResolvedValue({
+      capability: 'integrations',
+      surface: 'control-plane',
+      controlPlane: {
+        commercialization: {
+          packageAssignmentScope: {
+            requestedScopeKey: 'acme:workspace:ops',
+            effectiveScopeKey: 'acme:tenant:default',
+            fallbackApplied: true,
+          },
+          nexovaflowAutomation: {
+            packageSelected: true,
+            entitlementEnabled: true,
+          },
+        },
+      },
+    });
+
+    const result = await controller.controlPlane(
+      'acme-header',
+      'ops-header',
+      'ops@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+      'acme-query',
+      'ops-query',
+      'query@acme.test',
+      'query.acme.test',
+    );
+
+    expect(integrationControlPlane.summarizeTenantControlPlane).toHaveBeenCalledWith({
+      tenantSlug: 'acme-header',
+      workspaceSlug: 'ops-header',
+      userEmail: 'ops@acme.test',
+      hostname: 'forwarded.acme.test',
+    });
+    expect(result).toMatchObject({
+      surface: 'control-plane',
+      controlPlane: {
+        commercialization: {
+          packageAssignmentScope: {
+            effectiveScopeKey: 'acme:tenant:default',
+          },
+          nexovaflowAutomation: {
+            packageSelected: true,
+            entitlementEnabled: true,
+          },
+        },
+      },
+    });
+  });
+
   it('should forward diagnostics routing with header precedence over query params', async () => {
     integrationDiagnostics.diagnose.mockResolvedValue({
       capability: 'integrations',
-      diagnostics: [],
+      diagnostics: [
+        {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageSelected: true,
+            entitlementEnabled: true,
+          },
+        },
+      ],
     });
 
     const result = await controller.diagnostics(
@@ -243,7 +312,21 @@ describe('IntegrationsController', () => {
       connectionSlug: 'n8n-main',
       connectorKey: 'n8n',
     });
-    expect(result).toMatchObject({ capability: 'integrations' });
+    expect(result).toMatchObject({
+      capability: 'integrations',
+      diagnostics: [
+        {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageSelected: true,
+            entitlementEnabled: true,
+          },
+        },
+      ],
+    });
   });
 
   it('should route workflow setup draft payload with header tenant/workspace precedence', async () => {
