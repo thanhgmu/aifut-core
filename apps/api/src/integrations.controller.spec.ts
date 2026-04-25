@@ -25,6 +25,7 @@ describe('IntegrationsController', () => {
     assignHealthFollowUp: jest.Mock;
     recordFollowUpNotification: jest.Mock;
     updateFollowUpState: jest.Mock;
+    updateAlertThresholds: jest.Mock;
   };
   let integrationSetup: { buildSetupSession: jest.Mock };
   let integrationDiagnostics: { diagnose: jest.Mock };
@@ -50,6 +51,7 @@ describe('IntegrationsController', () => {
       assignHealthFollowUp: jest.fn(),
       recordFollowUpNotification: jest.fn(),
       updateFollowUpState: jest.fn(),
+      updateAlertThresholds: jest.fn(),
     };
 
     integrationSetup = {
@@ -442,5 +444,44 @@ describe('IntegrationsController', () => {
       note: 'Assignee started triage.',
     });
     expect(result).toMatchObject({ status: 'follow-up-in-progress' });
+  });
+
+  it('should route alert threshold updates with header and forwarded-host precedence', async () => {
+    connectionInstances.updateAlertThresholds.mockResolvedValue({
+      surface: 'connection-health-alert-thresholds',
+      status: 'alert-thresholds-updated',
+    });
+
+    const result = await controller.updateConnectionHealthAlertThresholds(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        userEmail: 'body@acme.test',
+        hostname: 'body.acme.test',
+        connectionSlug: 'n8n-main',
+        immediateFailures: 2,
+        repeatedFailures: 4,
+        cooldownMinutes: 30,
+        note: 'Reduce noisy first-failure paging.',
+      },
+      'header-tenant',
+      'header-workspace',
+      'header@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+    );
+
+    expect(connectionInstances.updateAlertThresholds).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      userEmail: 'header@acme.test',
+      hostname: 'forwarded.acme.test',
+      connectionSlug: 'n8n-main',
+      immediateFailures: 2,
+      repeatedFailures: 4,
+      cooldownMinutes: 30,
+      note: 'Reduce noisy first-failure paging.',
+    });
+    expect(result).toMatchObject({ status: 'alert-thresholds-updated' });
   });
 });

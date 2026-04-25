@@ -114,6 +114,18 @@ type UpdateFollowUpStateInput = {
   note?: string;
 };
 
+type UpdateAlertThresholdsInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  immediateFailures?: number;
+  repeatedFailures?: number;
+  cooldownMinutes?: number;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -784,7 +796,11 @@ export class ConnectionInstancesService {
         ? (timeline[timeline.length - 1] as Record<string, unknown>)
         : null;
     const recoveryStreak = this.calculateRecoveryStreak(normalizedTimeline);
-    const cooldown = this.calculateCooldownWindow(normalizedTimeline);
+    const alertThresholds = this.resolveAlertThresholds(platform.alertThresholds);
+    const cooldown = this.calculateCooldownWindow(
+      normalizedTimeline,
+      alertThresholds.cooldownMinutes,
+    );
     const suppression = this.resolveSuppression(platform.alertSuppression);
     const recoveryNote = this.resolveRecoveryNote(platform.recoveryNote);
     const followUpAssignment = this.resolveFollowUpAssignment(
@@ -794,8 +810,11 @@ export class ConnectionInstancesService {
       platform.followUpNotification,
     );
     const followUpState = this.resolveFollowUpState(platform.followUpState);
-    const alertCandidate =
-      repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
+    const latestNeedsSetup = latestTimelineEntry?.status === 'needs-setup';
+    const shouldAlertOperator =
+      latestNeedsSetup && repeatFailureCount >= alertThresholds.immediateFailures;
+    const shouldEscalateOperator =
+      latestNeedsSetup && repeatFailureCount >= alertThresholds.repeatedFailures;
 
     return {
       capability: 'integrations',
@@ -818,19 +837,166 @@ export class ConnectionInstancesService {
         latestStatus: latestTimelineEntry?.status ?? null,
         repeatFailureCount,
         recoveryStreak,
-        alertThresholds: {
-          repeatedFailures: 3,
-        },
+        alertThresholds,
         cooldown,
         suppression,
         recoveryNote,
         followUpAssignment,
         followUpNotification,
         followUpState,
-        shouldAlertOperator: alertCandidate && !suppression.active,
+        shouldAlertOperator: shouldAlertOperator && !suppression.active,
+        shouldEscalateOperator: shouldEscalateOperator && !suppression.active,
       },
       healthTimeline: timeline,
-      next: ['monitor-repeat-failures', 'add-operator-alert-thresholds'],
+      next: ['monitor-repeat-failures', 'tune-operator-alert-thresholds'],
+    };
+  }
+
+  async updateAlertThresholds(input: UpdateAlertThresholdsInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    const providedThresholds = {
+      immediateFailures: input.immediateFailures,
+      repeatedFailures: input.repeatedFailures,
+      cooldownMinutes: input.cooldownMinutes,
+    };
+
+    if (
+      providedThresholds.immediateFailures === undefined &&
+      providedThresholds.repeatedFailures === undefined &&
+      providedThresholds.cooldownMinutes === undefined
+    ) {
+      throw new BadRequestException(
+        'Provide at least one alert threshold to update.',
+      );
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const currentThresholds = this.resolveAlertThresholds(platform.alertThresholds);
+    const nextThresholds = this.resolveAlertThresholds({
+      ...currentThresholds,
+      ...providedThresholds,
+    });
+
+    if (nextThresholds.repeatedFailures < nextThresholds.immediateFailures) {
+      throw new BadRequestException(
+        'repeatedFailures must be greater than or equal to immediateFailures.',
+      );
+    }
+
+    const updatedAt = new Date().toISOString();
+    const note = input.note?.trim() || null;
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            alertThresholds: {
+              ...nextThresholds,
+              updatedAt,
+              updatedBy: context.user.email,
+              note,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'alert-thresholds',
+              status: 'alert-thresholds-updated',
+              at: updatedAt,
+              actor: context.user.email,
+              detail: {
+                ...nextThresholds,
+                note,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-alert-thresholds',
+      status: 'alert-thresholds-updated',
+      connection: updated,
+      alertThresholds: {
+        ...nextThresholds,
+        updatedAt,
+        updatedBy: context.user.email,
+        note,
+      },
+      next: ['monitor-alert-noise', 'verify-threshold-behavior'],
     };
   }
 
@@ -1866,7 +2032,10 @@ export class ConnectionInstancesService {
     return streak;
   }
 
-  private calculateCooldownWindow(timeline: Record<string, unknown>[]) {
+  private calculateCooldownWindow(
+    timeline: Record<string, unknown>[],
+    cooldownMinutes = 15,
+  ) {
     const latestFailure = [...timeline]
       .reverse()
       .find((entry) => entry.status === 'needs-setup');
@@ -1889,7 +2058,9 @@ export class ConnectionInstancesService {
       };
     }
 
-    const cooldownUntil = new Date(failedAt.getTime() + 15 * 60 * 1000);
+    const cooldownUntil = new Date(
+      failedAt.getTime() + cooldownMinutes * 60 * 1000,
+    );
     const active = cooldownUntil.getTime() > Date.now();
 
     return {
@@ -1993,6 +2164,44 @@ export class ConnectionInstancesService {
       updatedBy:
         typeof record.updatedBy === 'string' ? record.updatedBy : null,
       note: typeof record.note === 'string' ? record.note : null,
+    };
+  }
+
+  private resolveAlertThresholds(value: unknown) {
+    const defaults = {
+      immediateFailures: 1,
+      repeatedFailures: 3,
+      cooldownMinutes: 15,
+    };
+
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return defaults;
+    }
+
+    const record = value as Record<string, unknown>;
+    const immediateFailures =
+      typeof record.immediateFailures === 'number' &&
+      Number.isInteger(record.immediateFailures) &&
+      record.immediateFailures >= 1
+        ? record.immediateFailures
+        : defaults.immediateFailures;
+    const repeatedFailures =
+      typeof record.repeatedFailures === 'number' &&
+      Number.isInteger(record.repeatedFailures) &&
+      record.repeatedFailures >= immediateFailures
+        ? record.repeatedFailures
+        : Math.max(defaults.repeatedFailures, immediateFailures);
+    const cooldownMinutes =
+      typeof record.cooldownMinutes === 'number' &&
+      Number.isInteger(record.cooldownMinutes) &&
+      record.cooldownMinutes >= 0
+        ? record.cooldownMinutes
+        : defaults.cooldownMinutes;
+
+    return {
+      immediateFailures,
+      repeatedFailures,
+      cooldownMinutes,
     };
   }
 }

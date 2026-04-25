@@ -323,7 +323,13 @@ describe('ConnectionInstancesService', () => {
         latestStatus: 'verified',
         repeatFailureCount: 1,
         recoveryStreak: 1,
+        alertThresholds: {
+          immediateFailures: 1,
+          repeatedFailures: 3,
+          cooldownMinutes: 15,
+        },
         shouldAlertOperator: false,
+        shouldEscalateOperator: false,
         cooldown: {
           active: false,
         },
@@ -482,7 +488,150 @@ describe('ConnectionInstancesService', () => {
       latestStatus: 'needs-setup',
       repeatFailureCount: 2,
       recoveryStreak: 0,
+      alertThresholds: {
+        immediateFailures: 1,
+        repeatedFailures: 3,
+        cooldownMinutes: 15,
+      },
       shouldAlertOperator: true,
+      shouldEscalateOperator: false,
+      cooldown: {
+        active: true,
+        reason: 'recent-verification-failure',
+      },
+    });
+  });
+
+  it('should update alert thresholds and use them in health summary evaluation', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_5b',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T10:00:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_5b',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const thresholdResult = await service.updateAlertThresholds({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      immediateFailures: 2,
+      repeatedFailures: 4,
+      cooldownMinutes: 30,
+      note: 'Reduce noisy first-failure paging.',
+    });
+
+    expect(thresholdResult).toMatchObject({
+      surface: 'connection-health-alert-thresholds',
+      status: 'alert-thresholds-updated',
+      alertThresholds: {
+        immediateFailures: 2,
+        repeatedFailures: 4,
+        cooldownMinutes: 30,
+        updatedBy: 'ops@acme.test',
+        note: 'Reduce noisy first-failure paging.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'alert-thresholds',
+                  status: 'alert-thresholds-updated',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_5b',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T10:05:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          alertThresholds: {
+            immediateFailures: 2,
+            repeatedFailures: 4,
+            cooldownMinutes: 30,
+            updatedAt: '2099-04-24T10:06:00.000Z',
+            updatedBy: 'ops@acme.test',
+            note: 'Reduce noisy first-failure paging.',
+          },
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T10:00:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T10:05:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'needs-setup',
+      repeatFailureCount: 2,
+      alertThresholds: {
+        immediateFailures: 2,
+        repeatedFailures: 4,
+        cooldownMinutes: 30,
+      },
+      shouldAlertOperator: true,
+      shouldEscalateOperator: false,
       cooldown: {
         active: true,
         reason: 'recent-verification-failure',
