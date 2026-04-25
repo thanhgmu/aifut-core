@@ -136,6 +136,84 @@ describe('EntitlementsService', () => {
     });
   });
 
+  it('should expose direct tenant-scope entitlement alignment without fallback', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: null,
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_3',
+        scopeKey: 'acme:tenant:default',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        billingSnapshot: null,
+        provisioningState: 'active',
+        source: 'admin-ui',
+        createdAt: new Date('2026-04-24T02:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T02:05:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        id: 'ent_3',
+        key: 'feature.nexovaflow.automation',
+        kind: EntitlementKind.FEATURE,
+        value: 'enabled',
+        source: 'admin-ui:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T02:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T02:06:00.000Z'),
+      },
+      {
+        id: 'ent_4',
+        key: 'package.base-plan',
+        kind: EntitlementKind.FEATURE,
+        value: 'core.growth',
+        source: 'admin-ui:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T02:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T02:06:00.000Z'),
+      },
+    ]);
+
+    const result = await service.getTenantPackageState({
+      tenantSlug: 'acme',
+      userEmail: 'owner@acme.test',
+    });
+
+    expect(result.packageState.scope).toMatchObject({
+      requested: { scopeKey: 'acme:tenant:default', scopeType: 'tenant' },
+      effective: { scopeKey: 'acme:tenant:default', scopeType: 'tenant' },
+      fallbackApplied: false,
+    });
+    expect(result.packageState.entitlementSyncSummary).toMatchObject({
+      requestedScope: { scopeKey: 'acme:tenant:default' },
+      effectiveScope: { scopeKey: 'acme:tenant:default' },
+      fallbackApplied: false,
+      counts: {
+        requestedScopeSourceMatches: 2,
+        effectiveScopeSourceMatches: 2,
+      },
+      basePlanEntitlement: {
+        key: 'package.base-plan',
+        value: 'core.growth',
+        source: 'admin-ui:acme:tenant:default',
+        scopeAligned: true,
+      },
+      optionAudit: expect.arrayContaining([
+        expect.objectContaining({
+          optionKey: 'nexovaflow.automation',
+          value: 'enabled',
+          source: 'admin-ui:acme:tenant:default',
+          scopeAligned: true,
+        }),
+      ]),
+    });
+  });
+
   it('should tag synced entitlements with assignment scope metadata', async () => {
     accessPolicy.resolveAndRequire.mockResolvedValue({
       context: {
