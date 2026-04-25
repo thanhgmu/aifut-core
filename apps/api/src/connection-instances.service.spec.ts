@@ -916,4 +916,132 @@ describe('ConnectionInstancesService', () => {
       },
     });
   });
+
+  it('should assign follow-up ownership and expose it in the health summary', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_10',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T18:20:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_10',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const assignmentResult = await service.assignHealthFollowUp({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      assigneeEmail: 'sre@acme.test',
+      note: 'Please inspect webhook retries.',
+    });
+
+    expect(assignmentResult).toMatchObject({
+      surface: 'connection-health-follow-up-assignment',
+      status: 'follow-up-assigned',
+      followUpAssignment: {
+        assigneeEmail: 'sre@acme.test',
+        assignedBy: 'ops@acme.test',
+        note: 'Please inspect webhook retries.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'follow-up-assignment',
+                  status: 'follow-up-assigned',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_10',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T18:20:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          followUpAssignment: {
+            assigneeEmail: 'sre@acme.test',
+            assignedAt: '2099-04-24T18:25:00.000Z',
+            assignedBy: 'ops@acme.test',
+            note: 'Please inspect webhook retries.',
+          },
+          healthTimeline: [
+            {
+              type: 'verification',
+              status: 'needs-setup',
+              at: '2099-04-24T18:20:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'follow-up-assignment',
+              status: 'follow-up-assigned',
+              at: '2099-04-24T18:25:00.000Z',
+              actor: 'ops@acme.test',
+              detail: {
+                assigneeEmail: 'sre@acme.test',
+                note: 'Please inspect webhook retries.',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'follow-up-assigned',
+      followUpAssignment: {
+        assigneeEmail: 'sre@acme.test',
+        assignedBy: 'ops@acme.test',
+        note: 'Please inspect webhook retries.',
+      },
+    });
+  });
 });

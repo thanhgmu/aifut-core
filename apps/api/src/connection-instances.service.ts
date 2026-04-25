@@ -83,6 +83,16 @@ type AddRecoveryNoteInput = {
   note?: string;
 };
 
+type AssignHealthFollowUpInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  assigneeEmail?: string;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -756,6 +766,9 @@ export class ConnectionInstancesService {
     const cooldown = this.calculateCooldownWindow(normalizedTimeline);
     const suppression = this.resolveSuppression(platform.alertSuppression);
     const recoveryNote = this.resolveRecoveryNote(platform.recoveryNote);
+    const followUpAssignment = this.resolveFollowUpAssignment(
+      platform.followUpAssignment,
+    );
     const alertCandidate =
       repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
 
@@ -786,6 +799,7 @@ export class ConnectionInstancesService {
         cooldown,
         suppression,
         recoveryNote,
+        followUpAssignment,
         shouldAlertOperator: alertCandidate && !suppression.active,
       },
       healthTimeline: timeline,
@@ -1287,6 +1301,131 @@ export class ConnectionInstancesService {
     };
   }
 
+  async assignHealthFollowUp(input: AssignHealthFollowUpInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+    const assigneeEmail = input.assigneeEmail?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    if (!assigneeEmail) {
+      throw new BadRequestException('Missing assigneeEmail.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const assignedAt = new Date().toISOString();
+    const note = input.note?.trim() || null;
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            followUpAssignment: {
+              assigneeEmail,
+              assignedAt,
+              assignedBy: context.user.email,
+              note,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'follow-up-assignment',
+              status: 'follow-up-assigned',
+              at: assignedAt,
+              actor: context.user.email,
+              detail: {
+                assigneeEmail,
+                note,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-follow-up-assignment',
+      status: 'follow-up-assigned',
+      connection: updated,
+      followUpAssignment: {
+        assigneeEmail,
+        assignedAt,
+        assignedBy: context.user.email,
+        note,
+      },
+      next: ['notify-assignee', 'monitor-follow-up-progress'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
@@ -1505,6 +1644,24 @@ export class ConnectionInstancesService {
         typeof record.recordedAt === 'string' ? record.recordedAt : null,
       recordedBy:
         typeof record.recordedBy === 'string' ? record.recordedBy : null,
+    };
+  }
+
+  private resolveFollowUpAssignment(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+
+    return {
+      assigneeEmail:
+        typeof record.assigneeEmail === 'string' ? record.assigneeEmail : null,
+      assignedAt:
+        typeof record.assignedAt === 'string' ? record.assignedAt : null,
+      assignedBy:
+        typeof record.assignedBy === 'string' ? record.assignedBy : null,
+      note: typeof record.note === 'string' ? record.note : null,
     };
   }
 }
