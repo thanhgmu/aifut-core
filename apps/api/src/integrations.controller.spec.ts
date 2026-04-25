@@ -249,12 +249,12 @@ describe('IntegrationsController', () => {
             },
             provisioningHistory: [
               {
-                type: 'package-provisioning-state',
-                state: 'pending',
-              },
-              {
                 type: 'entitlement-sync-state',
                 state: 'enabled',
+              },
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
               },
             ],
             entitlementEnabled: true,
@@ -299,12 +299,12 @@ describe('IntegrationsController', () => {
             },
             provisioningHistory: [
               {
-                type: 'package-provisioning-state',
-                state: 'pending',
-              },
-              {
                 type: 'entitlement-sync-state',
                 state: 'enabled',
+              },
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
               },
             ],
             entitlementEnabled: true,
