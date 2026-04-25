@@ -110,7 +110,23 @@ describe('IntegrationDiagnosticsService', () => {
           workspaceId: 'ws_1',
           workspace: { slug: 'ops', name: 'Ops' },
           secretsRef: 'tenant:nexovaflow:primary',
-          config: { baseUrl: 'https://nexovaflow.example.com' },
+          config: {
+            baseUrl: 'https://nexovaflow.example.com',
+            _platform: {
+              alertThresholds: {
+                immediateFailures: 1,
+                repeatedFailures: 2,
+                cooldownMinutes: 20,
+              },
+              followUpState: {
+                state: 'blocked',
+              },
+              healthTimeline: [
+                { status: 'needs-setup', at: '2099-04-24T19:00:00.000Z' },
+                { status: 'needs-setup', at: '2099-04-24T19:02:00.000Z' },
+              ],
+            },
+          },
           mappingMode: 'template-first',
           mappedObjects: ['tasks'],
           fieldMappings: { title: 'name' },
@@ -133,6 +149,10 @@ describe('IntegrationDiagnosticsService', () => {
       status: 'resolved',
       diagnostics: [
         {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
           summary: {
             readyForOperatorReview: true,
             issueCount: 0,

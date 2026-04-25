@@ -127,6 +127,23 @@ describe('IntegrationControlPlaneService', () => {
           targetEnvironment: 'cloud',
           targetRegion: 'ap-southeast-1',
           secretsRef: 'tenant:n8n:primary',
+          config: {
+            _platform: {
+              alertThresholds: {
+                immediateFailures: 2,
+                repeatedFailures: 3,
+                cooldownMinutes: 30,
+              },
+              followUpState: {
+                state: 'blocked',
+              },
+              healthTimeline: [
+                { status: 'needs-setup', at: '2099-04-24T20:00:00.000Z' },
+                { status: 'needs-setup', at: '2099-04-24T20:04:00.000Z' },
+                { status: 'needs-setup', at: '2099-04-24T20:05:00.000Z' },
+              ],
+            },
+          },
           mappingMode: 'template-first',
           mappedObjects: ['tasks'],
           syncPolicy: { mode: 'bidirectional' },
@@ -147,6 +164,7 @@ describe('IntegrationControlPlaneService', () => {
           targetEnvironment: 'cloud',
           targetRegion: 'us-east-1',
           secretsRef: null,
+          config: {},
           mappingMode: 'manual',
           mappedObjects: [],
           syncPolicy: null,
@@ -210,6 +228,8 @@ describe('IntegrationControlPlaneService', () => {
           healthStatus: {
             state: 'ACTIVE',
             verification: 'verified-or-activated',
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
           },
         },
       ],

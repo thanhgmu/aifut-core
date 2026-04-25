@@ -178,6 +178,10 @@ export class IntegrationDiagnosticsService {
             lastVerifiedAt: connection.lastVerifiedAt,
             updatedAt: connection.updatedAt,
           },
+          operatorHealth: {
+            followUpState: this.resolveFollowUpState(connection.config),
+            shouldEscalateOperator: this.shouldEscalateOperator(connection.config),
+          },
           connectorContract: connector
             ? {
                 key: connector.key,
@@ -240,5 +244,69 @@ export class IntegrationDiagnosticsService {
       default:
         return 'manual-review';
     }
+  }
+
+  private resolveFollowUpState(config: unknown) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      return null;
+    }
+
+    const platform = (config as Record<string, unknown>)._platform;
+    if (!platform || typeof platform !== 'object' || Array.isArray(platform)) {
+      return null;
+    }
+
+    const followUpState = (platform as Record<string, unknown>).followUpState;
+    if (
+      !followUpState ||
+      typeof followUpState !== 'object' ||
+      Array.isArray(followUpState)
+    ) {
+      return null;
+    }
+
+    const record = followUpState as Record<string, unknown>;
+    return typeof record.state === 'string' ? record.state : null;
+  }
+
+  private shouldEscalateOperator(config: unknown) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      return false;
+    }
+
+    const platform = (config as Record<string, unknown>)._platform;
+    if (!platform || typeof platform !== 'object' || Array.isArray(platform)) {
+      return false;
+    }
+
+    const healthTimeline = (platform as Record<string, unknown>).healthTimeline;
+    const alertThresholds = (platform as Record<string, unknown>).alertThresholds;
+    const repeatedFailures =
+      alertThresholds &&
+      typeof alertThresholds === 'object' &&
+      !Array.isArray(alertThresholds) &&
+      typeof (alertThresholds as Record<string, unknown>).repeatedFailures === 'number'
+        ? ((alertThresholds as Record<string, unknown>).repeatedFailures as number)
+        : 3;
+
+    if (!Array.isArray(healthTimeline)) {
+      return false;
+    }
+
+    const failureCount = healthTimeline.filter(
+      (entry) =>
+        entry &&
+        typeof entry === 'object' &&
+        !Array.isArray(entry) &&
+        (entry as Record<string, unknown>).status === 'needs-setup',
+    ).length;
+
+    const latest = [...healthTimeline]
+      .reverse()
+      .find(
+        (entry) => entry && typeof entry === 'object' && !Array.isArray(entry),
+      ) as Record<string, unknown> | undefined;
+
+    return latest?.status === 'needs-setup' && failureCount >= repeatedFailures;
   }
 }
