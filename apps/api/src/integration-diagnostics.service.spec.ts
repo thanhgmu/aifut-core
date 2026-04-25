@@ -243,4 +243,126 @@ describe('IntegrationDiagnosticsService', () => {
       ],
     });
   });
+
+  it('should summarize operator health with tenant fallback commercialization history for workspace diagnostics', async () => {
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      workspaces: [{ id: 'ws_1', slug: 'ops', name: 'Ops' }],
+      integrations: [
+        {
+          id: 'conn_3',
+          name: 'NexovaFlow Fallback',
+          slug: 'nexovaflow-fallback',
+          provider: 'nexovaflow',
+          status: 'ACTIVE',
+          workspaceId: 'ws_1',
+          workspace: { slug: 'ops', name: 'Ops' },
+          secretsRef: 'tenant:nexovaflow:fallback',
+          config: {
+            baseUrl: 'https://nexovaflow.example.com',
+            _platform: {
+              alertThresholds: {
+                immediateFailures: 1,
+                repeatedFailures: 2,
+                cooldownMinutes: 20,
+              },
+              followUpState: {
+                state: 'blocked',
+              },
+              healthTimeline: [
+                { status: 'needs-setup', at: '2099-04-24T20:00:00.000Z' },
+                { status: 'needs-setup', at: '2099-04-24T20:02:00.000Z' },
+              ],
+            },
+          },
+          mappingMode: 'template-first',
+          mappedObjects: ['tasks'],
+          fieldMappings: { title: 'name' },
+          eventMappings: { task_created: 'workflow.task.created' },
+          syncPolicy: { mode: 'bidirectional' },
+          targetBaseUrl: 'https://nexovaflow.example.com',
+          lastVerifiedAt: new Date('2026-04-24T20:03:00.000Z'),
+          updatedAt: new Date('2026-04-24T20:04:00.000Z'),
+        },
+      ],
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        scopeKey: 'acme:tenant:default',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        provisioningState: 'pending',
+        source: 'seed',
+        updatedAt: new Date('2026-04-24T20:06:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        key: 'feature.nexovaflow.automation',
+        value: 'enabled',
+        source: 'seed:acme:tenant:default',
+        updatedAt: new Date('2026-04-24T20:05:00.000Z'),
+      },
+    ]);
+
+    const result = await service.diagnose({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      connectionSlug: 'nexovaflow-fallback',
+    });
+
+    expect(result).toMatchObject({
+      status: 'resolved',
+      diagnostics: [
+        {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageAssignmentScope: {
+              requestedScopeKey: 'acme:workspace:ops',
+              effectiveScopeKey: 'acme:tenant:default',
+              fallbackApplied: true,
+            },
+            provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
+            latestProvisioningEvent: {
+              type: 'package-provisioning-state',
+              state: 'pending',
+              at: new Date('2026-04-24T20:06:00.000Z'),
+              source: 'seed',
+            },
+            provisioningHistory: [
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T20:05:00.000Z'),
+                source: 'seed:acme:tenant:default',
+              },
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+                at: new Date('2026-04-24T20:06:00.000Z'),
+                source: 'seed',
+              },
+            ],
+            packageSelected: true,
+            entitlementEnabled: true,
+            entitlementSource: 'seed:acme:tenant:default',
+            packageAssignmentSource: 'seed',
+          },
+          summary: {
+            readyForOperatorReview: true,
+            issueCount: 0,
+            state: 'ready',
+          },
+          recommendedActions: [],
+        },
+      ],
+    });
+  });
 });
