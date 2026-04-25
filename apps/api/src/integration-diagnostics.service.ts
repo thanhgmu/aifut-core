@@ -242,6 +242,7 @@ export class IntegrationDiagnosticsService {
                 provisioningRecency: this.describeProvisioningRecency(
                   assignment?.updatedAt ?? null,
                 ),
+                latestProvisioningEvent: this.describeProvisioningEvent(assignment),
                 packageSelected:
                   assignment?.selectedOptions.includes(
                     NEXOVAFLOW_AUTOMATION_OPTION.key,
@@ -391,5 +392,27 @@ export class IntegrationDiagnosticsService {
     const ageHours = (Date.now() - value.getTime()) / (60 * 60 * 1000);
 
     return ageHours <= 24 ? 'recent' : ageHours <= 72 ? 'aging' : 'stale';
+  }
+
+  private describeProvisioningEvent(
+    assignment:
+      | {
+          provisioningState?: string | null;
+          updatedAt?: Date | null;
+          source?: string | null;
+        }
+      | null
+      | undefined,
+  ) {
+    if (!assignment?.provisioningState || !assignment.updatedAt) {
+      return null;
+    }
+
+    return {
+      type: 'package-provisioning-state',
+      state: assignment.provisioningState,
+      at: assignment.updatedAt,
+      source: assignment.source ?? null,
+    };
   }
 }

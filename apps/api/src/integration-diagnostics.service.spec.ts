@@ -206,6 +206,12 @@ describe('IntegrationDiagnosticsService', () => {
             provisioningState: 'active',
             provisioningUpdatedAt: new Date('2026-04-24T19:10:00.000Z'),
             provisioningRecency: 'recent',
+            latestProvisioningEvent: {
+              type: 'package-provisioning-state',
+              state: 'active',
+              at: new Date('2026-04-24T19:10:00.000Z'),
+              source: 'admin-ui:acme:workspace:ops',
+            },
             packageSelected: true,
             entitlementEnabled: true,
             entitlementSource: 'admin-ui:acme:workspace:ops',
