@@ -214,6 +214,85 @@ describe('EntitlementsService', () => {
     });
   });
 
+  it('should surface partial source misalignment in entitlement sync audit summary', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_4',
+        scopeKey: 'acme:workspace:ops',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        billingSnapshot: null,
+        provisioningState: 'active',
+        source: 'admin-ui',
+        createdAt: new Date('2026-04-24T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T03:05:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        id: 'ent_5',
+        key: 'feature.nexovaflow.automation',
+        kind: EntitlementKind.FEATURE,
+        value: 'enabled',
+        source: 'admin-ui:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T03:06:00.000Z'),
+      },
+      {
+        id: 'ent_6',
+        key: 'package.base-plan',
+        kind: EntitlementKind.FEATURE,
+        value: 'core.growth',
+        source: 'admin-ui:acme:workspace:ops',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-24T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-24T03:06:00.000Z'),
+      },
+    ]);
+
+    const result = await service.getTenantPackageState({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+    });
+
+    expect(result.packageState.scope).toMatchObject({
+      requested: { scopeKey: 'acme:workspace:ops', scopeType: 'workspace' },
+      effective: { scopeKey: 'acme:workspace:ops', scopeType: 'workspace' },
+      fallbackApplied: false,
+    });
+    expect(result.packageState.entitlementSyncSummary).toMatchObject({
+      requestedScope: { scopeKey: 'acme:workspace:ops' },
+      effectiveScope: { scopeKey: 'acme:workspace:ops' },
+      fallbackApplied: false,
+      counts: {
+        requestedScopeSourceMatches: 1,
+        effectiveScopeSourceMatches: 1,
+      },
+      basePlanEntitlement: {
+        key: 'package.base-plan',
+        value: 'core.growth',
+        source: 'admin-ui:acme:workspace:ops',
+        scopeAligned: true,
+      },
+      optionAudit: expect.arrayContaining([
+        expect.objectContaining({
+          optionKey: 'nexovaflow.automation',
+          value: 'enabled',
+          source: 'admin-ui:acme:tenant:default',
+          scopeAligned: false,
+        }),
+      ]),
+    });
+  });
+
   it('should tag synced entitlements with assignment scope metadata', async () => {
     accessPolicy.resolveAndRequire.mockResolvedValue({
       context: {
