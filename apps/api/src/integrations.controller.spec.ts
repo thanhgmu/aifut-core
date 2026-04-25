@@ -241,6 +241,8 @@ describe('IntegrationsController', () => {
           nexovaflowAutomation: {
             packageSelected: true,
             provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
             entitlementEnabled: true,
           },
         },
@@ -275,6 +277,8 @@ describe('IntegrationsController', () => {
           nexovaflowAutomation: {
             packageSelected: true,
             provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
             entitlementEnabled: true,
           },
         },
@@ -293,6 +297,8 @@ describe('IntegrationsController', () => {
           },
           commercialization: {
             provisioningState: 'active',
+            provisioningUpdatedAt: new Date('2026-04-24T19:10:00.000Z'),
+            provisioningRecency: 'recent',
             packageSelected: true,
             entitlementEnabled: true,
           },
@@ -325,6 +331,8 @@ describe('IntegrationsController', () => {
           },
           commercialization: {
             provisioningState: 'active',
+            provisioningUpdatedAt: new Date('2026-04-24T19:10:00.000Z'),
+            provisioningRecency: 'recent',
             packageSelected: true,
             entitlementEnabled: true,
           },

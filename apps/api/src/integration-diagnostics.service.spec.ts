@@ -97,6 +97,7 @@ describe('IntegrationDiagnosticsService', () => {
         selectedOptions: ['nexovaflow.automation'],
         provisioningState: 'active',
         source: 'admin-ui:acme:workspace:ops',
+        updatedAt: new Date('2026-04-24T19:10:00.000Z'),
       },
     ]);
     prisma.entitlement.findMany.mockResolvedValue([
@@ -171,6 +172,7 @@ describe('IntegrationDiagnosticsService', () => {
         selectedOptions: ['nexovaflow.automation'],
         provisioningState: 'active',
         source: 'admin-ui:acme:workspace:ops',
+        updatedAt: new Date('2026-04-24T19:10:00.000Z'),
       },
     ]);
     prisma.entitlement.findMany.mockResolvedValue([
@@ -202,6 +204,8 @@ describe('IntegrationDiagnosticsService', () => {
               fallbackApplied: false,
             },
             provisioningState: 'active',
+            provisioningUpdatedAt: new Date('2026-04-24T19:10:00.000Z'),
+            provisioningRecency: 'recent',
             packageSelected: true,
             entitlementEnabled: true,
             entitlementSource: 'admin-ui:acme:workspace:ops',

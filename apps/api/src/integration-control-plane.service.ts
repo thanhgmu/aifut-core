@@ -272,6 +272,10 @@ export class IntegrationControlPlaneService {
                 basePlanKey: assignment.basePlanKey,
                 selectedOptions: assignment.selectedOptions,
                 provisioningState: assignment.provisioningState,
+                provisioningUpdatedAt: assignment.updatedAt,
+                provisioningRecency: this.describeProvisioningRecency(
+                  assignment.updatedAt,
+                ),
                 source: assignment.source,
                 updatedAt: assignment.updatedAt,
               }
@@ -280,6 +284,10 @@ export class IntegrationControlPlaneService {
             packageSelected:
               assignment?.selectedOptions.includes(NEXOVAFLOW_AUTOMATION_OPTION.key) ?? false,
             provisioningState: assignment?.provisioningState ?? null,
+            provisioningUpdatedAt: assignment?.updatedAt ?? null,
+            provisioningRecency: this.describeProvisioningRecency(
+              assignment?.updatedAt ?? null,
+            ),
             entitlementEnabled:
               automationEntitlement?.value?.toLowerCase() === 'enabled',
             entitlementSource: automationEntitlement?.source ?? null,
@@ -421,5 +429,18 @@ export class IntegrationControlPlaneService {
       ) as Record<string, unknown> | undefined;
 
     return latest?.status === 'needs-setup' && failureCount >= repeatedFailures;
+  }
+
+  private describeProvisioningRecency(updatedAt: Date | string | null | undefined) {
+    const value =
+      updatedAt instanceof Date ? updatedAt : updatedAt ? new Date(updatedAt) : null;
+
+    if (!value || Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    const ageHours = (Date.now() - value.getTime()) / (60 * 60 * 1000);
+
+    return ageHours <= 24 ? 'recent' : ageHours <= 72 ? 'aging' : 'stale';
   }
 }

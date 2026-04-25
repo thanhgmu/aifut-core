@@ -256,9 +256,16 @@ describe('IntegrationControlPlaneService', () => {
             effectiveScopeKey: 'acme:tenant:default',
             fallbackApplied: true,
           },
+          activePackageAssignment: {
+            provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
+          },
           nexovaflowAutomation: {
             packageSelected: true,
             provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
             entitlementEnabled: true,
             entitlementSource: 'seed:acme:tenant:default',
           },

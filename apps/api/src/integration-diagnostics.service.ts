@@ -131,6 +131,7 @@ export class IntegrationDiagnosticsService {
           selectedOptions: true,
           provisioningState: true,
           source: true,
+          updatedAt: true,
         },
       }),
       this.prisma.entitlement.findMany({
@@ -237,6 +238,10 @@ export class IntegrationDiagnosticsService {
                   fallbackApplied,
                 },
                 provisioningState: assignment?.provisioningState ?? null,
+                provisioningUpdatedAt: assignment?.updatedAt ?? null,
+                provisioningRecency: this.describeProvisioningRecency(
+                  assignment?.updatedAt ?? null,
+                ),
                 packageSelected:
                   assignment?.selectedOptions.includes(
                     NEXOVAFLOW_AUTOMATION_OPTION.key,
@@ -373,5 +378,18 @@ export class IntegrationDiagnosticsService {
       ) as Record<string, unknown> | undefined;
 
     return latest?.status === 'needs-setup' && failureCount >= repeatedFailures;
+  }
+
+  private describeProvisioningRecency(updatedAt: Date | string | null | undefined) {
+    const value =
+      updatedAt instanceof Date ? updatedAt : updatedAt ? new Date(updatedAt) : null;
+
+    if (!value || Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    const ageHours = (Date.now() - value.getTime()) / (60 * 60 * 1000);
+
+    return ageHours <= 24 ? 'recent' : ageHours <= 72 ? 'aging' : 'stale';
   }
 }
