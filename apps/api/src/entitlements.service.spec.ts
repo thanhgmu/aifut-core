@@ -364,6 +364,81 @@ describe('EntitlementsService', () => {
     });
   });
 
+  it('should surface freshly re-synced entitlement records as aligned and recent', async () => {
+    const recentAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_6',
+        scopeKey: 'acme:workspace:ops',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        billingSnapshot: null,
+        provisioningState: 'active',
+        source: 'admin-ui',
+        createdAt: recentAt,
+        updatedAt: recentAt,
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        id: 'ent_9',
+        key: 'feature.nexovaflow.automation',
+        kind: EntitlementKind.FEATURE,
+        value: 'enabled',
+        source: 'admin-ui:acme:workspace:ops',
+        startsAt: null,
+        endsAt: null,
+        createdAt: recentAt,
+        updatedAt: recentAt,
+      },
+      {
+        id: 'ent_10',
+        key: 'package.base-plan',
+        kind: EntitlementKind.FEATURE,
+        value: 'core.growth',
+        source: 'admin-ui:acme:workspace:ops',
+        startsAt: null,
+        endsAt: null,
+        createdAt: recentAt,
+        updatedAt: recentAt,
+      },
+    ]);
+
+    const result = await service.getTenantPackageState({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+    });
+
+    expect(result.packageState.entitlementSyncSummary).toMatchObject({
+      requestedScope: { scopeKey: 'acme:workspace:ops' },
+      effectiveScope: { scopeKey: 'acme:workspace:ops' },
+      fallbackApplied: false,
+      counts: {
+        requestedScopeSourceMatches: 2,
+        effectiveScopeSourceMatches: 2,
+      },
+      basePlanEntitlement: {
+        source: 'admin-ui:acme:workspace:ops',
+        scopeAligned: true,
+        freshness: 'recent',
+      },
+      optionAudit: expect.arrayContaining([
+        expect.objectContaining({
+          optionKey: 'nexovaflow.automation',
+          source: 'admin-ui:acme:workspace:ops',
+          scopeAligned: true,
+          freshness: 'recent',
+        }),
+      ]),
+    });
+  });
+
   it('should tag synced entitlements with assignment scope metadata', async () => {
     accessPolicy.resolveAndRequire.mockResolvedValue({
       context: {
