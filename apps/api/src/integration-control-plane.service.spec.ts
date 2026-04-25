@@ -258,6 +258,7 @@ describe('IntegrationControlPlaneService', () => {
           },
           nexovaflowAutomation: {
             packageSelected: true,
+            provisioningState: 'pending',
             entitlementEnabled: true,
             entitlementSource: 'seed:acme:tenant:default',
           },

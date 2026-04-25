@@ -279,6 +279,7 @@ export class IntegrationControlPlaneService {
           nexovaflowAutomation: {
             packageSelected:
               assignment?.selectedOptions.includes(NEXOVAFLOW_AUTOMATION_OPTION.key) ?? false,
+            provisioningState: assignment?.provisioningState ?? null,
             entitlementEnabled:
               automationEntitlement?.value?.toLowerCase() === 'enabled',
             entitlementSource: automationEntitlement?.source ?? null,

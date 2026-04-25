@@ -129,6 +129,7 @@ export class IntegrationDiagnosticsService {
           scopeKey: true,
           basePlanKey: true,
           selectedOptions: true,
+          provisioningState: true,
           source: true,
         },
       }),
@@ -235,6 +236,7 @@ export class IntegrationDiagnosticsService {
                   effectiveScopeKey,
                   fallbackApplied,
                 },
+                provisioningState: assignment?.provisioningState ?? null,
                 packageSelected:
                   assignment?.selectedOptions.includes(
                     NEXOVAFLOW_AUTOMATION_OPTION.key,

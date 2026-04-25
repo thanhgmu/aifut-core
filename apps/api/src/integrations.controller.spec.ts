@@ -240,6 +240,7 @@ describe('IntegrationsController', () => {
           },
           nexovaflowAutomation: {
             packageSelected: true,
+            provisioningState: 'pending',
             entitlementEnabled: true,
           },
         },
@@ -273,6 +274,7 @@ describe('IntegrationsController', () => {
           },
           nexovaflowAutomation: {
             packageSelected: true,
+            provisioningState: 'pending',
             entitlementEnabled: true,
           },
         },
@@ -290,6 +292,7 @@ describe('IntegrationsController', () => {
             shouldEscalateOperator: true,
           },
           commercialization: {
+            provisioningState: 'active',
             packageSelected: true,
             entitlementEnabled: true,
           },
@@ -321,6 +324,7 @@ describe('IntegrationsController', () => {
             shouldEscalateOperator: true,
           },
           commercialization: {
+            provisioningState: 'active',
             packageSelected: true,
             entitlementEnabled: true,
           },

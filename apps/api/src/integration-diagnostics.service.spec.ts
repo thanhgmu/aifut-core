@@ -95,6 +95,7 @@ describe('IntegrationDiagnosticsService', () => {
         scopeKey: 'acme:workspace:ops',
         basePlanKey: 'core.growth',
         selectedOptions: ['nexovaflow.automation'],
+        provisioningState: 'active',
         source: 'admin-ui:acme:workspace:ops',
       },
     ]);
@@ -168,6 +169,7 @@ describe('IntegrationDiagnosticsService', () => {
         scopeKey: 'acme:workspace:ops',
         basePlanKey: 'core.growth',
         selectedOptions: ['nexovaflow.automation'],
+        provisioningState: 'active',
         source: 'admin-ui:acme:workspace:ops',
       },
     ]);
@@ -199,6 +201,7 @@ describe('IntegrationDiagnosticsService', () => {
               effectiveScopeKey: 'acme:workspace:ops',
               fallbackApplied: false,
             },
+            provisioningState: 'active',
             packageSelected: true,
             entitlementEnabled: true,
             entitlementSource: 'admin-ui:acme:workspace:ops',
