@@ -1044,4 +1044,137 @@ describe('ConnectionInstancesService', () => {
       },
     });
   });
+
+  it('should record follow-up notification metadata and expose it in the health summary', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_11',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'follow-up-assignment',
+              status: 'follow-up-assigned',
+              at: '2099-04-24T18:25:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_11',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const notificationResult = await service.recordFollowUpNotification({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      channel: 'telegram',
+      recipient: '@sre-acme',
+      note: 'Pinged on-call.',
+    });
+
+    expect(notificationResult).toMatchObject({
+      surface: 'connection-health-follow-up-notification',
+      status: 'follow-up-notified',
+      followUpNotification: {
+        channel: 'telegram',
+        recipient: '@sre-acme',
+        notifiedBy: 'ops@acme.test',
+        note: 'Pinged on-call.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'follow-up-notification',
+                  status: 'follow-up-notified',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_11',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T18:25:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          followUpNotification: {
+            channel: 'telegram',
+            recipient: '@sre-acme',
+            notifiedAt: '2099-04-24T18:27:00.000Z',
+            notifiedBy: 'ops@acme.test',
+            note: 'Pinged on-call.',
+          },
+          healthTimeline: [
+            {
+              type: 'follow-up-assignment',
+              status: 'follow-up-assigned',
+              at: '2099-04-24T18:25:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'follow-up-notification',
+              status: 'follow-up-notified',
+              at: '2099-04-24T18:27:00.000Z',
+              actor: 'ops@acme.test',
+              detail: {
+                channel: 'telegram',
+                recipient: '@sre-acme',
+                note: 'Pinged on-call.',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'follow-up-notified',
+      followUpNotification: {
+        channel: 'telegram',
+        recipient: '@sre-acme',
+        notifiedBy: 'ops@acme.test',
+        note: 'Pinged on-call.',
+      },
+    });
+  });
 });

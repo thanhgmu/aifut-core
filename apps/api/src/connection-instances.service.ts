@@ -93,6 +93,17 @@ type AssignHealthFollowUpInput = {
   note?: string;
 };
 
+type RecordFollowUpNotificationInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  channel?: string;
+  recipient?: string;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -769,6 +780,9 @@ export class ConnectionInstancesService {
     const followUpAssignment = this.resolveFollowUpAssignment(
       platform.followUpAssignment,
     );
+    const followUpNotification = this.resolveFollowUpNotification(
+      platform.followUpNotification,
+    );
     const alertCandidate =
       repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
 
@@ -800,6 +814,7 @@ export class ConnectionInstancesService {
         suppression,
         recoveryNote,
         followUpAssignment,
+        followUpNotification,
         shouldAlertOperator: alertCandidate && !suppression.active,
       },
       healthTimeline: timeline,
@@ -1426,6 +1441,139 @@ export class ConnectionInstancesService {
     };
   }
 
+  async recordFollowUpNotification(input: RecordFollowUpNotificationInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+    const channel = input.channel?.trim().toLowerCase();
+    const recipient = input.recipient?.trim();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    if (!channel) {
+      throw new BadRequestException('Missing channel.');
+    }
+
+    if (!recipient) {
+      throw new BadRequestException('Missing recipient.');
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const notifiedAt = new Date().toISOString();
+    const note = input.note?.trim() || null;
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            followUpNotification: {
+              channel,
+              recipient,
+              notifiedAt,
+              notifiedBy: context.user.email,
+              note,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'follow-up-notification',
+              status: 'follow-up-notified',
+              at: notifiedAt,
+              actor: context.user.email,
+              detail: {
+                channel,
+                recipient,
+                note,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-follow-up-notification',
+      status: 'follow-up-notified',
+      connection: updated,
+      followUpNotification: {
+        channel,
+        recipient,
+        notifiedAt,
+        notifiedBy: context.user.email,
+        note,
+      },
+      next: ['wait-for-assignee-response', 'track-follow-up-progress'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
@@ -1661,6 +1809,24 @@ export class ConnectionInstancesService {
         typeof record.assignedAt === 'string' ? record.assignedAt : null,
       assignedBy:
         typeof record.assignedBy === 'string' ? record.assignedBy : null,
+      note: typeof record.note === 'string' ? record.note : null,
+    };
+  }
+
+  private resolveFollowUpNotification(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+
+    return {
+      channel: typeof record.channel === 'string' ? record.channel : null,
+      recipient: typeof record.recipient === 'string' ? record.recipient : null,
+      notifiedAt:
+        typeof record.notifiedAt === 'string' ? record.notifiedAt : null,
+      notifiedBy:
+        typeof record.notifiedBy === 'string' ? record.notifiedBy : null,
       note: typeof record.note === 'string' ? record.note : null,
     };
   }
