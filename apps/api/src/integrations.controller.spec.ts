@@ -397,6 +397,99 @@ describe('IntegrationsController', () => {
     });
   });
 
+  it('should preserve fallback commercialization ordering through diagnostics routing', async () => {
+    integrationDiagnostics.diagnose.mockResolvedValue({
+      capability: 'integrations',
+      diagnostics: [
+        {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageAssignmentScope: {
+              requestedScopeKey: 'acme:workspace:ops',
+              effectiveScopeKey: 'acme:tenant:default',
+              fallbackApplied: true,
+            },
+            provisioningState: 'pending',
+            provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
+            provisioningRecency: 'recent',
+            latestProvisioningEvent: {
+              type: 'package-provisioning-state',
+              state: 'pending',
+            },
+            provisioningHistory: [
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+              },
+            ],
+            packageSelected: true,
+            entitlementEnabled: true,
+            packageAssignmentSource: 'seed',
+          },
+        },
+      ],
+    });
+
+    const result = await controller.diagnostics(
+      'acme-header',
+      'ops-header',
+      'acme-query',
+      'ops-query',
+      'nexovaflow-fallback',
+      'nexovaflow',
+    );
+
+    expect(integrationDiagnostics.diagnose).toHaveBeenCalledWith({
+      tenantSlug: 'acme-header',
+      workspaceSlug: 'ops-header',
+      connectionSlug: 'nexovaflow-fallback',
+      connectorKey: 'nexovaflow',
+    });
+    expect(result).toMatchObject({
+      capability: 'integrations',
+      diagnostics: [
+        {
+          operatorHealth: {
+            followUpState: 'blocked',
+            shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageAssignmentScope: {
+              effectiveScopeKey: 'acme:tenant:default',
+              fallbackApplied: true,
+            },
+            provisioningState: 'pending',
+            provisioningRecency: 'recent',
+            latestProvisioningEvent: {
+              type: 'package-provisioning-state',
+              state: 'pending',
+            },
+            provisioningHistory: [
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+              },
+            ],
+            packageSelected: true,
+            entitlementEnabled: true,
+            packageAssignmentSource: 'seed',
+          },
+        },
+      ],
+    });
+  });
+
   it('should route workflow setup draft payload with header tenant/workspace precedence', async () => {
     integrationWorkflow.saveSetupDraft.mockResolvedValue({
       surface: 'workflow-state',
