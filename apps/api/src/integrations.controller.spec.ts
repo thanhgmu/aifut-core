@@ -22,6 +22,9 @@ describe('IntegrationsController', () => {
   let connectionInstances: {
     listTenantConnections: jest.Mock;
     getConnectionHealthTimeline: jest.Mock;
+    assignHealthFollowUp: jest.Mock;
+    recordFollowUpNotification: jest.Mock;
+    updateFollowUpState: jest.Mock;
   };
   let integrationSetup: { buildSetupSession: jest.Mock };
   let integrationDiagnostics: { diagnose: jest.Mock };
@@ -44,6 +47,9 @@ describe('IntegrationsController', () => {
     connectionInstances = {
       listTenantConnections: jest.fn(),
       getConnectionHealthTimeline: jest.fn(),
+      assignHealthFollowUp: jest.fn(),
+      recordFollowUpNotification: jest.fn(),
+      updateFollowUpState: jest.fn(),
     };
 
     integrationSetup = {
@@ -329,5 +335,112 @@ describe('IntegrationsController', () => {
       activationMode: 'verified-ready',
     });
     expect(result).toMatchObject({ status: 'reviewed-and-activated' });
+  });
+
+  it('should route follow-up assignment with header and forwarded-host precedence', async () => {
+    connectionInstances.assignHealthFollowUp.mockResolvedValue({
+      surface: 'connection-health-follow-up-assignment',
+      status: 'follow-up-assigned',
+    });
+
+    const result = await controller.assignConnectionHealthFollowUp(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        userEmail: 'body@acme.test',
+        hostname: 'body.acme.test',
+        connectionSlug: 'n8n-main',
+        assigneeEmail: 'sre@acme.test',
+        note: 'Please inspect retries.',
+      },
+      'header-tenant',
+      'header-workspace',
+      'header@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+    );
+
+    expect(connectionInstances.assignHealthFollowUp).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      userEmail: 'header@acme.test',
+      hostname: 'forwarded.acme.test',
+      connectionSlug: 'n8n-main',
+      assigneeEmail: 'sre@acme.test',
+      note: 'Please inspect retries.',
+    });
+    expect(result).toMatchObject({ status: 'follow-up-assigned' });
+  });
+
+  it('should route follow-up notification with header and forwarded-host precedence', async () => {
+    connectionInstances.recordFollowUpNotification.mockResolvedValue({
+      surface: 'connection-health-follow-up-notification',
+      status: 'follow-up-notified',
+    });
+
+    const result = await controller.recordConnectionHealthFollowUpNotification(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        userEmail: 'body@acme.test',
+        hostname: 'body.acme.test',
+        connectionSlug: 'n8n-main',
+        channel: 'telegram',
+        recipient: '@sre-acme',
+        note: 'Pinged on-call.',
+      },
+      'header-tenant',
+      'header-workspace',
+      'header@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+    );
+
+    expect(connectionInstances.recordFollowUpNotification).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      userEmail: 'header@acme.test',
+      hostname: 'forwarded.acme.test',
+      connectionSlug: 'n8n-main',
+      channel: 'telegram',
+      recipient: '@sre-acme',
+      note: 'Pinged on-call.',
+    });
+    expect(result).toMatchObject({ status: 'follow-up-notified' });
+  });
+
+  it('should route follow-up state updates with header and forwarded-host precedence', async () => {
+    connectionInstances.updateFollowUpState.mockResolvedValue({
+      surface: 'connection-health-follow-up-state',
+      status: 'follow-up-in-progress',
+    });
+
+    const result = await controller.updateConnectionHealthFollowUpState(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        userEmail: 'body@acme.test',
+        hostname: 'body.acme.test',
+        connectionSlug: 'n8n-main',
+        state: 'in-progress',
+        note: 'Assignee started triage.',
+      },
+      'header-tenant',
+      'header-workspace',
+      'header@acme.test',
+      'forwarded.acme.test',
+      'host.acme.test',
+    );
+
+    expect(connectionInstances.updateFollowUpState).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      workspaceSlug: 'header-workspace',
+      userEmail: 'header@acme.test',
+      hostname: 'forwarded.acme.test',
+      connectionSlug: 'n8n-main',
+      state: 'in-progress',
+      note: 'Assignee started triage.',
+    });
+    expect(result).toMatchObject({ status: 'follow-up-in-progress' });
   });
 });
