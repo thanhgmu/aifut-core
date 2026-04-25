@@ -456,7 +456,13 @@ export class IntegrationDiagnosticsService {
             source: entitlement.source ?? null,
           }
         : null,
-    ].filter((event) => Boolean(event));
+    ]
+      .filter((event) => Boolean(event))
+      .sort((left, right) => {
+        const leftAt = left?.at instanceof Date ? left.at.getTime() : 0;
+        const rightAt = right?.at instanceof Date ? right.at.getTime() : 0;
+        return leftAt - rightAt;
+      });
 
     return events.length > 0 ? events : null;
   }

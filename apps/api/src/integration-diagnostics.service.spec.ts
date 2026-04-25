@@ -105,7 +105,7 @@ describe('IntegrationDiagnosticsService', () => {
         key: 'feature.nexovaflow.automation',
         value: 'enabled',
         source: 'admin-ui:acme:workspace:ops',
-        updatedAt: new Date('2026-04-24T19:11:00.000Z'),
+        updatedAt: new Date('2026-04-24T19:09:00.000Z'),
       },
     ]);
 
@@ -181,7 +181,7 @@ describe('IntegrationDiagnosticsService', () => {
         key: 'feature.nexovaflow.automation',
         value: 'enabled',
         source: 'admin-ui:acme:workspace:ops',
-        updatedAt: new Date('2026-04-24T19:11:00.000Z'),
+        updatedAt: new Date('2026-04-24T19:09:00.000Z'),
       },
     ]);
 
@@ -216,15 +216,15 @@ describe('IntegrationDiagnosticsService', () => {
             },
             provisioningHistory: [
               {
-                type: 'package-provisioning-state',
-                state: 'active',
-                at: new Date('2026-04-24T19:10:00.000Z'),
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T19:09:00.000Z'),
                 source: 'admin-ui:acme:workspace:ops',
               },
               {
-                type: 'entitlement-sync-state',
-                state: 'enabled',
-                at: new Date('2026-04-24T19:11:00.000Z'),
+                type: 'package-provisioning-state',
+                state: 'active',
+                at: new Date('2026-04-24T19:10:00.000Z'),
                 source: 'admin-ui:acme:workspace:ops',
               },
             ],

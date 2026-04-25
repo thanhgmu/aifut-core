@@ -199,7 +199,7 @@ describe('IntegrationControlPlaneService', () => {
         key: 'feature.nexovaflow.automation',
         value: 'enabled',
         source: 'seed:acme:tenant:default',
-        updatedAt: new Date('2026-04-24T20:07:00.000Z'),
+        updatedAt: new Date('2026-04-24T20:05:00.000Z'),
         endsAt: null,
       },
     ]);
@@ -268,16 +268,16 @@ describe('IntegrationControlPlaneService', () => {
             },
             provisioningHistory: [
               {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T20:05:00.000Z'),
+                source: 'seed:acme:tenant:default',
+              },
+              {
                 type: 'package-provisioning-state',
                 state: 'pending',
                 at: new Date('2026-04-24T20:06:00.000Z'),
                 source: 'seed',
-              },
-              {
-                type: 'entitlement-sync-state',
-                state: 'enabled',
-                at: new Date('2026-04-24T20:07:00.000Z'),
-                source: 'seed:acme:tenant:default',
               },
             ],
           },
@@ -294,16 +294,16 @@ describe('IntegrationControlPlaneService', () => {
             },
             provisioningHistory: [
               {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T20:05:00.000Z'),
+                source: 'seed:acme:tenant:default',
+              },
+              {
                 type: 'package-provisioning-state',
                 state: 'pending',
                 at: new Date('2026-04-24T20:06:00.000Z'),
                 source: 'seed',
-              },
-              {
-                type: 'entitlement-sync-state',
-                state: 'enabled',
-                at: new Date('2026-04-24T20:07:00.000Z'),
-                source: 'seed:acme:tenant:default',
               },
             ],
             entitlementEnabled: true,
