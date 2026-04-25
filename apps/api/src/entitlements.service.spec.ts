@@ -124,6 +124,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'seed:acme:tenant:default',
         scopeAligned: true,
+        freshness: 'aging',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -131,6 +132,7 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'seed:acme:tenant:default',
           scopeAligned: true,
+          freshness: 'aging',
         }),
       ]),
     });
@@ -202,6 +204,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'admin-ui:acme:tenant:default',
         scopeAligned: true,
+        freshness: 'aging',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -209,6 +212,7 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'admin-ui:acme:tenant:default',
           scopeAligned: true,
+          freshness: 'aging',
         }),
       ]),
     });
@@ -281,6 +285,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'admin-ui:acme:workspace:ops',
         scopeAligned: true,
+        freshness: 'aging',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -288,6 +293,72 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'admin-ui:acme:tenant:default',
           scopeAligned: false,
+          freshness: 'aging',
+        }),
+      ]),
+    });
+  });
+
+  it('should surface stale entitlement records in entitlement sync audit summary', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: null,
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_5',
+        scopeKey: 'acme:tenant:default',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        billingSnapshot: null,
+        provisioningState: 'active',
+        source: 'admin-ui',
+        createdAt: new Date('2026-04-10T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T03:05:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        id: 'ent_7',
+        key: 'feature.nexovaflow.automation',
+        kind: EntitlementKind.FEATURE,
+        value: 'enabled',
+        source: 'admin-ui:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-10T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T03:06:00.000Z'),
+      },
+      {
+        id: 'ent_8',
+        key: 'package.base-plan',
+        kind: EntitlementKind.FEATURE,
+        value: 'core.growth',
+        source: 'admin-ui:acme:tenant:default',
+        startsAt: null,
+        endsAt: null,
+        createdAt: new Date('2026-04-10T03:00:00.000Z'),
+        updatedAt: new Date('2026-04-10T03:06:00.000Z'),
+      },
+    ]);
+
+    const result = await service.getTenantPackageState({
+      tenantSlug: 'acme',
+      userEmail: 'owner@acme.test',
+    });
+
+    expect(result.packageState.entitlementSyncSummary).toMatchObject({
+      basePlanEntitlement: {
+        source: 'admin-ui:acme:tenant:default',
+        scopeAligned: true,
+        freshness: 'stale',
+      },
+      optionAudit: expect.arrayContaining([
+        expect.objectContaining({
+          optionKey: 'nexovaflow.automation',
+          source: 'admin-ui:acme:tenant:default',
+          scopeAligned: true,
+          freshness: 'stale',
         }),
       ]),
     });

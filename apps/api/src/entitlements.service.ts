@@ -880,6 +880,9 @@ export class EntitlementsService {
             scopeAligned: Boolean(
               basePlanEntitlement.source?.endsWith(effectiveScopeSuffix),
             ),
+            freshness: this.describeAuditRecordFreshness(
+              basePlanEntitlement.updatedAt ?? null,
+            ),
             updatedAt: basePlanEntitlement.updatedAt ?? null,
           }
         : null,
@@ -896,10 +899,23 @@ export class EntitlementsService {
           scopeAligned: Boolean(
             entitlement?.source?.endsWith(effectiveScopeSuffix),
           ),
+          freshness: this.describeAuditRecordFreshness(
+            entitlement?.updatedAt ?? null,
+          ),
           updatedAt: entitlement?.updatedAt ?? null,
         };
       }),
     };
+  }
+
+  private describeAuditRecordFreshness(updatedAt: Date | null | undefined) {
+    if (!updatedAt) {
+      return null;
+    }
+
+    const ageHours = (Date.now() - updatedAt.getTime()) / (60 * 60 * 1000);
+
+    return ageHours <= 24 ? 'recent' : ageHours <= 72 ? 'aging' : 'stale';
   }
 
   private async resolvePackageAssignmentForScope(
