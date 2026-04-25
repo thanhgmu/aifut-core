@@ -104,6 +104,16 @@ type RecordFollowUpNotificationInput = {
   note?: string;
 };
 
+type UpdateFollowUpStateInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string;
+  userEmail?: string;
+  hostname?: string;
+  connectionSlug?: string;
+  state?: string;
+  note?: string;
+};
+
 @Injectable()
 export class ConnectionInstancesService {
   constructor(
@@ -783,6 +793,7 @@ export class ConnectionInstancesService {
     const followUpNotification = this.resolveFollowUpNotification(
       platform.followUpNotification,
     );
+    const followUpState = this.resolveFollowUpState(platform.followUpState);
     const alertCandidate =
       repeatFailureCount >= 3 || latestTimelineEntry?.status === 'needs-setup';
 
@@ -815,6 +826,7 @@ export class ConnectionInstancesService {
         recoveryNote,
         followUpAssignment,
         followUpNotification,
+        followUpState,
         shouldAlertOperator: alertCandidate && !suppression.active,
       },
       healthTimeline: timeline,
@@ -1574,6 +1586,142 @@ export class ConnectionInstancesService {
     };
   }
 
+  async updateFollowUpState(input: UpdateFollowUpStateInput) {
+    const connectionSlug = input.connectionSlug?.trim().toLowerCase();
+    const rawState = input.state?.trim().toLowerCase();
+
+    if (!connectionSlug) {
+      throw new BadRequestException('Missing connectionSlug.');
+    }
+
+    if (!rawState) {
+      throw new BadRequestException('Missing state.');
+    }
+
+    const allowedStates = new Set(['in-progress', 'blocked', 'resolved']);
+    if (!allowedStates.has(rawState)) {
+      throw new BadRequestException(
+        'Invalid follow-up state. Expected one of: in-progress, blocked, resolved.',
+      );
+    }
+
+    const { context } = await this.accessPolicy.resolveAndRequire(
+      {
+        tenantSlug: input.tenantSlug,
+        userEmail: input.userEmail,
+        workspaceSlug: input.workspaceSlug,
+        hostname: input.hostname,
+        enforceWorkspaceDomainMatch: true,
+      },
+      {
+        minimumRole: MembershipRole.OPERATOR,
+        scope: 'operator-control',
+      },
+    );
+
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: {
+        tenantId: context.tenant.id,
+        slug: connectionSlug,
+        OR: context.activeWorkspace
+          ? [{ workspaceId: context.activeWorkspace.id }, { workspaceId: null }]
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        config: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Connection not found for slug: ${connectionSlug}`,
+      );
+    }
+
+    const config =
+      connection.config && typeof connection.config === 'object'
+        ? { ...(connection.config as Record<string, unknown>) }
+        : {};
+    const platform =
+      config._platform && typeof config._platform === 'object'
+        ? { ...(config._platform as Record<string, unknown>) }
+        : {};
+    const updatedAt = new Date().toISOString();
+    const note = input.note?.trim() || null;
+    const status = `follow-up-${rawState}`;
+
+    const updated = await this.prisma.integrationConnection.update({
+      where: { id: connection.id },
+      data: {
+        config: this.toJsonValue({
+          ...config,
+          _platform: {
+            ...platform,
+            followUpState: {
+              state: rawState,
+              updatedAt,
+              updatedBy: context.user.email,
+              note,
+            },
+            healthTimeline: this.appendTimelineEntry(platform.healthTimeline, {
+              type: 'follow-up-state',
+              status,
+              at: updatedAt,
+              actor: context.user.email,
+              detail: {
+                state: rawState,
+                note,
+              },
+            }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        workspace: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'integrations',
+      surface: 'connection-health-follow-up-state',
+      status,
+      connection: updated,
+      followUpState: {
+        state: rawState,
+        updatedAt,
+        updatedBy: context.user.email,
+        note,
+      },
+      next:
+        rawState === 'resolved'
+          ? ['verify-connection-health', 'close-follow-up-loop']
+          : ['continue-follow-up', 'monitor-connection-health'],
+    };
+  }
+
   getSetupBlueprint(connectorKey?: string) {
     const normalizedConnectorKey = connectorKey?.trim().toLowerCase();
 
@@ -1827,6 +1975,23 @@ export class ConnectionInstancesService {
         typeof record.notifiedAt === 'string' ? record.notifiedAt : null,
       notifiedBy:
         typeof record.notifiedBy === 'string' ? record.notifiedBy : null,
+      note: typeof record.note === 'string' ? record.note : null,
+    };
+  }
+
+  private resolveFollowUpState(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+
+    return {
+      state: typeof record.state === 'string' ? record.state : null,
+      updatedAt:
+        typeof record.updatedAt === 'string' ? record.updatedAt : null,
+      updatedBy:
+        typeof record.updatedBy === 'string' ? record.updatedBy : null,
       note: typeof record.note === 'string' ? record.note : null,
     };
   }

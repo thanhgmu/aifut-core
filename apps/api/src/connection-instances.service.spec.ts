@@ -1177,4 +1177,132 @@ describe('ConnectionInstancesService', () => {
       },
     });
   });
+
+  it('should update follow-up workflow state and expose it in the health summary', async () => {
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { id: 'tenant_1', slug: 'acme' },
+        user: { id: 'user_1', email: 'ops@acme.test' },
+        activeWorkspace: { id: 'ws_1', slug: 'ops' },
+        activeMembership: { role: MembershipRole.OPERATOR },
+      },
+    });
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_12',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          healthTimeline: [
+            {
+              type: 'follow-up-notification',
+              status: 'follow-up-notified',
+              at: '2099-04-24T18:27:00.000Z',
+              actor: 'ops@acme.test',
+            },
+          ],
+        },
+      },
+    });
+    prisma.integrationConnection.update.mockResolvedValue({
+      id: 'conn_12',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+    });
+
+    const followUpStateResult = await service.updateFollowUpState({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+      state: 'in-progress',
+      note: 'Assignee started triage.',
+    });
+
+    expect(followUpStateResult).toMatchObject({
+      surface: 'connection-health-follow-up-state',
+      status: 'follow-up-in-progress',
+      followUpState: {
+        state: 'in-progress',
+        updatedBy: 'ops@acme.test',
+        note: 'Assignee started triage.',
+      },
+    });
+    expect(prisma.integrationConnection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          config: expect.objectContaining({
+            _platform: expect.objectContaining({
+              healthTimeline: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'follow-up-state',
+                  status: 'follow-up-in-progress',
+                }),
+              ]),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    prisma.integrationConnection.findFirst.mockResolvedValueOnce({
+      id: 'conn_12',
+      name: 'N8N Draft',
+      slug: 'n8n-draft',
+      provider: 'n8n',
+      status: 'PENDING',
+      lastVerifiedAt: new Date('2026-04-24T18:27:00.000Z'),
+      workspace: { id: 'ws_1', slug: 'ops', name: 'Ops' },
+      config: {
+        _platform: {
+          followUpState: {
+            state: 'in-progress',
+            updatedAt: '2099-04-24T18:29:00.000Z',
+            updatedBy: 'ops@acme.test',
+            note: 'Assignee started triage.',
+          },
+          healthTimeline: [
+            {
+              type: 'follow-up-notification',
+              status: 'follow-up-notified',
+              at: '2099-04-24T18:27:00.000Z',
+              actor: 'ops@acme.test',
+            },
+            {
+              type: 'follow-up-state',
+              status: 'follow-up-in-progress',
+              at: '2099-04-24T18:29:00.000Z',
+              actor: 'ops@acme.test',
+              detail: {
+                state: 'in-progress',
+                note: 'Assignee started triage.',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const timelineResult = await service.getConnectionHealthTimeline({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      userEmail: 'ops@acme.test',
+      connectionSlug: 'n8n-draft',
+    });
+
+    expect(timelineResult.healthSummary).toMatchObject({
+      latestStatus: 'follow-up-in-progress',
+      followUpState: {
+        state: 'in-progress',
+        updatedBy: 'ops@acme.test',
+        note: 'Assignee started triage.',
+      },
+    });
+  });
 });
