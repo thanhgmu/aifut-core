@@ -143,6 +143,7 @@ export class IntegrationDiagnosticsService {
           key: true,
           value: true,
           source: true,
+          updatedAt: true,
         },
       }),
     ]);
@@ -243,6 +244,10 @@ export class IntegrationDiagnosticsService {
                   assignment?.updatedAt ?? null,
                 ),
                 latestProvisioningEvent: this.describeProvisioningEvent(assignment),
+                provisioningHistory: this.describeProvisioningHistory(
+                  assignment,
+                  automationEntitlement,
+                ),
                 packageSelected:
                   assignment?.selectedOptions.includes(
                     NEXOVAFLOW_AUTOMATION_OPTION.key,
@@ -414,5 +419,45 @@ export class IntegrationDiagnosticsService {
       at: assignment.updatedAt,
       source: assignment.source ?? null,
     };
+  }
+
+  private describeProvisioningHistory(
+    assignment:
+      | {
+          provisioningState?: string | null;
+          updatedAt?: Date | null;
+          source?: string | null;
+        }
+      | null
+      | undefined,
+    entitlement:
+      | {
+          value?: string | null;
+          updatedAt?: Date | null;
+          source?: string | null;
+        }
+      | null
+      | undefined,
+  ) {
+    const events = [
+      assignment?.provisioningState && assignment.updatedAt
+        ? {
+            type: 'package-provisioning-state',
+            state: assignment.provisioningState,
+            at: assignment.updatedAt,
+            source: assignment.source ?? null,
+          }
+        : null,
+      entitlement?.value && entitlement.updatedAt
+        ? {
+            type: 'entitlement-sync-state',
+            state: entitlement.value,
+            at: entitlement.updatedAt,
+            source: entitlement.source ?? null,
+          }
+        : null,
+    ].filter((event) => Boolean(event));
+
+    return events.length > 0 ? events : null;
   }
 }

@@ -247,6 +247,16 @@ describe('IntegrationsController', () => {
               type: 'package-provisioning-state',
               state: 'pending',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+            ],
             entitlementEnabled: true,
           },
         },
@@ -287,6 +297,16 @@ describe('IntegrationsController', () => {
               type: 'package-provisioning-state',
               state: 'pending',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+            ],
             entitlementEnabled: true,
           },
         },
@@ -311,6 +331,16 @@ describe('IntegrationsController', () => {
               type: 'package-provisioning-state',
               state: 'active',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'active',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+            ],
             packageSelected: true,
             entitlementEnabled: true,
           },
@@ -349,6 +379,16 @@ describe('IntegrationsController', () => {
               type: 'package-provisioning-state',
               state: 'active',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'active',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+              },
+            ],
             packageSelected: true,
             entitlementEnabled: true,
           },

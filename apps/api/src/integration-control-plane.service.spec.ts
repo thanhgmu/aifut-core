@@ -266,6 +266,20 @@ describe('IntegrationControlPlaneService', () => {
               at: new Date('2026-04-24T20:06:00.000Z'),
               source: 'seed',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+                at: new Date('2026-04-24T20:06:00.000Z'),
+                source: 'seed',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T20:07:00.000Z'),
+                source: 'seed:acme:tenant:default',
+              },
+            ],
           },
           nexovaflowAutomation: {
             packageSelected: true,
@@ -278,6 +292,20 @@ describe('IntegrationControlPlaneService', () => {
               at: new Date('2026-04-24T20:06:00.000Z'),
               source: 'seed',
             },
+            provisioningHistory: [
+              {
+                type: 'package-provisioning-state',
+                state: 'pending',
+                at: new Date('2026-04-24T20:06:00.000Z'),
+                source: 'seed',
+              },
+              {
+                type: 'entitlement-sync-state',
+                state: 'enabled',
+                at: new Date('2026-04-24T20:07:00.000Z'),
+                source: 'seed:acme:tenant:default',
+              },
+            ],
             entitlementEnabled: true,
             entitlementSource: 'seed:acme:tenant:default',
           },
