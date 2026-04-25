@@ -11,6 +11,8 @@ describe('IntegrationControlPlaneService', () => {
   let service: IntegrationControlPlaneService;
   let prisma: {
     tenant: { findUnique: jest.Mock };
+    tenantPackageAssignment: { findMany: jest.Mock };
+    entitlement: { findMany: jest.Mock };
   };
   let storageRoutingPolicy: { getEffectivePolicy: jest.Mock };
 
@@ -19,7 +21,15 @@ describe('IntegrationControlPlaneService', () => {
       tenant: {
         findUnique: jest.fn(),
       },
+      tenantPackageAssignment: {
+        findMany: jest.fn(),
+      },
+      entitlement: {
+        findMany: jest.fn(),
+      },
     };
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([]);
+    prisma.entitlement.findMany.mockResolvedValue([]);
 
     storageRoutingPolicy = {
       getEffectivePolicy: jest.fn(),
@@ -173,6 +183,26 @@ describe('IntegrationControlPlaneService', () => {
         },
       ],
     });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        id: 'pkg_1',
+        scopeKey: 'acme:tenant:default',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        provisioningState: 'pending',
+        source: 'seed',
+        updatedAt: new Date('2026-04-24T20:06:00.000Z'),
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        key: 'feature.nexovaflow.automation',
+        value: 'enabled',
+        source: 'seed:acme:tenant:default',
+        updatedAt: new Date('2026-04-24T20:07:00.000Z'),
+        endsAt: null,
+      },
+    ]);
     storageRoutingPolicy.getEffectivePolicy.mockImplementation(async (input) => ({
       policyKey: input.policyKey,
       effectivePolicy: {
@@ -219,6 +249,18 @@ describe('IntegrationControlPlaneService', () => {
           connectedSystems: 1,
           domainCount: 2,
           storagePolicyCount: 2,
+        },
+        commercialization: {
+          packageAssignmentScope: {
+            requestedScopeKey: 'acme:workspace:ops',
+            effectiveScopeKey: 'acme:tenant:default',
+            fallbackApplied: true,
+          },
+          nexovaflowAutomation: {
+            packageSelected: true,
+            entitlementEnabled: true,
+            entitlementSource: 'seed:acme:tenant:default',
+          },
         },
       },
       connections: [

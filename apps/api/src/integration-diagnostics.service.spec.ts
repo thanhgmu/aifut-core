@@ -10,6 +10,8 @@ describe('IntegrationDiagnosticsService', () => {
   let service: IntegrationDiagnosticsService;
   let prisma: {
     tenant: { findUnique: jest.Mock };
+    tenantPackageAssignment: { findMany: jest.Mock };
+    entitlement: { findMany: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -17,7 +19,15 @@ describe('IntegrationDiagnosticsService', () => {
       tenant: {
         findUnique: jest.fn(),
       },
+      tenantPackageAssignment: {
+        findMany: jest.fn(),
+      },
+      entitlement: {
+        findMany: jest.fn(),
+      },
     };
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([]);
+    prisma.entitlement.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -80,6 +90,21 @@ describe('IntegrationDiagnosticsService', () => {
         },
       ],
     });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        scopeKey: 'acme:workspace:ops',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        source: 'admin-ui:acme:workspace:ops',
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        key: 'feature.nexovaflow.automation',
+        value: 'enabled',
+        source: 'admin-ui:acme:workspace:ops',
+      },
+    ]);
 
     const result = await service.diagnose({
       tenantSlug: 'acme',
@@ -138,6 +163,21 @@ describe('IntegrationDiagnosticsService', () => {
         },
       ],
     });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([
+      {
+        scopeKey: 'acme:workspace:ops',
+        basePlanKey: 'core.growth',
+        selectedOptions: ['nexovaflow.automation'],
+        source: 'admin-ui:acme:workspace:ops',
+      },
+    ]);
+    prisma.entitlement.findMany.mockResolvedValue([
+      {
+        key: 'feature.nexovaflow.automation',
+        value: 'enabled',
+        source: 'admin-ui:acme:workspace:ops',
+      },
+    ]);
 
     const result = await service.diagnose({
       tenantSlug: 'acme',
@@ -152,6 +192,17 @@ describe('IntegrationDiagnosticsService', () => {
           operatorHealth: {
             followUpState: 'blocked',
             shouldEscalateOperator: true,
+          },
+          commercialization: {
+            packageAssignmentScope: {
+              requestedScopeKey: 'acme:workspace:ops',
+              effectiveScopeKey: 'acme:workspace:ops',
+              fallbackApplied: false,
+            },
+            packageSelected: true,
+            entitlementEnabled: true,
+            entitlementSource: 'admin-ui:acme:workspace:ops',
+            packageAssignmentSource: 'admin-ui:acme:workspace:ops',
           },
           summary: {
             readyForOperatorReview: true,

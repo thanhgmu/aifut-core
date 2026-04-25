@@ -6,6 +6,11 @@ import {
 import { PrismaService } from './prisma.service';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 
+const NEXOVAFLOW_AUTOMATION_OPTION = {
+  key: 'nexovaflow.automation',
+  entitlementKey: 'feature.nexovaflow.automation',
+} as const;
+
 @Injectable()
 export class IntegrationDiagnosticsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -107,6 +112,47 @@ export class IntegrationDiagnosticsService {
       return true;
     });
 
+    const requestedScopeKey = activeWorkspace
+      ? `${tenant.slug}:workspace:${activeWorkspace.slug}`
+      : `${tenant.slug}:tenant:default`;
+    const fallbackScopeKey = `${tenant.slug}:tenant:default`;
+    const scopeKeys = activeWorkspace
+      ? [requestedScopeKey, fallbackScopeKey]
+      : [requestedScopeKey];
+    const [assignments, entitlements] = await Promise.all([
+      this.prisma.tenantPackageAssignment.findMany({
+        where: {
+          tenantId: tenant.id,
+          scopeKey: { in: scopeKeys },
+        },
+        select: {
+          scopeKey: true,
+          basePlanKey: true,
+          selectedOptions: true,
+          source: true,
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: tenant.id,
+          key: NEXOVAFLOW_AUTOMATION_OPTION.entitlementKey,
+        },
+        select: {
+          key: true,
+          value: true,
+          source: true,
+        },
+      }),
+    ]);
+    const assignment = assignments.find(
+      (candidate) => candidate.scopeKey === requestedScopeKey,
+    ) ?? assignments.find((candidate) => candidate.scopeKey === fallbackScopeKey) ?? null;
+    const effectiveScopeKey = assignment?.scopeKey ?? requestedScopeKey;
+    const fallbackApplied = Boolean(
+      assignment && activeWorkspace && effectiveScopeKey !== requestedScopeKey,
+    );
+    const automationEntitlement = entitlements[0] ?? null;
+
     return {
       capability: 'integrations',
       surface: 'diagnostics',
@@ -182,6 +228,23 @@ export class IntegrationDiagnosticsService {
             followUpState: this.resolveFollowUpState(connection.config),
             shouldEscalateOperator: this.shouldEscalateOperator(connection.config),
           },
+          commercialization: connection.provider.trim().toLowerCase() === 'nexovaflow'
+            ? {
+                packageAssignmentScope: {
+                  requestedScopeKey,
+                  effectiveScopeKey,
+                  fallbackApplied,
+                },
+                packageSelected:
+                  assignment?.selectedOptions.includes(
+                    NEXOVAFLOW_AUTOMATION_OPTION.key,
+                  ) ?? false,
+                entitlementEnabled:
+                  automationEntitlement?.value?.toLowerCase() === 'enabled',
+                entitlementSource: automationEntitlement?.source ?? null,
+                packageAssignmentSource: assignment?.source ?? null,
+              }
+            : null,
           connectorContract: connector
             ? {
                 key: connector.key,

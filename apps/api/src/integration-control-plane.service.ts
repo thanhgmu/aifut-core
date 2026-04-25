@@ -7,6 +7,11 @@ import { PrismaService } from './prisma.service';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
+const NEXOVAFLOW_AUTOMATION_OPTION = {
+  key: 'nexovaflow.automation',
+  entitlementKey: 'feature.nexovaflow.automation',
+} as const;
+
 @Injectable()
 export class IntegrationControlPlaneService {
   constructor(
@@ -160,6 +165,63 @@ export class IntegrationControlPlaneService {
       })),
     );
 
+    const requestedScopeKey = activeWorkspace
+      ? `${tenant.slug}:workspace:${activeWorkspace.slug}`
+      : `${tenant.slug}:tenant:default`;
+    const fallbackScopeKey = `${tenant.slug}:tenant:default`;
+    const scopeKeys = activeWorkspace
+      ? [requestedScopeKey, fallbackScopeKey]
+      : [requestedScopeKey];
+
+    const [assignments, entitlements] = await Promise.all([
+      this.prisma.tenantPackageAssignment.findMany({
+        where: {
+          tenantId: tenant.id,
+          scopeKey: { in: scopeKeys },
+        },
+        select: {
+          id: true,
+          scopeKey: true,
+          basePlanKey: true,
+          selectedOptions: true,
+          provisioningState: true,
+          source: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: tenant.id,
+          key: NEXOVAFLOW_AUTOMATION_OPTION.entitlementKey,
+        },
+        select: {
+          key: true,
+          value: true,
+          source: true,
+          updatedAt: true,
+          endsAt: true,
+        },
+      }),
+    ]);
+
+    const assignment = assignments.find(
+      (candidate) => candidate.scopeKey === requestedScopeKey,
+    ) ?? assignments.find((candidate) => candidate.scopeKey === fallbackScopeKey) ?? null;
+    const effectiveScopeKey = assignment?.scopeKey ?? requestedScopeKey;
+    const fallbackApplied = Boolean(
+      assignment &&
+        activeWorkspace &&
+        effectiveScopeKey !== requestedScopeKey,
+    );
+    const entitlementBoundary = {
+      model: 'tenant-wide-entitlements',
+      assignmentScope: activeWorkspace && effectiveScopeKey !== fallbackScopeKey ? 'workspace' : 'tenant',
+      assignmentScopeKey: effectiveScopeKey,
+      workspaceScopedAssignment:
+        Boolean(activeWorkspace) && effectiveScopeKey !== fallbackScopeKey,
+    };
+    const automationEntitlement = entitlements[0] ?? null;
+
     return {
       capability: 'integrations',
       surface: 'control-plane',
@@ -197,6 +259,31 @@ export class IntegrationControlPlaneService {
           workspaceCount: tenant.workspaces.length,
           domainCount: filteredDomains.length,
           storagePolicyCount: filteredPolicies.length,
+        },
+        commercialization: {
+          packageAssignmentScope: {
+            requestedScopeKey,
+            effectiveScopeKey,
+            fallbackApplied,
+            entitlementBoundary,
+          },
+          activePackageAssignment: assignment
+            ? {
+                basePlanKey: assignment.basePlanKey,
+                selectedOptions: assignment.selectedOptions,
+                provisioningState: assignment.provisioningState,
+                source: assignment.source,
+                updatedAt: assignment.updatedAt,
+              }
+            : null,
+          nexovaflowAutomation: {
+            packageSelected:
+              assignment?.selectedOptions.includes(NEXOVAFLOW_AUTOMATION_OPTION.key) ?? false,
+            entitlementEnabled:
+              automationEntitlement?.value?.toLowerCase() === 'enabled',
+            entitlementSource: automationEntitlement?.source ?? null,
+            entitlementUpdatedAt: automationEntitlement?.updatedAt ?? null,
+          },
         },
       },
       domains: filteredDomains.map((domain) => ({
