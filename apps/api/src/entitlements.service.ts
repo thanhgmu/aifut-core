@@ -860,6 +860,9 @@ export class EntitlementsService {
     const effectiveScopeMatches = input.entitlements.filter((entitlement) =>
       entitlement.source?.endsWith(effectiveScopeSuffix),
     );
+    const entitlementBoundary = this.describeEntitlementBoundary(
+      input.effectiveScope,
+    );
     const basePlanEntitlement = input.entitlements.find(
       (entitlement) => entitlement.key === 'package.base-plan',
     );
@@ -868,6 +871,14 @@ export class EntitlementsService {
       requestedScope: input.requestedScope,
       effectiveScope: input.effectiveScope,
       fallbackApplied: input.fallbackApplied,
+      entitlementBoundary,
+      segmentationPressure: {
+        level: entitlementBoundary.workspaceScopedAssignment
+          ? 'workspace-scope-on-tenant-wide-records'
+          : 'none',
+        requiresExplicitWorkspaceEntitlements:
+          entitlementBoundary.workspaceScopedAssignment,
+      },
       counts: {
         requestedScopeSourceMatches: requestedScopeMatches.length,
         effectiveScopeSourceMatches: effectiveScopeMatches.length,

@@ -195,6 +195,14 @@ describe('EntitlementsService', () => {
       requestedScope: { scopeKey: 'acme:tenant:default' },
       effectiveScope: { scopeKey: 'acme:tenant:default' },
       fallbackApplied: false,
+      entitlementBoundary: {
+        model: 'tenant-wide-entitlements',
+        workspaceScopedAssignment: false,
+      },
+      segmentationPressure: {
+        level: 'none',
+        requiresExplicitWorkspaceEntitlements: false,
+      },
       counts: {
         requestedScopeSourceMatches: 2,
         effectiveScopeSourceMatches: 2,
@@ -276,6 +284,14 @@ describe('EntitlementsService', () => {
       requestedScope: { scopeKey: 'acme:workspace:ops' },
       effectiveScope: { scopeKey: 'acme:workspace:ops' },
       fallbackApplied: false,
+      entitlementBoundary: {
+        model: 'tenant-wide-entitlements',
+        workspaceScopedAssignment: true,
+      },
+      segmentationPressure: {
+        level: 'workspace-scope-on-tenant-wide-records',
+        requiresExplicitWorkspaceEntitlements: true,
+      },
       counts: {
         requestedScopeSourceMatches: 1,
         effectiveScopeSourceMatches: 1,
