@@ -13,6 +13,7 @@ describe('OrchestrationController', () => {
     buildAppCoordinationDraft: jest.Mock;
     buildDataflowModelDraft: jest.Mock;
     buildOptimizationSummaryDraft: jest.Mock;
+    buildWorkflowGraphDraft: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -27,6 +28,7 @@ describe('OrchestrationController', () => {
       buildAppCoordinationDraft: jest.fn(),
       buildDataflowModelDraft: jest.fn(),
       buildOptimizationSummaryDraft: jest.fn(),
+      buildWorkflowGraphDraft: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -411,6 +413,69 @@ describe('OrchestrationController', () => {
         optimizationStatus: 'draft',
         objective: 'Balance cost and operator effort',
         priorities: ['cost', 'operator-effort'],
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should draft workflow graph in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildWorkflowGraphDraft.mockReturnValue({
+      planId: 'plan:acme:ops:draft',
+      graphStatus: 'draft',
+      objective: 'Render a lane-based coordination graph',
+      lanes: ['operator', 'nexovaflow'],
+      nodes: [],
+      edges: [],
+      overlays: {
+        approvals: [],
+        kpis: [],
+      },
+    });
+
+    const result = await controller.draftWorkflowGraph(
+      'plan:acme:ops:draft',
+      {
+        objective: 'Render a lane-based coordination graph',
+        lanes: ['operator', 'nexovaflow'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildWorkflowGraphDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      objective: 'Render a lane-based coordination graph',
+      lanes: ['operator', 'nexovaflow'],
+    });
+    expect(result).toMatchObject({
+      status: 'workflow-graph-drafted',
+      workflowGraph: {
+        planId: 'plan:acme:ops:draft',
+        graphStatus: 'draft',
+        objective: 'Render a lane-based coordination graph',
+        lanes: ['operator', 'nexovaflow'],
       },
       context: {
         tenant: { slug: 'acme' },

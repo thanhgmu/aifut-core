@@ -136,4 +136,30 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build a workflow graph draft with normalized defaults', () => {
+    const result = service.buildWorkflowGraphDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      graphStatus: 'draft',
+      objective:
+        'Project the parent workflow into a renderable graph with lanes, nodes, edges, and approval checkpoints.',
+      lanes: [],
+      nodes: [],
+      edges: [],
+      overlays: {
+        approvals: [],
+        kpis: [],
+      },
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });

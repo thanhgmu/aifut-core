@@ -156,4 +156,31 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildWorkflowGraphDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    objective?: string;
+    lanes?: string[];
+  }) {
+    return {
+      planId: input.planId,
+      graphStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Project the parent workflow into a renderable graph with lanes, nodes, edges, and approval checkpoints.',
+      lanes: input.lanes ?? [],
+      nodes: [],
+      edges: [],
+      overlays: {
+        approvals: [],
+        kpis: [],
+      },
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }
