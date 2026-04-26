@@ -285,6 +285,55 @@ export class OrchestrationController {
     };
   }
 
+  @Post('plans/:planId/optimize')
+  async draftOptimizationSummary(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      priorities?: string[];
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'optimization-drafted',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      optimizationSummary: this.orchestration.buildOptimizationSummaryDraft({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        priorities: body.priorities,
+      }),
+      next: ['workflow-graph-projection', 'execution-contracts', 'variant-scoring'],
+    };
+  }
+
   @Get('roadmap')
   roadmap() {
     return {

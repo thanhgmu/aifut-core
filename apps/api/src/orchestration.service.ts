@@ -131,4 +131,29 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildOptimizationSummaryDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    objective?: string;
+    priorities?: string[];
+  }) {
+    return {
+      planId: input.planId,
+      optimizationStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Explain the leanest tradeoff-balanced execution path across cost, complexity, speed, and operator effort.',
+      priorities: input.priorities ?? [],
+      preferredStrategy:
+        'Lean hybrid orchestration draft pending concrete scoring and system-fit evidence.',
+      tradeoffs: [],
+      variantScores: [],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }

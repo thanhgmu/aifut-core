@@ -12,6 +12,7 @@ describe('OrchestrationController', () => {
     buildRoadmapInterpretation: jest.Mock;
     buildAppCoordinationDraft: jest.Mock;
     buildDataflowModelDraft: jest.Mock;
+    buildOptimizationSummaryDraft: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -25,6 +26,7 @@ describe('OrchestrationController', () => {
       buildRoadmapInterpretation: jest.fn(),
       buildAppCoordinationDraft: jest.fn(),
       buildDataflowModelDraft: jest.fn(),
+      buildOptimizationSummaryDraft: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -349,6 +351,66 @@ describe('OrchestrationController', () => {
         dataflowStatus: 'draft',
         objective: 'Map customer and order sync paths',
         businessObjects: ['customer', 'order'],
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should draft optimization summary in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildOptimizationSummaryDraft.mockReturnValue({
+      planId: 'plan:acme:ops:draft',
+      optimizationStatus: 'draft',
+      objective: 'Balance cost and operator effort',
+      priorities: ['cost', 'operator-effort'],
+      preferredStrategy: 'Lean hybrid orchestration draft pending concrete scoring and system-fit evidence.',
+      tradeoffs: [],
+      variantScores: [],
+    });
+
+    const result = await controller.draftOptimizationSummary(
+      'plan:acme:ops:draft',
+      {
+        objective: 'Balance cost and operator effort',
+        priorities: ['cost', 'operator-effort'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildOptimizationSummaryDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      objective: 'Balance cost and operator effort',
+      priorities: ['cost', 'operator-effort'],
+    });
+    expect(result).toMatchObject({
+      status: 'optimization-drafted',
+      optimizationSummary: {
+        planId: 'plan:acme:ops:draft',
+        optimizationStatus: 'draft',
+        objective: 'Balance cost and operator effort',
+        priorities: ['cost', 'operator-effort'],
       },
       context: {
         tenant: { slug: 'acme' },

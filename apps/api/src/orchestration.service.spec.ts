@@ -112,4 +112,28 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build an optimization summary draft with normalized defaults', () => {
+    const result = service.buildOptimizationSummaryDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      optimizationStatus: 'draft',
+      objective:
+        'Explain the leanest tradeoff-balanced execution path across cost, complexity, speed, and operator effort.',
+      priorities: [],
+      preferredStrategy:
+        'Lean hybrid orchestration draft pending concrete scoring and system-fit evidence.',
+      tradeoffs: [],
+      variantScores: [],
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });
