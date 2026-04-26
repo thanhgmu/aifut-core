@@ -58,4 +58,29 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildRoadmapInterpretation(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    roadmapDraftId: string;
+    objective?: string;
+    hints?: string[];
+  }) {
+    return {
+      draftId: input.roadmapDraftId,
+      interpretationStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Interpret roadmap into phases, goals, decision gates, and automation opportunities.',
+      hints: input.hints ?? [],
+      phases: [],
+      goals: [],
+      decisionGates: [],
+      automationOpportunities: [],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }

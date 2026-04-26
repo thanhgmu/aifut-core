@@ -9,6 +9,7 @@ describe('OrchestrationController', () => {
   let orchestration: {
     buildRoadmapDraft: jest.Mock;
     buildParentWorkflowPlan: jest.Mock;
+    buildRoadmapInterpretation: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -19,6 +20,7 @@ describe('OrchestrationController', () => {
     orchestration = {
       buildRoadmapDraft: jest.fn(),
       buildParentWorkflowPlan: jest.fn(),
+      buildRoadmapInterpretation: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -162,6 +164,67 @@ describe('OrchestrationController', () => {
         optimizationSummary: {
           status: 'draft',
         },
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should interpret a roadmap draft in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildRoadmapInterpretation.mockReturnValue({
+      draftId: 'draft:acme:ops:roadmap',
+      interpretationStatus: 'draft',
+      objective: 'Extract phases and automation opportunities',
+      hints: ['keep-tool-count-low'],
+      phases: [],
+      goals: [],
+      decisionGates: [],
+      automationOpportunities: [],
+    });
+
+    const result = await controller.interpretRoadmap(
+      'draft:acme:ops:roadmap',
+      {
+        objective: 'Extract phases and automation opportunities',
+        hints: ['keep-tool-count-low'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildRoadmapInterpretation).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      roadmapDraftId: 'draft:acme:ops:roadmap',
+      objective: 'Extract phases and automation opportunities',
+      hints: ['keep-tool-count-low'],
+    });
+    expect(result).toMatchObject({
+      status: 'roadmap-interpreted',
+      interpretation: {
+        draftId: 'draft:acme:ops:roadmap',
+        interpretationStatus: 'draft',
+        objective: 'Extract phases and automation opportunities',
+        hints: ['keep-tool-count-low'],
       },
       context: {
         tenant: { slug: 'acme' },

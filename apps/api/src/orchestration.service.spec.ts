@@ -42,4 +42,28 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build a roadmap interpretation draft with normalized defaults', () => {
+    const result = service.buildRoadmapInterpretation({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      roadmapDraftId: 'draft:acme:ops:roadmap',
+    });
+
+    expect(result).toMatchObject({
+      draftId: 'draft:acme:ops:roadmap',
+      interpretationStatus: 'draft',
+      objective:
+        'Interpret roadmap into phases, goals, decision gates, and automation opportunities.',
+      hints: [],
+      phases: [],
+      goals: [],
+      decisionGates: [],
+      automationOpportunities: [],
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });
