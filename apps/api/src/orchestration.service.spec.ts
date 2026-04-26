@@ -162,4 +162,28 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build an execution contract draft with normalized defaults', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      executionContractStatus: 'draft',
+      objective:
+        'Define the execution contract across workflows, approvals, connected systems, and failure-handling boundaries.',
+      executionModes: [],
+      childWorkflowContracts: [],
+      approvalContracts: [],
+      escalationContracts: [],
+      rollbackContracts: [],
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });

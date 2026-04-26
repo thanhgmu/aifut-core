@@ -183,4 +183,29 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildExecutionContractDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    objective?: string;
+    executionModes?: string[];
+  }) {
+    return {
+      planId: input.planId,
+      executionContractStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Define the execution contract across workflows, approvals, connected systems, and failure-handling boundaries.',
+      executionModes: input.executionModes ?? [],
+      childWorkflowContracts: [],
+      approvalContracts: [],
+      escalationContracts: [],
+      rollbackContracts: [],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }

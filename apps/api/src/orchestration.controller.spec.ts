@@ -14,6 +14,7 @@ describe('OrchestrationController', () => {
     buildDataflowModelDraft: jest.Mock;
     buildOptimizationSummaryDraft: jest.Mock;
     buildWorkflowGraphDraft: jest.Mock;
+    buildExecutionContractDraft: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -29,6 +30,7 @@ describe('OrchestrationController', () => {
       buildDataflowModelDraft: jest.fn(),
       buildOptimizationSummaryDraft: jest.fn(),
       buildWorkflowGraphDraft: jest.fn(),
+      buildExecutionContractDraft: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -476,6 +478,67 @@ describe('OrchestrationController', () => {
         graphStatus: 'draft',
         objective: 'Render a lane-based coordination graph',
         lanes: ['operator', 'nexovaflow'],
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should draft execution contracts in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildExecutionContractDraft.mockReturnValue({
+      planId: 'plan:acme:ops:draft',
+      executionContractStatus: 'draft',
+      objective: 'Define guarded execution boundaries',
+      executionModes: ['human-approved', 'event-driven'],
+      childWorkflowContracts: [],
+      approvalContracts: [],
+      escalationContracts: [],
+      rollbackContracts: [],
+    });
+
+    const result = await controller.draftExecutionContracts(
+      'plan:acme:ops:draft',
+      {
+        objective: 'Define guarded execution boundaries',
+        executionModes: ['human-approved', 'event-driven'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildExecutionContractDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      objective: 'Define guarded execution boundaries',
+      executionModes: ['human-approved', 'event-driven'],
+    });
+    expect(result).toMatchObject({
+      status: 'execution-contracts-drafted',
+      executionContracts: {
+        planId: 'plan:acme:ops:draft',
+        executionContractStatus: 'draft',
+        objective: 'Define guarded execution boundaries',
+        executionModes: ['human-approved', 'event-driven'],
       },
       context: {
         tenant: { slug: 'acme' },
