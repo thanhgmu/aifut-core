@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -28,6 +29,8 @@ type UpsertDomainInput = TenancyOperationInput & {
   status?: TenantDomainStatus;
   workspaceSlug?: string;
   isPrimary?: boolean;
+  allowPrimaryDemotion?: boolean;
+  allowScopeRebinding?: boolean;
   provider?: string | null;
   provisioningMode?: string | null;
   dnsTarget?: string | null;
@@ -146,6 +149,30 @@ export class TenancyOperationsService {
       workspaceSlug: input.workspaceSlug,
     });
 
+    const existingDomain = await this.prisma.tenantDomain.findUnique({
+      where: { hostname },
+      select: {
+        id: true,
+        tenantId: true,
+        workspaceId: true,
+        isPrimary: true,
+        workspace: {
+          select: {
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (
+      existingDomain &&
+      existingDomain.tenantId !== resolved.context.tenant.id
+    ) {
+      throw new ForbiddenException(
+        `Hostname ${hostname} is already bound to another tenant.`,
+      );
+    }
+
     const kind = input.kind ?? TenantDomainKind.CUSTOM;
     const status = input.status ?? TenantDomainStatus.ACTIVE;
     const dnsTarget = this.normalizeOptional(input.dnsTarget);
@@ -200,6 +227,28 @@ export class TenancyOperationsService {
       );
     }
 
+    const targetWorkspaceId = workspace?.id ?? null;
+    const demotionRequested =
+      Boolean(existingDomain?.isPrimary) && input.isPrimary === false;
+    const scopeRebindingRequested =
+      existingDomain != null && existingDomain.workspaceId !== targetWorkspaceId;
+
+    if (demotionRequested && !input.allowPrimaryDemotion) {
+      throw new BadRequestException(
+        'Demoting an existing primary domain requires allowPrimaryDemotion.',
+      );
+    }
+
+    if (
+      scopeRebindingRequested &&
+      existingDomain?.isPrimary &&
+      !input.allowScopeRebinding
+    ) {
+      throw new BadRequestException(
+        'Rebinding a primary domain across tenant/workspace scope requires allowScopeRebinding.',
+      );
+    }
+
     const domain = await this.prisma.tenantDomain.upsert({
       where: { hostname },
       update: {
@@ -242,6 +291,11 @@ export class TenancyOperationsService {
     });
 
     const primaryScope = workspace ? `workspace:${workspace.slug}` : 'tenant:default';
+    const previousScope = existingDomain?.workspace?.slug
+      ? `workspace:${existingDomain.workspace.slug}`
+      : existingDomain
+        ? 'tenant:default'
+        : null;
 
     const primaryReassignment = domain.isPrimary
       ? await this.prisma.tenantDomain.updateMany({
@@ -279,12 +333,27 @@ export class TenancyOperationsService {
         },
         primaryIntent: {
           requestedPromotion: Boolean(input.isPrimary),
+          requestedDemotion: demotionRequested,
+          explicitDemotionApproved: demotionRequested
+            ? Boolean(input.allowPrimaryDemotion)
+            : false,
           resultingPrimary: domain.isPrimary,
           resultingAction: domain.isPrimary
             ? primaryCollisionDetected
               ? 'promote-target-and-demote-existing-scope-primary'
               : 'promote-target-as-scope-primary'
             : 'retain-or-write-non-primary-domain',
+        },
+        scopeTransition: {
+          rebindingRequested: scopeRebindingRequested,
+          explicitRebindingApproved: scopeRebindingRequested
+            ? Boolean(input.allowScopeRebinding)
+            : false,
+          previousScope,
+          targetScope: primaryScope,
+          action: scopeRebindingRequested
+            ? 'rebound-domain-scope'
+            : 'retained-domain-scope',
         },
         readiness: {
           routeReady:

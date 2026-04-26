@@ -246,6 +246,8 @@ export class TenancyController {
       kind?: TenantDomainKind;
       status?: TenantDomainStatus;
       isPrimary?: boolean;
+      allowPrimaryDemotion?: boolean;
+      allowScopeRebinding?: boolean;
       provider?: string;
       provisioningMode?: string;
       dnsTarget?: string;

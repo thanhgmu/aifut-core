@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
+import { TenantDomainKind, TenantDomainStatus } from '@prisma/client';
 import { TenancyController } from './tenancy.controller';
 import { PrismaService } from './prisma.service';
 import { ActorContextService } from './actor-context.service';
@@ -228,6 +229,52 @@ describe('TenancyController', () => {
     expect(result).toMatchObject({
       status: 'package-assignment-upserted',
       packageAssignment: { scopeKey: 'acme:workspace:ops' },
+    });
+  });
+
+  it('should forward domain governance intent flags to tenancy operations', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'ignored',
+        userEmail: 'ignored@acme.test',
+        workspaceSlug: 'ignored',
+        hostname: 'acme.test',
+        kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        allowPrimaryDemotion: true,
+        allowScopeRebinding: true,
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+      },
     });
   });
 });
