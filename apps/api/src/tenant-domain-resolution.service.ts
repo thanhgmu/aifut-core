@@ -35,6 +35,10 @@ export class TenantDomainResolutionService {
         kind: true,
         status: true,
         isPrimary: true,
+        provider: true,
+        provisioningMode: true,
+        dnsTarget: true,
+        certificateStatus: true,
         workspaceId: true,
         tenant: {
           select: {
@@ -74,6 +78,24 @@ export class TenantDomainResolutionService {
         ? null
         : domain.workspace;
 
+    const bindingScope = domain.workspace ? 'workspace' : 'tenant';
+    const workspaceRequestDisposition = workspaceSlug
+      ? domain.workspace?.slug === workspaceSlug
+        ? 'matched'
+        : enforceWorkspaceMatch
+          ? 'blocked'
+          : 'fallback-to-domain-binding'
+      : domain.workspace
+        ? 'implicit-domain-workspace'
+        : 'tenant-default';
+
+    const certificateReady =
+      !domain.certificateStatus ||
+      ['active', 'issued', 'ready'].includes(
+        domain.certificateStatus.trim().toLowerCase(),
+      );
+    const routeReady = domain.status === 'ACTIVE' && certificateReady;
+
     return {
       hostname,
       domain: {
@@ -82,6 +104,10 @@ export class TenantDomainResolutionService {
         kind: domain.kind,
         status: domain.status,
         isPrimary: domain.isPrimary,
+        provider: domain.provider,
+        provisioningMode: domain.provisioningMode,
+        dnsTarget: domain.dnsTarget,
+        certificateStatus: domain.certificateStatus,
       },
       tenant: domain.tenant,
       workspace: resolvedWorkspace,
@@ -93,6 +119,23 @@ export class TenantDomainResolutionService {
           ? domain.workspace?.slug === workspaceSlug
           : Boolean(domain.workspace),
         enforceWorkspaceMatch,
+      },
+      governance: {
+        bindingScope,
+        workspaceRequestDisposition,
+        runtimeRouting: {
+          routeReady,
+          reasons: [
+            ...(domain.status !== 'ACTIVE'
+              ? [`domain-status:${domain.status.toLowerCase()}`]
+              : []),
+            ...(!certificateReady
+              ? [
+                  `certificate-status:${domain.certificateStatus?.trim().toLowerCase()}`,
+                ]
+              : []),
+          ],
+        },
       },
       next: [
         'host-header-tenant-resolution',

@@ -51,6 +51,10 @@ describe('TenantDomainResolutionService', () => {
       kind: 'CUSTOM',
       status: 'ACTIVE',
       isPrimary: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
       workspaceId: 'ws_1',
       tenant: {
         id: 'tenant_1',
@@ -81,6 +85,10 @@ describe('TenantDomainResolutionService', () => {
       kind: 'CUSTOM',
       status: 'ACTIVE',
       isPrimary: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
       workspaceId: 'ws_1',
       tenant: {
         id: 'tenant_1',
@@ -103,11 +111,69 @@ describe('TenantDomainResolutionService', () => {
 
     expect(result).toMatchObject({
       hostname: 'ops.acme.test',
+      domain: {
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      },
       tenant: { slug: 'acme' },
       workspace: { slug: 'ops' },
       resolution: {
         workspaceSlugMatchedDomain: true,
         enforceWorkspaceMatch: true,
+      },
+      governance: {
+        bindingScope: 'workspace',
+        workspaceRequestDisposition: 'matched',
+        runtimeRouting: {
+          routeReady: true,
+          reasons: [],
+        },
+      },
+    });
+  });
+
+  it('should surface fallback runtime governance when workspace request differs without enforcement', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_2',
+      hostname: 'acme.test',
+      kind: 'PLATFORM_SUBDOMAIN',
+      status: 'DEGRADED',
+      isPrimary: true,
+      provider: 'aifut-affiliate',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'tenant-edge.aifut.test',
+      certificateStatus: 'pending',
+      workspaceId: 'ws_1',
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+      workspace: {
+        id: 'ws_1',
+        name: 'Ops',
+        slug: 'ops',
+      },
+    });
+
+    const result = await service.resolveHostname({
+      hostname: 'acme.test',
+      workspaceSlug: 'sales',
+      enforceWorkspaceMatch: false,
+    });
+
+    expect(result.workspace).toBeNull();
+    expect(result).toMatchObject({
+      governance: {
+        bindingScope: 'workspace',
+        workspaceRequestDisposition: 'fallback-to-domain-binding',
+        runtimeRouting: {
+          routeReady: false,
+          reasons: ['domain-status:degraded', 'certificate-status:pending'],
+        },
       },
     });
   });
