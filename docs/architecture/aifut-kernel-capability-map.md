@@ -67,11 +67,31 @@ This is how AIFUT can integrate CRM, ecommerce, LMS, ERP-light, messaging, AI, a
 The kernel must own:
 - workflow intent model
 - natural-language system composition contracts
+- roadmap/diagram-to-system interpretation contracts
+- parent-workflow synthesis across child workflows and apps
+- dataflow direction modeling (`none`, `pull`, `push`, `bidirectional`, `event-driven`)
+- optimization scoring for cost, effort, latency, revenue, and human involvement
 - AI-assisted configuration drafting
 - approval/safety boundaries for generated workflows
 - execution and observation hooks into connectors and workflow runtimes
 
 The natural-language window should not be a thin chatbot wrapper. It should be a control surface over structured kernel contracts.
+
+### 4A. Roadmap-to-parent-workflow intelligence
+When an operator gives AIFUT a roadmap, process screenshot, whiteboard, or plain-language description, the kernel should be able to:
+- detect phases, milestones, repeated loops, decision gates, and conversion points
+- translate the roadmap into a **parent workflow** that coordinates child workflows across apps
+- propose which steps should live in first-party AIFUT modules vs downstream systems such as NexovaFlow, n8n, CRM, LMS, analytics, or local apps
+- propose one-way vs two-way dataflow boundaries between systems
+- identify where full automation is safe, where partial automation is better, and where human approval should stay
+- produce a visually representable flow model instead of only a text suggestion
+
+The parent workflow is not just an automation chain. It is the kernel-owned coordination plan that optimizes for:
+- minimum system sprawl
+- minimum operational cost
+- minimum human handling where safe
+- maximum practical revenue, productivity, or time savings
+- multi-factor optimization when several of those wins can be achieved together
 
 ### 5. Resource governance truth
 The kernel must own:
@@ -218,6 +238,7 @@ Then:
 - recommendation/personalization policies
 - operator insight surfaces
 - contextual monetization/ads with governance
+- cross-platform behavior memory that can influence orchestration and experience design
 
 ### Phase E — ecosystem/community depth
 Later:
@@ -259,6 +280,7 @@ The correct near-term stance is:
 - marketplace approval boundaries
 - analytics/behavior backbone
 - natural-language control contracts
+- roadmap-to-parent-workflow planning contracts
 - resource/token governance
 
 ### Avoid buying as core foundation

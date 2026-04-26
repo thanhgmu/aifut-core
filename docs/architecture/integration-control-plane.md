@@ -40,6 +40,7 @@ The end state should allow a very small operator team, ideally even a single ope
 - apply policies and entitlements
 - monetize templates, solutions, workflows, and apps
 - help non-technical tenants connect their systems with low friction
+- hand AIFUT a roadmap/process and receive a system-coordination proposal with app roles, dataflow direction, and automation boundaries
 
 ## Architectural layers
 
@@ -116,6 +117,16 @@ This means connectors should map external data into platform primitives such as:
 - audit event
 - entitlement/usage event
 - behavioral signal
+
+### 3A. Parent-workflow planning layer
+Above individual connectors and workflows, AIFUT should own a planning layer that can:
+- ingest a roadmap/process described in text or visuals
+- normalize it into phases, tasks, goals, signals, approvals, and handoffs
+- decide which child workflow belongs in which app/runtime
+- define dataflow direction between those child workflows
+- emit a parent workflow graph that can later be rendered visually and executed incrementally
+
+This is where AIFUT becomes more than an integration dashboard: it becomes the orchestration brain that chooses the leanest workable multi-app system.
 
 ### 4. Integration UX layer
 The platform must support non-technical users, not just API-driven operators.
@@ -211,6 +222,17 @@ The control plane must therefore track:
 - how usage should be billed, limited, surfaced, or bypassed
 - what upgrade path should be shown to the tenant
 
+### 8. Optimization and recommendation layer
+When AIFUT proposes a system/process design, it should score options against practical operator goals:
+- revenue/profit improvement
+- productivity gain
+- time reduction
+- human-ops reduction
+- tool-count / complexity reduction
+- infrastructure/API/storage cost reduction
+
+The point is not to maximize automation blindly. The point is to recommend the most effective real-world design under tenant constraints, package limits, data location, and behavior context.
+
 ## Recommended connector types for phase sequencing
 
 ### Phase-first connectors
@@ -258,6 +280,9 @@ The API should evolve toward these concrete surfaces:
 - mapping profile and sync policy endpoints
 - workflow handoff endpoints
 - package/resource policy surfaces per connection
+- roadmap ingestion + normalized orchestration-plan draft endpoint(s)
+- parent-workflow graph draft endpoint(s)
+- optimization/recommendation summary endpoint(s) for comparing alternative app/dataflow designs
 
 ## Success criteria
 This layer is successful when:

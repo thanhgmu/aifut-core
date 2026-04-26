@@ -94,6 +94,9 @@ Responsibilities:
 - event ingestion and dispatch
 - command/action mapping
 - natural-language operator commands mapped to workflows and system actions
+- roadmap/visual-process interpretation into structured orchestration plans
+- parent-workflow generation that coordinates child workflows across internal and external apps
+- dataflow-direction planning across systems (one-way, two-way, event-driven)
 - upgrade-safe adapter boundaries for external systems
 
 Design rule:
@@ -116,6 +119,7 @@ Responsibilities:
 - business events
 - interaction events
 - behavior profiles
+- cross-device / cross-platform / local-app behavior memory
 - real-time routing and recommendations
 - personalization policies
 - operator dashboards and automated interventions
@@ -172,8 +176,14 @@ Every important system capability should eventually have both a structured admin
 ### AI and natural-language truth
 - Users should be able to describe desired systems/workflows in natural language.
 - AIFUT should progressively translate those prompts into connector setups, workflow drafts, mappings, and actions.
+- AIFUT should also be able to consume a roadmap/process input (text, diagram, screenshot, slide) and turn it into a proposed parent workflow, app coordination plan, and dataflow model.
 - AI usage from AIFUT-provided resources must be measurable, package-aware, and upgradeable.
 - Tenant-owned AI credentials must also be supported.
+
+### Orchestration optimization truth
+- The kernel should optimize proposed workflows globally, not app-by-app only.
+- Optimization criteria include: reduced operator labor, reduced time-to-execution, reduced tool sprawl, reduced platform/resource cost, and increased practical revenue/profit/productivity.
+- The system should support solutions that improve several of those factors together when possible, not force a single-metric optimizer.
 
 ### Commercialization truth
 - Marketplace items may include apps, solutions, workflows, case-study templates, setup services, support packages, or rentals.
