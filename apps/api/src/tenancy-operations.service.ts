@@ -241,6 +241,8 @@ export class TenancyOperationsService {
       },
     });
 
+    const primaryScope = workspace ? `workspace:${workspace.slug}` : 'tenant:default';
+
     const primaryReassignment = domain.isPrimary
       ? await this.prisma.tenantDomain.updateMany({
         where: {
@@ -254,6 +256,8 @@ export class TenancyOperationsService {
       })
       : { count: 0 };
 
+    const primaryCollisionDetected = primaryReassignment.count > 0;
+
     return {
       capability: 'tenancy',
       status: 'domain-upserted',
@@ -262,14 +266,25 @@ export class TenancyOperationsService {
       domain,
       governance: {
         bindingScope: workspace ? 'workspace' : 'tenant',
-        primaryScope: domain.isPrimary
-          ? workspace
-            ? `workspace:${workspace.slug}`
-            : 'tenant:default'
-          : null,
+        primaryScope: domain.isPrimary ? primaryScope : null,
         primaryReassignment: {
-          scope: workspace ? `workspace:${workspace.slug}` : 'tenant:default',
+          scope: primaryScope,
           demotedPrimaryCount: primaryReassignment.count,
+          collisionDetected: primaryCollisionDetected,
+          action: domain.isPrimary
+            ? primaryCollisionDetected
+              ? 'promoted-and-demoted-existing-primary'
+              : 'promoted-without-existing-primary-collision'
+            : 'no-primary-reassignment',
+        },
+        primaryIntent: {
+          requestedPromotion: Boolean(input.isPrimary),
+          resultingPrimary: domain.isPrimary,
+          resultingAction: domain.isPrimary
+            ? primaryCollisionDetected
+              ? 'promote-target-and-demote-existing-scope-primary'
+              : 'promote-target-as-scope-primary'
+            : 'retain-or-write-non-primary-domain',
         },
         readiness: {
           routeReady:

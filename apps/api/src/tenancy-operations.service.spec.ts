@@ -175,6 +175,14 @@ describe('TenancyOperationsService', () => {
         primaryReassignment: {
           scope: 'workspace:ops',
           demotedPrimaryCount: 1,
+          collisionDetected: true,
+          action: 'promoted-and-demoted-existing-primary',
+        },
+        primaryIntent: {
+          requestedPromotion: true,
+          resultingPrimary: true,
+          resultingAction:
+            'promote-target-and-demote-existing-scope-primary',
         },
         readiness: {
           routeReady: true,
@@ -184,6 +192,49 @@ describe('TenancyOperationsService', () => {
           mode: 'managed',
           externallyManaged: true,
         },
+      },
+    });
+  });
+
+  it('should surface non-collision promotion intent when no existing primary is displaced', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_2',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:10:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:10:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+    });
+
+    expect(result.governance).toMatchObject({
+      bindingScope: 'tenant',
+      primaryScope: 'tenant:default',
+      primaryReassignment: {
+        scope: 'tenant:default',
+        demotedPrimaryCount: 0,
+        collisionDetected: false,
+        action: 'promoted-without-existing-primary-collision',
+      },
+      primaryIntent: {
+        requestedPromotion: true,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-as-scope-primary',
       },
     });
   });
