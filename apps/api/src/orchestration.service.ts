@@ -107,4 +107,28 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildDataflowModelDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    objective?: string;
+    businessObjects?: string[];
+  }) {
+    return {
+      planId: input.planId,
+      dataflowStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Model the leanest safe data movement across systems, approvals, and source-of-truth boundaries.',
+      businessObjects: input.businessObjects ?? [],
+      edges: [],
+      syncPolicies: [],
+      sourceOfTruthAssignments: [],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }

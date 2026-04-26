@@ -11,6 +11,7 @@ describe('OrchestrationController', () => {
     buildParentWorkflowPlan: jest.Mock;
     buildRoadmapInterpretation: jest.Mock;
     buildAppCoordinationDraft: jest.Mock;
+    buildDataflowModelDraft: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -23,6 +24,7 @@ describe('OrchestrationController', () => {
       buildParentWorkflowPlan: jest.fn(),
       buildRoadmapInterpretation: jest.fn(),
       buildAppCoordinationDraft: jest.fn(),
+      buildDataflowModelDraft: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -287,6 +289,66 @@ describe('OrchestrationController', () => {
         coordinationStatus: 'draft',
         objective: 'Map the leanest system mix',
         preferredSystems: ['nexovaflow', 'sheets'],
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should draft dataflow modeling in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildDataflowModelDraft.mockReturnValue({
+      planId: 'plan:acme:ops:draft',
+      dataflowStatus: 'draft',
+      objective: 'Map customer and order sync paths',
+      businessObjects: ['customer', 'order'],
+      edges: [],
+      syncPolicies: [],
+      sourceOfTruthAssignments: [],
+    });
+
+    const result = await controller.draftDataflow(
+      'plan:acme:ops:draft',
+      {
+        objective: 'Map customer and order sync paths',
+        businessObjects: ['customer', 'order'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildDataflowModelDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      objective: 'Map customer and order sync paths',
+      businessObjects: ['customer', 'order'],
+    });
+    expect(result).toMatchObject({
+      status: 'dataflow-drafted',
+      dataflow: {
+        planId: 'plan:acme:ops:draft',
+        dataflowStatus: 'draft',
+        objective: 'Map customer and order sync paths',
+        businessObjects: ['customer', 'order'],
       },
       context: {
         tenant: { slug: 'acme' },

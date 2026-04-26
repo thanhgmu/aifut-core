@@ -89,4 +89,27 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build a dataflow model draft with normalized defaults', () => {
+    const result = service.buildDataflowModelDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      dataflowStatus: 'draft',
+      objective:
+        'Model the leanest safe data movement across systems, approvals, and source-of-truth boundaries.',
+      businessObjects: [],
+      edges: [],
+      syncPolicies: [],
+      sourceOfTruthAssignments: [],
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });
