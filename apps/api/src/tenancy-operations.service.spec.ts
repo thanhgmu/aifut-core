@@ -136,7 +136,7 @@ describe('TenancyOperationsService', () => {
       createdAt: new Date('2026-04-26T08:50:00.000Z'),
       updatedAt: new Date('2026-04-26T08:50:00.000Z'),
     });
-    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 0 });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await service.upsertDomain({
       tenantSlug: 'acme',
@@ -172,6 +172,10 @@ describe('TenancyOperationsService', () => {
       governance: {
         bindingScope: 'workspace',
         primaryScope: 'workspace:ops',
+        primaryReassignment: {
+          scope: 'workspace:ops',
+          demotedPrimaryCount: 1,
+        },
         readiness: {
           routeReady: true,
         },

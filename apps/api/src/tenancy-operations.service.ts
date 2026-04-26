@@ -241,8 +241,8 @@ export class TenancyOperationsService {
       },
     });
 
-    if (domain.isPrimary) {
-      await this.prisma.tenantDomain.updateMany({
+    const primaryReassignment = domain.isPrimary
+      ? await this.prisma.tenantDomain.updateMany({
         where: {
           tenantId: resolved.context.tenant.id,
           id: { not: domain.id },
@@ -251,8 +251,8 @@ export class TenancyOperationsService {
         data: {
           isPrimary: false,
         },
-      });
-    }
+      })
+      : { count: 0 };
 
     return {
       capability: 'tenancy',
@@ -267,6 +267,10 @@ export class TenancyOperationsService {
             ? `workspace:${workspace.slug}`
             : 'tenant:default'
           : null,
+        primaryReassignment: {
+          scope: workspace ? `workspace:${workspace.slug}` : 'tenant:default',
+          demotedPrimaryCount: primaryReassignment.count,
+        },
         readiness: {
           routeReady:
             domain.status === TenantDomainStatus.ACTIVE &&
