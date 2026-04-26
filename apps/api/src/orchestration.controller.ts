@@ -187,6 +187,55 @@ export class OrchestrationController {
     };
   }
 
+  @Post('plans/:planId/app-coordination')
+  async draftAppCoordination(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      preferredSystems?: string[];
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'app-coordination-drafted',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      appCoordination: this.orchestration.buildAppCoordinationDraft({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        preferredSystems: body.preferredSystems,
+      }),
+      next: ['dataflow-modeling', 'workflow-graph-projection', 'optimization-summary'],
+    };
+  }
+
   @Get('roadmap')
   roadmap() {
     return {

@@ -66,4 +66,27 @@ describe('OrchestrationService', () => {
       },
     });
   });
+
+  it('should build an app coordination draft with normalized defaults', () => {
+    const result = service.buildAppCoordinationDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      coordinationStatus: 'draft',
+      objective:
+        'Assign workflow steps to the leanest viable mix of first-party modules and connected systems.',
+      preferredSystems: [],
+      systemAssignments: [],
+      connectorRecommendations: [],
+      operatorCheckpoints: [],
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
 });

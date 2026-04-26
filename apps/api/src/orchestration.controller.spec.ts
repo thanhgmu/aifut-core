@@ -10,6 +10,7 @@ describe('OrchestrationController', () => {
     buildRoadmapDraft: jest.Mock;
     buildParentWorkflowPlan: jest.Mock;
     buildRoadmapInterpretation: jest.Mock;
+    buildAppCoordinationDraft: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -21,6 +22,7 @@ describe('OrchestrationController', () => {
       buildRoadmapDraft: jest.fn(),
       buildParentWorkflowPlan: jest.fn(),
       buildRoadmapInterpretation: jest.fn(),
+      buildAppCoordinationDraft: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -225,6 +227,66 @@ describe('OrchestrationController', () => {
         interpretationStatus: 'draft',
         objective: 'Extract phases and automation opportunities',
         hints: ['keep-tool-count-low'],
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should draft app coordination in tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildAppCoordinationDraft.mockReturnValue({
+      planId: 'plan:acme:ops:draft',
+      coordinationStatus: 'draft',
+      objective: 'Map the leanest system mix',
+      preferredSystems: ['nexovaflow', 'sheets'],
+      systemAssignments: [],
+      connectorRecommendations: [],
+      operatorCheckpoints: [],
+    });
+
+    const result = await controller.draftAppCoordination(
+      'plan:acme:ops:draft',
+      {
+        objective: 'Map the leanest system mix',
+        preferredSystems: ['nexovaflow', 'sheets'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.buildAppCoordinationDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      objective: 'Map the leanest system mix',
+      preferredSystems: ['nexovaflow', 'sheets'],
+    });
+    expect(result).toMatchObject({
+      status: 'app-coordination-drafted',
+      appCoordination: {
+        planId: 'plan:acme:ops:draft',
+        coordinationStatus: 'draft',
+        objective: 'Map the leanest system mix',
+        preferredSystems: ['nexovaflow', 'sheets'],
       },
       context: {
         tenant: { slug: 'acme' },

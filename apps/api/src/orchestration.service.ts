@@ -83,4 +83,28 @@ export class OrchestrationService {
       },
     };
   }
+
+  buildAppCoordinationDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    objective?: string;
+    preferredSystems?: string[];
+  }) {
+    return {
+      planId: input.planId,
+      coordinationStatus: 'draft',
+      objective:
+        input.objective?.trim() ||
+        'Assign workflow steps to the leanest viable mix of first-party modules and connected systems.',
+      preferredSystems: input.preferredSystems ?? [],
+      systemAssignments: [],
+      connectorRecommendations: [],
+      operatorCheckpoints: [],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
 }
