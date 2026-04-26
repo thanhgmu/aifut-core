@@ -150,9 +150,13 @@ export class TenancyOperationsService {
     const status = input.status ?? TenantDomainStatus.ACTIVE;
     const dnsTarget = this.normalizeOptional(input.dnsTarget);
     const certificateStatus = this.normalizeOptional(input.certificateStatus);
+    const provider = this.normalizeOptional(input.provider);
+    const provisioningMode = this.normalizeOptional(input.provisioningMode);
     const certificateReady =
       !certificateStatus ||
       ['active', 'issued', 'ready'].includes(certificateStatus.toLowerCase());
+    const managedProvisioning =
+      provisioningMode === 'managed' || provisioningMode === 'affiliate-managed';
 
     if (
       status === TenantDomainStatus.ACTIVE &&
@@ -180,6 +184,22 @@ export class TenancyOperationsService {
       );
     }
 
+    if (
+      status === TenantDomainStatus.ACTIVE &&
+      kind === TenantDomainKind.AFFILIATE_DOMAIN &&
+      !provisioningMode
+    ) {
+      throw new BadRequestException(
+        'Active affiliate domains require provisioningMode.',
+      );
+    }
+
+    if (status === TenantDomainStatus.ACTIVE && managedProvisioning && !provider) {
+      throw new BadRequestException(
+        'Managed or affiliate-managed active domains require provider.',
+      );
+    }
+
     const domain = await this.prisma.tenantDomain.upsert({
       where: { hostname },
       update: {
@@ -188,8 +208,8 @@ export class TenancyOperationsService {
         kind,
         status,
         isPrimary: input.isPrimary ?? false,
-        provider: this.normalizeOptional(input.provider),
-        provisioningMode: this.normalizeOptional(input.provisioningMode),
+        provider,
+        provisioningMode,
         dnsTarget,
         certificateStatus,
       },
@@ -200,8 +220,8 @@ export class TenancyOperationsService {
         kind,
         status,
         isPrimary: input.isPrimary ?? false,
-        provider: this.normalizeOptional(input.provider),
-        provisioningMode: this.normalizeOptional(input.provisioningMode),
+        provider,
+        provisioningMode,
         dnsTarget,
         certificateStatus,
       },
@@ -255,6 +275,13 @@ export class TenancyOperationsService {
               ['active', 'issued', 'ready'].includes(
                 domain.certificateStatus.toLowerCase(),
               )),
+        },
+        provisioning: {
+          provider: domain.provider,
+          mode: domain.provisioningMode,
+          externallyManaged:
+            domain.provisioningMode === 'managed' ||
+            domain.provisioningMode === 'affiliate-managed',
         },
       },
       next: ['host-header-routing-enforcement', 'certificate-automation-hooks'],

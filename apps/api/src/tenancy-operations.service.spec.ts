@@ -87,6 +87,35 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject active affiliate domains without provisioning mode', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'promo.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('should reject managed active domains without provider metadata', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+        provisioningMode: 'managed',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('should upsert active workspace-bound domain with readiness metadata', async () => {
     prisma.workspace.findUnique.mockResolvedValue({
       id: 'ws_1',
@@ -145,6 +174,11 @@ describe('TenancyOperationsService', () => {
         primaryScope: 'workspace:ops',
         readiness: {
           routeReady: true,
+        },
+        provisioning: {
+          provider: 'cloudflare',
+          mode: 'managed',
+          externallyManaged: true,
         },
       },
     });
