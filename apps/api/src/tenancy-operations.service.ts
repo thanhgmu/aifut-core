@@ -174,6 +174,12 @@ export class TenancyOperationsService {
       );
     }
 
+    if ((input.isPrimary ?? false) && status !== TenantDomainStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Primary domains must be ACTIVE before promotion.',
+      );
+    }
+
     const domain = await this.prisma.tenantDomain.upsert({
       where: { hostname },
       update: {
@@ -234,6 +240,23 @@ export class TenancyOperationsService {
       tenant: resolved.context.tenant,
       workspace,
       domain,
+      governance: {
+        bindingScope: workspace ? 'workspace' : 'tenant',
+        primaryScope: domain.isPrimary
+          ? workspace
+            ? `workspace:${workspace.slug}`
+            : 'tenant:default'
+          : null,
+        readiness: {
+          routeReady:
+            domain.status === TenantDomainStatus.ACTIVE &&
+            (domain.kind === TenantDomainKind.PLATFORM_SUBDOMAIN ||
+              !domain.certificateStatus ||
+              ['active', 'issued', 'ready'].includes(
+                domain.certificateStatus.toLowerCase(),
+              )),
+        },
+      },
       next: ['host-header-routing-enforcement', 'certificate-automation-hooks'],
     };
   }

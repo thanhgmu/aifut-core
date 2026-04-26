@@ -72,6 +72,21 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject non-active domains from becoming primary', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.DEGRADED,
+        isPrimary: true,
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('should upsert active workspace-bound domain with readiness metadata', async () => {
     prisma.workspace.findUnique.mockResolvedValue({
       id: 'ws_1',
@@ -124,6 +139,13 @@ describe('TenancyOperationsService', () => {
         hostname: 'ops.acme.test',
         dnsTarget: 'edge.aifut.test',
         certificateStatus: 'issued',
+      },
+      governance: {
+        bindingScope: 'workspace',
+        primaryScope: 'workspace:ops',
+        readiness: {
+          routeReady: true,
+        },
       },
     });
   });
