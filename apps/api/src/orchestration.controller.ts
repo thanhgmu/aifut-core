@@ -1,10 +1,14 @@
 import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import { ActorContextService } from './actor-context.service';
 import { ORCHESTRATION_FOUNDATION_ROADMAP } from './orchestration.constants';
+import { OrchestrationService } from './orchestration.service';
 
 @Controller('orchestration')
 export class OrchestrationController {
-  constructor(private readonly actorContext: ActorContextService) {}
+  constructor(
+    private readonly actorContext: ActorContextService,
+    private readonly orchestration: OrchestrationService,
+  ) {}
 
   @Get('capabilities')
   capabilities() {
@@ -53,10 +57,6 @@ export class OrchestrationController {
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
     });
 
-    const sourceKind = body.sourceKind?.trim() || 'text';
-    const title = body.title?.trim() || 'Untitled roadmap draft';
-    const content = body.content?.trim() || '';
-
     return {
       capability: 'orchestration',
       status: 'roadmap-ingested',
@@ -65,19 +65,14 @@ export class OrchestrationController {
         activeWorkspace: context.activeWorkspace,
         activeMembership: context.activeMembership,
       },
-      roadmapDraft: {
-        id: `draft:${context.tenant.slug}:${context.activeWorkspace?.slug ?? 'tenant'}:roadmap`,
-        sourceKind,
-        title,
-        sourceRefs: body.sourceRefs ?? [],
-        contentPreview: content.slice(0, 280),
-        interpretationStatus: 'pending',
-        extractedStructure: {
-          phases: [],
-          goals: [],
-          decisionGates: [],
-        },
-      },
+      roadmapDraft: this.orchestration.buildRoadmapDraft({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        sourceKind: body.sourceKind,
+        title: body.title,
+        content: body.content,
+        sourceRefs: body.sourceRefs,
+      }),
       next: [
         'roadmap-interpretation',
         'parent-workflow-draft',
@@ -124,27 +119,13 @@ export class OrchestrationController {
         activeWorkspace: context.activeWorkspace,
         activeMembership: context.activeMembership,
       },
-      parentWorkflowPlan: {
-        id: `plan:${context.tenant.slug}:${context.activeWorkspace?.slug ?? 'tenant'}:draft`,
-        roadmapDraftId:
-          body.roadmapDraftId ??
-          `draft:${context.tenant.slug}:${context.activeWorkspace?.slug ?? 'tenant'}:roadmap`,
-        objective:
-          body.objective?.trim() ||
-          'Design the leanest workable parent workflow for the tenant context.',
-        constraints: body.constraints ?? [],
-        childWorkflows: [],
-        appCoordination: {
-          systemAssignments: [],
-          dataflowEdges: [],
-        },
-        optimizationSummary: {
-          status: 'draft',
-          preferredStrategy:
-            'Lean multi-app orchestration draft pending roadmap interpretation.',
-          tradeoffs: [],
-        },
-      },
+      parentWorkflowPlan: this.orchestration.buildParentWorkflowPlan({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        roadmapDraftId: body.roadmapDraftId,
+        objective: body.objective,
+        constraints: body.constraints,
+      }),
       next: [
         'app-coordination-draft',
         'dataflow-modeling',
