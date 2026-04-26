@@ -146,30 +146,58 @@ export class TenancyOperationsService {
       workspaceSlug: input.workspaceSlug,
     });
 
+    const kind = input.kind ?? TenantDomainKind.CUSTOM;
+    const status = input.status ?? TenantDomainStatus.ACTIVE;
+    const dnsTarget = this.normalizeOptional(input.dnsTarget);
+    const certificateStatus = this.normalizeOptional(input.certificateStatus);
+    const certificateReady =
+      !certificateStatus ||
+      ['active', 'issued', 'ready'].includes(certificateStatus.toLowerCase());
+
+    if (
+      status === TenantDomainStatus.ACTIVE &&
+      kind !== TenantDomainKind.PLATFORM_SUBDOMAIN &&
+      !dnsTarget
+    ) {
+      throw new BadRequestException(
+        'Active custom or affiliate domains require dnsTarget.',
+      );
+    }
+
+    if (
+      status === TenantDomainStatus.ACTIVE &&
+      kind !== TenantDomainKind.PLATFORM_SUBDOMAIN &&
+      !certificateReady
+    ) {
+      throw new BadRequestException(
+        'Active custom or affiliate domains require ready certificateStatus.',
+      );
+    }
+
     const domain = await this.prisma.tenantDomain.upsert({
       where: { hostname },
       update: {
         tenantId: resolved.context.tenant.id,
         workspaceId: workspace?.id ?? null,
-        kind: input.kind ?? TenantDomainKind.CUSTOM,
-        status: input.status ?? TenantDomainStatus.ACTIVE,
+        kind,
+        status,
         isPrimary: input.isPrimary ?? false,
         provider: this.normalizeOptional(input.provider),
         provisioningMode: this.normalizeOptional(input.provisioningMode),
-        dnsTarget: this.normalizeOptional(input.dnsTarget),
-        certificateStatus: this.normalizeOptional(input.certificateStatus),
+        dnsTarget,
+        certificateStatus,
       },
       create: {
         tenantId: resolved.context.tenant.id,
         workspaceId: workspace?.id ?? null,
         hostname,
-        kind: input.kind ?? TenantDomainKind.CUSTOM,
-        status: input.status ?? TenantDomainStatus.ACTIVE,
+        kind,
+        status,
         isPrimary: input.isPrimary ?? false,
         provider: this.normalizeOptional(input.provider),
         provisioningMode: this.normalizeOptional(input.provisioningMode),
-        dnsTarget: this.normalizeOptional(input.dnsTarget),
-        certificateStatus: this.normalizeOptional(input.certificateStatus),
+        dnsTarget,
+        certificateStatus,
       },
       select: {
         id: true,
