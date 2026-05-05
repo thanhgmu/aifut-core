@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { ActorContextService } from './actor-context.service';
+import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { ORCHESTRATION_FOUNDATION_ROADMAP } from './orchestration.constants';
 import { OrchestrationService } from './orchestration.service';
 
@@ -8,6 +9,7 @@ export class OrchestrationController {
   constructor(
     private readonly actorContext: ActorContextService,
     private readonly orchestration: OrchestrationService,
+    private readonly aiTokenGovernance: AiTokenGovernanceService,
   ) {}
 
   @Get('capabilities')
@@ -393,6 +395,41 @@ export class OrchestrationController {
       workspaceSlug?: string;
       objective?: string;
       executionModes?: string[];
+      runtimeBindings?: Array<{
+        runtimeKey?: string;
+        systemKey?: string;
+        deliveryMode?: string;
+        approvalRequired?: boolean;
+      }>;
+      childWorkflowContracts?: Array<{
+        workflowKey?: string;
+        runtimeKey?: string;
+        systemKey?: string;
+        triggerMode?: string;
+        approvalRequired?: boolean;
+        approvalCheckpointKey?: string;
+      }>;
+      approvalContracts?: Array<{
+        checkpointKey?: string;
+        approverRole?: string;
+        channel?: string;
+        escalationMode?: string;
+        required?: boolean;
+      }>;
+      escalationContracts?: Array<{
+        escalationKey?: string;
+        fromCheckpointKey?: string;
+        targetRole?: string;
+        triggerMode?: string;
+        delayMinutes?: number;
+      }>;
+      rollbackContracts?: Array<{
+        rollbackKey?: string;
+        fromCheckpointKey?: string;
+        targetSystemKey?: string;
+        strategy?: string;
+        preserveArtifacts?: boolean;
+      }>;
     },
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
@@ -427,8 +464,105 @@ export class OrchestrationController {
         planId,
         objective: body.objective,
         executionModes: body.executionModes,
+        runtimeBindings: body.runtimeBindings,
+        childWorkflowContracts: body.childWorkflowContracts,
+        approvalContracts: body.approvalContracts,
+        escalationContracts: body.escalationContracts,
+        rollbackContracts: body.rollbackContracts,
       }),
       next: ['variant-scoring', 'ui-graph-rendering', 'runtime-binding'],
+    };
+  }
+
+  @Post('plans/:planId/execution-contracts/submit')
+  async submitExecutionContracts(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      executionModes?: string[];
+      runtimeBindings?: Array<{
+        runtimeKey?: string;
+        systemKey?: string;
+        deliveryMode?: string;
+        approvalRequired?: boolean;
+      }>;
+      childWorkflowContracts?: Array<{
+        workflowKey?: string;
+        runtimeKey?: string;
+        systemKey?: string;
+        triggerMode?: string;
+        approvalRequired?: boolean;
+        approvalCheckpointKey?: string;
+      }>;
+      approvalContracts?: Array<{
+        checkpointKey?: string;
+        approverRole?: string;
+        channel?: string;
+        escalationMode?: string;
+        required?: boolean;
+      }>;
+      escalationContracts?: Array<{
+        escalationKey?: string;
+        fromCheckpointKey?: string;
+        targetRole?: string;
+        triggerMode?: string;
+        delayMinutes?: number;
+      }>;
+      rollbackContracts?: Array<{
+        rollbackKey?: string;
+        fromCheckpointKey?: string;
+        targetSystemKey?: string;
+        strategy?: string;
+        preserveArtifacts?: boolean;
+      }>;
+      submissionNotes?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-contracts-submitted',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      executionContractSubmission: this.orchestration.submitExecutionContract({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        executionModes: body.executionModes,
+        runtimeBindings: body.runtimeBindings,
+        childWorkflowContracts: body.childWorkflowContracts,
+        approvalContracts: body.approvalContracts,
+        escalationContracts: body.escalationContracts,
+        rollbackContracts: body.rollbackContracts,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submissionNotes: body.submissionNotes,
+      }),
+      next: ['execution-runner', 'approval-dispatch', 'verification-history'],
     };
   }
 
@@ -437,6 +571,75 @@ export class OrchestrationController {
     return {
       capability: 'orchestration',
       roadmap: ORCHESTRATION_FOUNDATION_ROADMAP,
+    };
+  }
+
+  @Post('ai/usage-estimate')
+  async estimateAiUsage(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      packagePolicy: {
+        packageKey?: string;
+        includedMonthlyTokens?: number;
+        allowByoKeys?: boolean;
+        platformFeePercentForByo?: number;
+        hardMonthlyTokenLimit?: number;
+        allowedModelKeys?: string[];
+      };
+      modelPolicy: {
+        providerKey?: string;
+        modelKey?: string;
+        inputTokenCost?: number;
+        outputTokenCost?: number;
+        markupPercent?: number;
+        currency?: string;
+        allowedCredentialModes?: Array<'aifut-managed' | 'byo'>;
+      };
+      credentialMode?: 'aifut-managed' | 'byo';
+      estimatedInputTokens?: number;
+      estimatedOutputTokens?: number;
+      alreadyUsedMonthlyTokens?: number;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'ai-usage-estimated',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      aiUsageEstimate: this.aiTokenGovernance.estimateUsage({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        packagePolicy: body.packagePolicy,
+        modelPolicy: body.modelPolicy,
+        credentialMode: body.credentialMode,
+        estimatedInputTokens: body.estimatedInputTokens,
+        estimatedOutputTokens: body.estimatedOutputTokens,
+        alreadyUsedMonthlyTokens: body.alreadyUsedMonthlyTokens,
+      }),
+      next: ['token-usage-ledger', 'package-quota-enforcement', 'model-routing'],
     };
   }
 }

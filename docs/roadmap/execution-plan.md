@@ -8,6 +8,9 @@ Ship AIFUT as a Model C SaaS/operator-stack foundation that can scale into a ver
 - API baseline now includes early working platform-kernel foundations for tenancy, memberships, integrations, connectors, globalization, orchestration, auth, audit, and entitlements.
 - The authoritative active repo for development is `C:\Users\PC\.openclaw\workspace\aifut-core`.
 - Runtime/source-of-truth alignment between workspace and VPS still needs to be cleaned up, but workspace is the canonical build surface.
+- Perfex and NexovaFlow should now be treated as the same downstream system lane: a Perfex-based capability surface operating under the NexovaFlow commercial identity, not as a separate core direction.
+- MagicAI, Affiliate Management System, n8n, and other attached tools remain capability providers or helpers rather than kernel truth.
+- The more detailed cross-system execution order is locked in `docs/roadmap/MASTER-PLAN-LOCK-v1.md`.
 
 ## Phase 0 — Alignment and control
 Goal: remove ambiguity before deeper implementation.
@@ -49,7 +52,7 @@ Definition of done:
 - A tenant can be provisioned and managed with policy boundaries.
 
 ## Phase 3 — Integration and workflow substrate
-Goal: make AIFUT useful as an operator stack.
+Goal: make AIFUT useful as an operator stack and prepare clean boundaries for attached systems.
 
 Tasks:
 - [x] Connector registry foundation.
@@ -82,15 +85,20 @@ Goal: make the platform increasingly self-optimizing.
 Tasks:
 - [ ] Event analytics pipeline.
 - [ ] Behavior profile model.
+- [ ] Behavior-memory compaction / retention model for durable summaries vs raw logs.
 - [ ] Automated routing/recommendation hooks.
+- [ ] Voice interaction contract foundations.
+- [ ] Localization preferences for language/currency/timezone-aware behavior and notifications.
 - [ ] Diagnostic + auto-fix playbooks.
 - [ ] Cost/performance/storage optimization loops.
 
 Definition of done:
-- The system can observe behavior, recommend action, and automate safe operator tasks.
+- The system can observe behavior, compact useful memory, recommend action, and automate safe operator tasks.
 
 ## Working rules
 - Prefer modular monolith over premature distributed sprawl.
 - Keep control-plane and tenant data-plane concerns separate.
 - Document decisions as architecture records when they affect long-term leverage.
 - Build core differentiators first; integrate replaceable commodity tools second.
+- Treat Perfex/NexovaFlow, MagicAI, Affiliate Management System, UltimatePOS, and similar products as connectors, managed attached apps, or helpers unless and until a narrower boundary is explicitly documented.
+- Keep all adapter work upgrade-safe whenever possible; avoid turning vendor products into kernel truth.

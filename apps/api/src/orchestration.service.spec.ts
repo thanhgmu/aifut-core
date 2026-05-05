@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { OrchestrationService } from './orchestration.service';
 
 describe('OrchestrationService', () => {
@@ -176,14 +177,1742 @@ describe('OrchestrationService', () => {
       objective:
         'Define the execution contract across workflows, approvals, connected systems, and failure-handling boundaries.',
       executionModes: [],
+      runtimeBindings: [],
       childWorkflowContracts: [],
       approvalContracts: [],
       escalationContracts: [],
       rollbackContracts: [],
+      draftSummary: {
+        executionModeCount: 0,
+        runtimeBindingCount: 0,
+        approvalRequiredRuntimeBindingCount: 0,
+        childWorkflowContractCount: 0,
+        approvalRequiredChildWorkflowCount: 0,
+        childWorkflowCheckpointCount: 0,
+        approvalContractCount: 0,
+        requiredApprovalContractCount: 0,
+        escalationContractCount: 0,
+        rollbackContractCount: 0,
+      },
       contextScope: {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
       },
     });
+  });
+
+  it('should normalize duplicate and blank execution modes', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      executionModes: [' human-approved ', '', 'event-driven', 'human-approved'],
+    });
+
+    expect(result.executionModes).toEqual(['human-approved', 'event-driven']);
+  });
+
+  it('should normalize runtime binding semantics for execution contracts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      runtimeBindings: [
+        {
+          runtimeKey: ' n8n ',
+          systemKey: ' lead-router ',
+          deliveryMode: ' webhook ',
+          approvalRequired: true,
+        },
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: false,
+        },
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+        },
+        {
+          runtimeKey: ' ',
+          systemKey: 'ignored',
+        },
+      ],
+    });
+
+    expect(result.runtimeBindings).toEqual([
+      {
+        runtimeKey: 'n8n',
+        systemKey: 'lead-router',
+        deliveryMode: 'webhook',
+        approvalRequired: true,
+      },
+      {
+        runtimeKey: 'openclaw',
+        systemKey: 'ops-agent',
+        deliveryMode: 'human-review',
+        approvalRequired: false,
+      },
+    ]);
+  });
+
+  it('should normalize child workflow contract semantics for execution contracts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      childWorkflowContracts: [
+        {
+          workflowKey: ' qualify-lead ',
+          runtimeKey: ' n8n ',
+          systemKey: ' lead-router ',
+          triggerMode: ' webhook ',
+          approvalRequired: true,
+          approvalCheckpointKey: ' approve-copy ',
+        },
+        {
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: false,
+        },
+        {
+          workflowKey: 'handoff-ops',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+        },
+        {
+          workflowKey: ' ',
+          runtimeKey: 'ignored',
+          systemKey: 'ignored',
+        },
+      ],
+    });
+
+    expect(result.childWorkflowContracts).toEqual([
+      {
+        workflowKey: 'qualify-lead',
+        runtimeKey: 'n8n',
+        systemKey: 'lead-router',
+        triggerMode: 'webhook',
+        approvalRequired: true,
+        approvalCheckpointKey: 'approve-copy',
+      },
+      {
+        workflowKey: 'handoff-ops',
+        runtimeKey: 'openclaw',
+        systemKey: 'ops-agent',
+        triggerMode: 'human-review',
+        approvalRequired: false,
+        approvalCheckpointKey: '',
+      },
+    ]);
+  });
+
+  it('should normalize approval contract semantics for execution contracts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      approvalContracts: [
+        {
+          checkpointKey: ' approve-copy ',
+          approverRole: ' operator ',
+          channel: ' telegram ',
+          escalationMode: ' timeout-escalate ',
+        },
+        {
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          channel: 'telegram',
+          escalationMode: 'timeout-escalate',
+          required: false,
+        },
+        {
+          checkpointKey: 'approve-legal',
+          approverRole: 'legal',
+          channel: 'web-ui',
+          required: false,
+        },
+        {
+          checkpointKey: ' ',
+          approverRole: 'ignored',
+        },
+      ],
+    });
+
+    expect(result.approvalContracts).toEqual([
+      {
+        checkpointKey: 'approve-copy',
+        approverRole: 'operator',
+        channel: 'telegram',
+        escalationMode: 'timeout-escalate',
+        required: true,
+      },
+      {
+        checkpointKey: 'approve-legal',
+        approverRole: 'legal',
+        channel: 'web-ui',
+        escalationMode: '',
+        required: false,
+      },
+    ]);
+  });
+
+  it('should surface execution contract draft summary counts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      executionModes: ['human-approved', 'event-driven'],
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          approvalRequired: true,
+        },
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+        },
+        {
+          workflowKey: 'handoff-ops',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          approvalRequired: false,
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          required: true,
+        },
+        {
+          checkpointKey: 'approve-optional',
+          approverRole: 'manager',
+          required: false,
+        },
+      ],
+      escalationContracts: [
+        {
+          escalationKey: 'copy-timeout',
+          fromCheckpointKey: 'approve-copy',
+          targetRole: 'manager',
+        },
+      ],
+      rollbackContracts: [
+        {
+          rollbackKey: 'undo-router',
+          fromCheckpointKey: 'approve-copy',
+          targetSystemKey: 'lead-router',
+        },
+      ],
+    });
+
+    expect(result.draftSummary).toEqual({
+      executionModeCount: 2,
+      runtimeBindingCount: 2,
+      approvalRequiredRuntimeBindingCount: 1,
+      childWorkflowContractCount: 2,
+      approvalRequiredChildWorkflowCount: 1,
+      childWorkflowCheckpointCount: 1,
+      approvalContractCount: 2,
+      requiredApprovalContractCount: 1,
+      escalationContractCount: 1,
+      rollbackContractCount: 1,
+    });
+  });
+
+  it('should normalize escalation contract semantics for execution contracts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      escalationContracts: [
+        {
+          escalationKey: ' copy-timeout ',
+          fromCheckpointKey: ' approve-copy ',
+          targetRole: ' manager ',
+          triggerMode: ' timeout ',
+          delayMinutes: 30,
+        },
+        {
+          escalationKey: 'copy-timeout',
+          fromCheckpointKey: 'approve-copy',
+          targetRole: 'manager',
+          triggerMode: 'timeout',
+          delayMinutes: 45,
+        },
+        {
+          escalationKey: 'legal-escalation',
+          fromCheckpointKey: 'approve-legal',
+          targetRole: 'legal-lead',
+          triggerMode: 'manual',
+          delayMinutes: -5,
+        },
+        {
+          escalationKey: ' ',
+          fromCheckpointKey: 'ignored',
+          targetRole: 'ignored',
+        },
+      ],
+    });
+
+    expect(result.escalationContracts).toEqual([
+      {
+        escalationKey: 'copy-timeout',
+        fromCheckpointKey: 'approve-copy',
+        targetRole: 'manager',
+        triggerMode: 'timeout',
+        delayMinutes: 30,
+      },
+      {
+        escalationKey: 'legal-escalation',
+        fromCheckpointKey: 'approve-legal',
+        targetRole: 'legal-lead',
+        triggerMode: 'manual',
+        delayMinutes: 0,
+      },
+    ]);
+  });
+
+  it('should normalize rollback contract semantics for execution contracts', () => {
+    const result = service.buildExecutionContractDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      rollbackContracts: [
+        {
+          rollbackKey: ' undo-router ',
+          fromCheckpointKey: ' approve-copy ',
+          targetSystemKey: ' lead-router ',
+          strategy: ' compensate ',
+          preserveArtifacts: true,
+        },
+        {
+          rollbackKey: 'undo-router',
+          fromCheckpointKey: 'approve-copy',
+          targetSystemKey: 'lead-router',
+          strategy: 'compensate',
+          preserveArtifacts: false,
+        },
+        {
+          rollbackKey: 'notify-ops',
+          fromCheckpointKey: 'approve-ops',
+          targetSystemKey: 'ops-agent',
+          strategy: 'manual-review',
+        },
+        {
+          rollbackKey: ' ',
+          fromCheckpointKey: 'ignored',
+          targetSystemKey: 'ignored',
+        },
+      ],
+    });
+
+    expect(result.rollbackContracts).toEqual([
+      {
+        rollbackKey: 'undo-router',
+        fromCheckpointKey: 'approve-copy',
+        targetSystemKey: 'lead-router',
+        strategy: 'compensate',
+        preserveArtifacts: true,
+      },
+      {
+        rollbackKey: 'notify-ops',
+        fromCheckpointKey: 'approve-ops',
+        targetSystemKey: 'ops-agent',
+        strategy: 'manual-review',
+        preserveArtifacts: false,
+      },
+    ]);
+  });
+
+  it('should reject approval-required child workflows without a required approval contract', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject approval-required child workflows without an approvalCheckpointKey', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject execution contract submissions without child workflow contracts', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [],
+      }),
+    ).toThrow(
+      'Execution contract submission requires at least one child workflow contract.',
+    );
+  });
+
+  it('should reject child workflows that do not map to a submitted runtime binding', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'handoff-ops',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject multiple runtime bindings for the same runtime/system pair', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            deliveryMode: 'webhook',
+          },
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            deliveryMode: 'queue',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract cannot declare multiple runtime bindings for n8n/lead-router.',
+    );
+  });
+
+  it('should reject multiple approval contracts for the same checkpoint', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'manager',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract cannot declare multiple approval contracts for checkpoint approve-copy.',
+    );
+  });
+
+  it('should reject multiple child workflow contracts for the same workflow/runtime/system route', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            triggerMode: 'event',
+          },
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            triggerMode: 'manual',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract cannot declare multiple child workflow contracts for qualify-lead on n8n/lead-router.',
+    );
+  });
+
+  it('should reject multiple escalation contracts for the same checkpoint and target role', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+        escalationContracts: [
+          {
+            escalationKey: 'escalate-ops-1',
+            fromCheckpointKey: 'approve-copy',
+            targetRole: 'ops-manager',
+            triggerMode: 'manual',
+          },
+          {
+            escalationKey: 'escalate-ops-2',
+            fromCheckpointKey: 'approve-copy',
+            targetRole: 'ops-manager',
+            triggerMode: 'timeout',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract cannot declare multiple escalation contracts for checkpoint approve-copy targeting role ops-manager.',
+    );
+  });
+
+  it('should reject multiple rollback contracts for the same checkpoint and target system', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+        rollbackContracts: [
+          {
+            rollbackKey: 'rollback-1',
+            fromCheckpointKey: 'approve-copy',
+            targetSystemKey: 'lead-router',
+            strategy: 'manual-review',
+          },
+          {
+            rollbackKey: 'rollback-2',
+            fromCheckpointKey: 'approve-copy',
+            targetSystemKey: 'lead-router',
+            strategy: 'requeue',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract cannot declare multiple rollback contracts for checkpoint approve-copy targeting system lead-router.',
+    );
+  });
+
+  it('should reject required approval contracts when no child workflow needs approval', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject optional approval contracts even when no child workflow needs approval', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-optional',
+            approverRole: 'operator',
+            required: false,
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract submission does not yet support optional approval contract approve-optional; declare it as required or remove it from the submission.',
+    );
+  });
+
+  it('should reject non-approval child workflows that still declare an approvalCheckpointKey', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject approval-required child workflows that reference unknown required approval checkpoints', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-legal',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject required approval contracts that are not mapped by any approval-required child workflow', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+          {
+            checkpointKey: 'approve-legal',
+            approverRole: 'legal',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject optional approval contracts even when required approval routing is otherwise valid', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+          {
+            checkpointKey: 'approve-optional',
+            approverRole: 'operator',
+            required: false,
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract submission does not yet support optional approval contract approve-optional; declare it as required or remove it from the submission.',
+    );
+  });
+
+  it('should reject approval-required child workflows that map to runtime bindings without approval gating', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject non-approval child workflows that map to approval-required runtime bindings', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject approval-required runtime bindings that are not mapped by any approval-required child workflow', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: false,
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should link approval-gated child workflows only to their mapped required approval checkpoints', () => {
+    const result = service.submitExecutionContract({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:mapped-approvals',
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          approvalRequired: true,
+        },
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+        },
+        {
+          workflowKey: 'handoff-ops',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          required: true,
+        },
+        {
+          checkpointKey: 'approve-ops',
+          approverRole: 'manager',
+          required: true,
+        },
+      ],
+    });
+
+    expect(result.approvalDispatchQueue).toEqual([
+      expect.objectContaining({
+        checkpointKey: 'approve-copy',
+        linkedChildContractKeys: ['plan:acme:ops:mapped-approvals:child:1'],
+      }),
+      expect.objectContaining({
+        checkpointKey: 'approve-ops',
+        linkedChildContractKeys: ['plan:acme:ops:mapped-approvals:child:2'],
+      }),
+    ]);
+    expect(result.approvalRoutingTopology).toEqual([
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:mapped-approvals:child:1',
+        approvalCheckpointKey: 'approve-copy',
+        requiredApprovalDispatchKeys: ['plan:acme:ops:mapped-approvals:approval:1'],
+      }),
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:mapped-approvals:child:2',
+        approvalCheckpointKey: 'approve-ops',
+        requiredApprovalDispatchKeys: ['plan:acme:ops:mapped-approvals:approval:2'],
+      }),
+    ]);
+  });
+
+  it('should reject escalation contracts that reference unknown required approval checkpoints', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+        escalationContracts: [
+          {
+            escalationKey: 'copy-timeout',
+            fromCheckpointKey: 'approve-legal',
+            targetRole: 'legal-lead',
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject escalation contracts that target the same role as the required approval contract', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:escalation-loop',
+        runtimeBindings: [
+          {
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'review-ops-brief',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-ops',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-ops',
+            approverRole: 'manager',
+            required: true,
+          },
+        ],
+        escalationContracts: [
+          {
+            escalationKey: 'ops-timeout',
+            fromCheckpointKey: 'approve-ops',
+            targetRole: 'manager',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Escalation contract ops-timeout must target a role different from the required approval role manager for checkpoint approve-ops.',
+    );
+  });
+
+  it('should reject rollback contracts that reference unknown required approval checkpoints', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+        rollbackContracts: [
+          {
+            rollbackKey: 'undo-router',
+            fromCheckpointKey: 'approve-legal',
+            targetSystemKey: 'lead-router',
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject rollback contracts that reference unknown child workflow target systems', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+        ],
+        rollbackContracts: [
+          {
+            rollbackKey: 'undo-router',
+            fromCheckpointKey: 'approve-copy',
+            targetSystemKey: 'crm-sync',
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should reject rollback contracts that do not map to any approval-required child workflow at the same checkpoint and target system', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:rollback-mismatch',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+          },
+          {
+            runtimeKey: 'openclaw',
+            systemKey: 'legal-review',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'qualify-lead',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-copy',
+          },
+          {
+            workflowKey: 'legal-signoff',
+            runtimeKey: 'openclaw',
+            systemKey: 'legal-review',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-legal',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            required: true,
+          },
+          {
+            checkpointKey: 'approve-legal',
+            approverRole: 'legal',
+            required: true,
+          },
+        ],
+        rollbackContracts: [
+          {
+            rollbackKey: 'undo-router',
+            fromCheckpointKey: 'approve-legal',
+            targetSystemKey: 'lead-router',
+          },
+        ],
+      }),
+    ).toThrow(
+      'Rollback contract undo-router must map to at least one approval-required child workflow for checkpoint approve-legal on system lead-router.',
+    );
+  });
+
+  it('should submit an execution contract with normalized summary and runtime-binding-linked child workflow records', () => {
+    const result = service.submitExecutionContract({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      executionModes: [' human-approved '],
+      runtimeBindings: [
+        {
+          runtimeKey: ' n8n ',
+          systemKey: ' lead-router ',
+          deliveryMode: ' webhook ',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: ' qualify-lead ',
+          runtimeKey: ' n8n ',
+          systemKey: ' lead-router ',
+          triggerMode: ' webhook ',
+          approvalRequired: true,
+          approvalCheckpointKey: ' approve-copy ',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: ' approve-copy ',
+          approverRole: ' operator ',
+        },
+      ],
+      escalationContracts: [
+        {
+          escalationKey: ' copy-timeout ',
+          fromCheckpointKey: ' approve-copy ',
+          targetRole: ' manager ',
+        },
+      ],
+      rollbackContracts: [
+        {
+          rollbackKey: ' undo-router ',
+          fromCheckpointKey: ' approve-copy ',
+          targetSystemKey: ' lead-router ',
+        },
+      ],
+      submittedBy: ' ops@acme.test ',
+      submissionNotes: ' ready for rollout ',
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:draft',
+      executionContractStatus: 'submitted',
+      submittedBy: 'ops@acme.test',
+      submissionNotes: 'ready for rollout',
+      storedRuntimeBindings: [
+        {
+          bindingKey: 'plan:acme:ops:draft:binding:1',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          planId: 'plan:acme:ops:draft',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: true,
+          persistenceStatus: 'pending',
+        },
+      ],
+      childWorkflowContractRecords: [
+        {
+          contractKey: 'plan:acme:ops:draft:child:1',
+          persistenceStatus: 'pending',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+        },
+      ],
+      storedChildWorkflowContracts: [
+        {
+          contractKey: 'plan:acme:ops:draft:child:1',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          planId: 'plan:acme:ops:draft',
+          persistenceStatus: 'pending',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+          linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedRunnerKey: 'plan:acme:ops:draft:child:1:runner',
+          linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      storedApprovalDispatches: [
+        {
+          dispatchKey: 'plan:acme:ops:draft:approval:1',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          dispatchStatus: 'pending',
+          required: true,
+          linkedChildContractKeys: ['plan:acme:ops:draft:child:1'],
+        },
+      ],
+      storedEscalationContracts: [
+        {
+          escalationRecordKey: 'plan:acme:ops:draft:escalation:1',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          checkpointKey: 'approve-copy',
+          escalationKey: 'copy-timeout',
+          targetRole: 'manager',
+          triggerMode: '',
+          delayMinutes: 0,
+          persistenceStatus: 'pending',
+          linkedDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+        },
+      ],
+      storedRollbackContracts: [
+        {
+          rollbackRecordKey: 'plan:acme:ops:draft:rollback:1',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          checkpointKey: 'approve-copy',
+          rollbackKey: 'undo-router',
+          targetSystemKey: 'lead-router',
+          strategy: '',
+          preserveArtifacts: false,
+          persistenceStatus: 'pending',
+          linkedContractKeys: ['plan:acme:ops:draft:child:1'],
+        },
+      ],
+      storedExecutionRunnerRecords: [
+        {
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          runnerStatus: 'pending',
+          triggerMode: 'webhook',
+          linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      runtimeBindingBatch: {
+        batchKey: 'plan:acme:ops:draft:runtime-binding',
+        status: 'pending',
+        records: [
+          {
+            bindingKey: 'plan:acme:ops:draft:binding:1',
+            persistenceStatus: 'pending',
+            workspaceSlug: 'ops',
+          },
+        ],
+      },
+      contractPersistenceBatch: {
+        batchKey: 'plan:acme:ops:draft:persistence',
+        status: 'pending',
+        records: [
+          {
+            contractKey: 'plan:acme:ops:draft:child:1',
+            persistenceStatus: 'pending',
+            workspaceSlug: 'ops',
+            runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+            linkedRunnerKey: 'plan:acme:ops:draft:child:1:runner',
+          },
+        ],
+      },
+      approvalDispatchBatch: {
+        batchKey: 'plan:acme:ops:draft:approval-dispatch',
+        status: 'pending',
+        records: [
+          {
+            dispatchKey: 'plan:acme:ops:draft:approval:1',
+            dispatchStatus: 'pending',
+            workspaceSlug: 'ops',
+          },
+        ],
+      },
+      escalationBatch: {
+        batchKey: 'plan:acme:ops:draft:escalation',
+        status: 'pending',
+        records: [
+          {
+            escalationRecordKey: 'plan:acme:ops:draft:escalation:1',
+            persistenceStatus: 'pending',
+            workspaceSlug: 'ops',
+          },
+        ],
+      },
+      rollbackBatch: {
+        batchKey: 'plan:acme:ops:draft:rollback',
+        status: 'pending',
+        records: [
+          {
+            rollbackRecordKey: 'plan:acme:ops:draft:rollback:1',
+            persistenceStatus: 'pending',
+            workspaceSlug: 'ops',
+          },
+        ],
+      },
+      executionRunnerBatch: {
+        batchKey: 'plan:acme:ops:draft:execution-runner',
+        status: 'pending',
+        records: [
+          {
+            runnerKey: 'plan:acme:ops:draft:child:1:runner',
+            runnerStatus: 'pending',
+            readinessStatus: 'awaiting-required-approval',
+            workspaceSlug: 'ops',
+            runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+            linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+            linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+          },
+        ],
+      },
+      runtimeBindingTopology: [
+        {
+          bindingKey: 'plan:acme:ops:draft:binding:1',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: true,
+          linkedChildWorkflowContracts: [
+            {
+              contractKey: 'plan:acme:ops:draft:child:1',
+              workflowKey: 'qualify-lead',
+              triggerMode: 'webhook',
+              approvalRequired: true,
+              approvalCheckpointKey: 'approve-copy',
+            },
+          ],
+          linkedRunnerKeys: ['plan:acme:ops:draft:child:1:runner'],
+        },
+      ],
+      approvalDispatchQueue: [
+        {
+          dispatchKey: 'plan:acme:ops:draft:approval:1',
+          dispatchStatus: 'pending',
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          required: true,
+          linkedChildContractKeys: ['plan:acme:ops:draft:child:1'],
+          linkedEscalationRecordKeys: ['plan:acme:ops:draft:escalation:1'],
+        },
+      ],
+      escalationTopology: [
+        {
+          escalationRecordKey: 'plan:acme:ops:draft:escalation:1',
+          escalationKey: 'copy-timeout',
+          checkpointKey: 'approve-copy',
+          targetRole: 'manager',
+          triggerMode: '',
+          delayMinutes: 0,
+          linkedDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+        },
+      ],
+      rollbackTopology: [
+        {
+          rollbackRecordKey: 'plan:acme:ops:draft:rollback:1',
+          rollbackKey: 'undo-router',
+          checkpointKey: 'approve-copy',
+          targetSystemKey: 'lead-router',
+          strategy: '',
+          preserveArtifacts: false,
+          linkedContractKeys: ['plan:acme:ops:draft:child:1'],
+        },
+      ],
+      approvalRoutingTopology: [
+        {
+          contractKey: 'plan:acme:ops:draft:child:1',
+          workflowKey: 'qualify-lead',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+          requiredApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedEscalationRecordKeys: ['plan:acme:ops:draft:escalation:1'],
+        },
+      ],
+      executionReadinessSummary: {
+        blockedRunnerCount: 0,
+        awaitingApprovalRunnerCount: 1,
+        readyRunnerCount: 0,
+        unresolvedChildWorkflowContracts: [],
+      },
+      executionRunnerTopology: [
+        {
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          runnerStatus: 'pending',
+          readinessStatus: 'awaiting-required-approval',
+          linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      executionRunnerHints: [
+        {
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runnerStatus: 'pending',
+          readinessStatus: 'awaiting-required-approval',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      contractSummary: {
+        executionModeCount: 1,
+        runtimeBindingCount: 1,
+        childWorkflowContractCount: 1,
+        approvalContractCount: 1,
+        escalationContractCount: 1,
+        rollbackContractCount: 1,
+        unresolvedRuntimeBindingCount: 0,
+      },
+    });
+  });
+
+  it('should classify execution runners by readiness state', () => {
+    const result = service.submitExecutionContract({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:readiness',
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: true,
+        },
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+        },
+        {
+          workflowKey: 'fanout-post-approval',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: false,
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          required: true,
+        },
+      ],
+    });
+
+    expect(result.executionReadinessSummary).toEqual({
+      blockedRunnerCount: 0,
+      awaitingApprovalRunnerCount: 1,
+      readyRunnerCount: 1,
+      unresolvedChildWorkflowContracts: [],
+    });
+    expect(result.executionRunnerTopology).toEqual([
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:readiness:child:1',
+        readinessStatus: 'awaiting-required-approval',
+        runtimeBindingKey: 'plan:acme:ops:readiness:binding:1',
+      }),
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:readiness:child:2',
+        readinessStatus: 'ready-for-dispatch',
+        runtimeBindingKey: 'plan:acme:ops:readiness:binding:2',
+      }),
+    ]);
+    expect(result.executionRunnerBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:readiness:execution-runner',
+      status: 'pending',
+      records: [
+        expect.objectContaining({
+          runnerKey: 'plan:acme:ops:readiness:child:1:runner',
+          readinessStatus: 'awaiting-required-approval',
+        }),
+        expect.objectContaining({
+          runnerKey: 'plan:acme:ops:readiness:child:2:runner',
+          readinessStatus: 'ready-for-dispatch',
+        }),
+      ],
+    });
+    expect(result.contractSummary).toMatchObject({
+      unresolvedRuntimeBindingCount: 0,
+    });
+  });
+
+  it('should scope rollback linkage to child workflows that match both checkpoint and target system', () => {
+    const result = service.submitExecutionContract({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:rollback-scope',
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-copy',
+        },
+        {
+          workflowKey: 'replay-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-legal',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          required: true,
+        },
+        {
+          checkpointKey: 'approve-legal',
+          approverRole: 'legal',
+          required: true,
+        },
+      ],
+      rollbackContracts: [
+        {
+          rollbackKey: 'undo-router',
+          fromCheckpointKey: 'approve-copy',
+          targetSystemKey: 'lead-router',
+        },
+      ],
+    });
+
+    expect(result.rollbackTopology).toEqual([
+      expect.objectContaining({
+        rollbackKey: 'undo-router',
+        checkpointKey: 'approve-copy',
+        linkedContractKeys: ['plan:acme:ops:rollback-scope:child:1'],
+      }),
+    ]);
+    expect(result.storedChildWorkflowContracts).toEqual([
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:rollback-scope:child:1',
+        linkedRollbackRecordKeys: ['plan:acme:ops:rollback-scope:rollback:1'],
+      }),
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:rollback-scope:child:2',
+        linkedRollbackRecordKeys: [],
+      }),
+    ]);
+    expect(result.executionRunnerTopology).toEqual([
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:rollback-scope:child:1',
+        linkedRollbackRecordKeys: ['plan:acme:ops:rollback-scope:rollback:1'],
+      }),
+      expect.objectContaining({
+        contractKey: 'plan:acme:ops:rollback-scope:child:2',
+        linkedRollbackRecordKeys: [],
+      }),
+    ]);
+  });
+
+  it('should reject approval-required child workflows that only map to optional approval contracts', () => {
+    expect(() =>
+      service.submitExecutionContract({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:optional-approval',
+        runtimeBindings: [
+          {
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            deliveryMode: 'human-review',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'review-ops-brief',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            triggerMode: 'human-review',
+            approvalRequired: true,
+            approvalCheckpointKey: 'optional-ops-review',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'optional-ops-review',
+            approverRole: 'manager',
+            required: false,
+          },
+        ],
+      }),
+    ).toThrow(
+      'Execution contract submission does not yet support optional approval contract optional-ops-review; declare it as required or remove it from the submission.',
+    );
   });
 });

@@ -176,9 +176,13 @@ export class TenancyOperationsService {
     const kind = input.kind ?? TenantDomainKind.CUSTOM;
     const status = input.status ?? TenantDomainStatus.ACTIVE;
     const dnsTarget = this.normalizeOptional(input.dnsTarget);
-    const certificateStatus = this.normalizeOptional(input.certificateStatus);
+    const certificateStatus = this.normalizeOptionalLowercase(
+      input.certificateStatus,
+    );
     const provider = this.normalizeOptional(input.provider);
-    const provisioningMode = this.normalizeOptional(input.provisioningMode);
+    const provisioningMode = this.normalizeOptionalLowercase(
+      input.provisioningMode,
+    );
     const certificateReady =
       !certificateStatus ||
       ['active', 'issued', 'ready'].includes(certificateStatus.toLowerCase());
@@ -388,7 +392,7 @@ export class TenancyOperationsService {
       throw new BadRequestException('Missing storage policy key.');
     }
 
-    const mode = input.mode ?? TenantStorageMode.PLATFORM_MANAGED;
+    const mode = this.normalizeStorageMode(input.mode);
 
     if (
       mode === TenantStorageMode.TENANT_MANAGED &&
@@ -491,6 +495,15 @@ export class TenancyOperationsService {
           .map((option) => this.normalizeSlug(option, 'package option key')),
       ),
     );
+    const provisioningState =
+      this.normalizeOptionalLowercase(input.provisioningState) ??
+      (selectedOptions.length > 0 ? 'pending' : 'inactive');
+
+    if (provisioningState === 'active' && selectedOptions.length === 0) {
+      throw new BadRequestException(
+        'Active package assignments require at least one selected option.',
+      );
+    }
 
     const assignment = await this.prisma.tenantPackageAssignment.upsert({
       where: { scopeKey },
@@ -500,8 +513,7 @@ export class TenancyOperationsService {
         basePlanKey,
         selectedOptions,
         billingSnapshot: input.billingSnapshot ?? undefined,
-        provisioningState: this.normalizeOptional(input.provisioningState) ??
-          (selectedOptions.length > 0 ? 'pending' : 'inactive'),
+        provisioningState,
         source: this.normalizeOptional(input.source),
       },
       create: {
@@ -511,8 +523,7 @@ export class TenancyOperationsService {
         basePlanKey,
         selectedOptions,
         billingSnapshot: input.billingSnapshot ?? undefined,
-        provisioningState: this.normalizeOptional(input.provisioningState) ??
-          (selectedOptions.length > 0 ? 'pending' : 'inactive'),
+        provisioningState,
         source: this.normalizeOptional(input.source),
       },
       select: {
@@ -603,5 +614,29 @@ export class TenancyOperationsService {
   private normalizeOptional(value?: string | null) {
     const normalized = value?.trim();
     return normalized ? normalized : null;
+  }
+
+  private normalizeOptionalLowercase(value?: string | null) {
+    const normalized = this.normalizeOptional(value);
+    return normalized ? normalized.toLowerCase() : null;
+  }
+
+  private normalizeOptionalUppercase(value?: string | null) {
+    const normalized = this.normalizeOptional(value);
+    return normalized ? normalized.toUpperCase() : null;
+  }
+
+  private normalizeStorageMode(value?: string | null): TenantStorageMode {
+    const normalized = this.normalizeOptionalUppercase(value);
+
+    if (!normalized) {
+      return TenantStorageMode.PLATFORM_MANAGED;
+    }
+
+    if (Object.values(TenantStorageMode).includes(normalized as TenantStorageMode)) {
+      return normalized as TenantStorageMode;
+    }
+
+    throw new BadRequestException(`Invalid storage policy mode ${normalized}.`);
   }
 }

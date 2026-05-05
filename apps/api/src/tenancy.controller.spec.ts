@@ -194,6 +194,215 @@ describe('TenancyController', () => {
     });
   });
 
+  it('should prefer tenant and user headers for workspace creation writes', async () => {
+    tenancyOperations.createWorkspace.mockResolvedValue({
+      status: 'workspace-created',
+      workspace: { slug: 'ops-hub' },
+      membership: { isDefault: true },
+    });
+
+    const result = await controller.createWorkspace(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        name: 'Ops Hub',
+        slug: 'ops-hub',
+        makeDefaultForUser: true,
+      },
+      'acme',
+      'ops@acme.test',
+    );
+
+    expect(tenancyOperations.createWorkspace).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      name: 'Ops Hub',
+      slug: 'ops-hub',
+      makeDefaultForUser: true,
+    });
+    expect(result).toMatchObject({
+      status: 'workspace-created',
+      workspace: { slug: 'ops-hub' },
+      membership: { isDefault: true },
+    });
+  });
+
+  it('should fall back to body tenant and user values for workspace creation when headers are absent', async () => {
+    tenancyOperations.createWorkspace.mockResolvedValue({
+      status: 'workspace-created',
+      workspace: { slug: 'ops-body' },
+      membership: { isDefault: false },
+    });
+
+    const result = await controller.createWorkspace({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      name: 'Ops Body',
+      slug: 'ops-body',
+      makeDefaultForUser: false,
+    });
+
+    expect(tenancyOperations.createWorkspace).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      name: 'Ops Body',
+      slug: 'ops-body',
+      makeDefaultForUser: false,
+    });
+    expect(result).toMatchObject({
+      status: 'workspace-created',
+      workspace: { slug: 'ops-body' },
+      membership: { isDefault: false },
+    });
+  });
+
+  it('should prefer tenant, user, and workspace headers for storage policy writes', async () => {
+    tenancyOperations.upsertStoragePolicy.mockResolvedValue({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'HYBRID' },
+    });
+
+    const result = await controller.upsertStoragePolicy(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        key: 'media-assets',
+        mode: 'HYBRID' as any,
+        targetRef: 's3://primary-assets',
+        backupTargetRef: 'b2://backup-assets',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertStoragePolicy).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      key: 'media-assets',
+      mode: 'HYBRID',
+      targetRef: 's3://primary-assets',
+      backupTargetRef: 'b2://backup-assets',
+    });
+    expect(result).toMatchObject({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'HYBRID' },
+    });
+  });
+
+  it('should fall back to body tenant, user, and workspace values for storage policy writes when headers are absent', async () => {
+    tenancyOperations.upsertStoragePolicy.mockResolvedValue({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'SINGLE' },
+    });
+
+    const result = await controller.upsertStoragePolicy({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      key: 'media-assets',
+      mode: 'SINGLE' as any,
+      targetRef: 's3://body-assets',
+    });
+
+    expect(tenancyOperations.upsertStoragePolicy).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      key: 'media-assets',
+      mode: 'SINGLE',
+      targetRef: 's3://body-assets',
+    });
+    expect(result).toMatchObject({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'SINGLE' },
+    });
+  });
+
+  it('should preserve body storage policy fields while headers override tenant context', async () => {
+    tenancyOperations.upsertStoragePolicy.mockResolvedValue({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'HYBRID' },
+    });
+
+    const result = await controller.upsertStoragePolicy(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        key: 'media-assets',
+        mode: ' hybrid ' as any,
+        storageClass: 'warm',
+        targetRef: 's3://primary-assets',
+        targetRegion: 'ap-southeast-1',
+        backupTargetRef: 'b2://backup-assets',
+        meteringEnabled: true,
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertStoragePolicy).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      key: 'media-assets',
+      mode: ' hybrid ',
+      storageClass: 'warm',
+      targetRef: 's3://primary-assets',
+      targetRegion: 'ap-southeast-1',
+      backupTargetRef: 'b2://backup-assets',
+      meteringEnabled: true,
+    });
+    expect(result).toMatchObject({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'HYBRID' },
+    });
+  });
+
+  it('should preserve falsy body storage policy fields while headers override tenant context', async () => {
+    tenancyOperations.upsertStoragePolicy.mockResolvedValue({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'TENANT_MANAGED' },
+    });
+
+    const result = await controller.upsertStoragePolicy(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        key: 'media-assets',
+        mode: ' tenant_managed ' as any,
+        storageClass: ' cold ',
+        targetRef: ' s3://tenant-assets ',
+        targetRegion: ' ap-southeast-1 ',
+        meteringEnabled: false,
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertStoragePolicy).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      key: 'media-assets',
+      mode: ' tenant_managed ',
+      storageClass: ' cold ',
+      targetRef: ' s3://tenant-assets ',
+      targetRegion: ' ap-southeast-1 ',
+      meteringEnabled: false,
+    });
+    expect(result).toMatchObject({
+      status: 'storage-policy-upserted',
+      topology: { scope: 'workspace', ownershipMode: 'TENANT_MANAGED' },
+    });
+  });
+
   it('should forward package assignment writes to tenancy operations', async () => {
     tenancyOperations.upsertPackageAssignment.mockResolvedValue({
       status: 'package-assignment-upserted',
@@ -229,6 +438,104 @@ describe('TenancyController', () => {
     expect(result).toMatchObject({
       status: 'package-assignment-upserted',
       packageAssignment: { scopeKey: 'acme:workspace:ops' },
+    });
+  });
+
+  it('should allow tenant-scoped package assignment writes without workspace context', async () => {
+    tenancyOperations.upsertPackageAssignment.mockResolvedValue({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:tenant:default', provisioningState: 'inactive' },
+    });
+
+    const result = await controller.upsertPackageAssignment(
+      {
+        tenantSlug: 'ignored',
+        userEmail: 'ignored@acme.test',
+        basePlanKey: 'core.starter',
+        selectedOptions: [],
+      },
+      'acme',
+      'ops@acme.test',
+      undefined,
+    );
+
+    expect(tenancyOperations.upsertPackageAssignment).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: undefined,
+      basePlanKey: 'core.starter',
+      selectedOptions: [],
+    });
+    expect(result).toMatchObject({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:tenant:default', provisioningState: 'inactive' },
+    });
+  });
+
+  it('should fall back to body tenant, user, and workspace values for package assignment writes when headers are absent', async () => {
+    tenancyOperations.upsertPackageAssignment.mockResolvedValue({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'body-tenant:workspace:body-workspace' },
+    });
+
+    const result = await controller.upsertPackageAssignment({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      basePlanKey: 'core.scale',
+      selectedOptions: ['nexovaflow.automation'],
+      provisioningState: 'active',
+    });
+
+    expect(tenancyOperations.upsertPackageAssignment).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      basePlanKey: 'core.scale',
+      selectedOptions: ['nexovaflow.automation'],
+      provisioningState: 'active',
+    });
+    expect(result).toMatchObject({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'body-tenant:workspace:body-workspace' },
+    });
+  });
+
+  it('should preserve body package assignment fields while headers override tenant context', async () => {
+    tenancyOperations.upsertPackageAssignment.mockResolvedValue({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:workspace:ops', provisioningState: 'active' },
+    });
+
+    const result = await controller.upsertPackageAssignment(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        basePlanKey: 'core.scale',
+        selectedOptions: [' magicai.pro ', 'nexovaflow.automation'],
+        provisioningState: ' Active ',
+        source: 'admin-ui',
+        billingSnapshot: { currency: 'USD', seats: 3 },
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertPackageAssignment).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      basePlanKey: 'core.scale',
+      selectedOptions: [' magicai.pro ', 'nexovaflow.automation'],
+      provisioningState: ' Active ',
+      source: 'admin-ui',
+      billingSnapshot: { currency: 'USD', seats: 3 },
+    });
+    expect(result).toMatchObject({
+      status: 'package-assignment-upserted',
+      packageAssignment: { scopeKey: 'acme:workspace:ops', provisioningState: 'active' },
     });
   });
 
@@ -274,6 +581,462 @@ describe('TenancyController', () => {
       governance: {
         primaryIntent: { requestedDemotion: true },
         scopeTransition: { explicitRebindingApproved: true },
+      },
+    });
+  });
+
+  it('should prefer tenant, user, and workspace headers for domain provisioning writes', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'ops.acme.test' },
+      governance: {
+        provisioning: { provider: 'cloudflare', mode: 'managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: true,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: { hostname: 'ops.acme.test' },
+      governance: {
+        provisioning: { provider: 'cloudflare', mode: 'managed' },
+      },
+    });
+  });
+
+  it('should preserve falsy body domain governance flags while headers override tenant context', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'ops.acme.test' },
+      governance: {
+        primaryIntent: { requestedDemotion: false },
+        scopeTransition: { explicitRebindingApproved: false },
+        provisioning: { provider: 'cloudflare', mode: 'managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        allowPrimaryDemotion: false,
+        allowScopeRebinding: false,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: false,
+      allowScopeRebinding: false,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: false },
+        scopeTransition: { explicitRebindingApproved: false },
+        provisioning: { provider: 'cloudflare', mode: 'managed' },
+      },
+    });
+  });
+
+  it('should prefer tenant, user, and workspace headers for affiliate domain provisioning writes', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.acme.test' },
+      governance: {
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        hostname: 'partner.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        provider: 'reseller-edge',
+        provisioningMode: 'affiliate-managed',
+        dnsTarget: 'edge.partner.test',
+        certificateStatus: 'ready',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.acme.test' },
+      governance: {
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+  });
+
+  it('should preserve falsy affiliate domain governance flags while headers override tenant context', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.acme.test' },
+      governance: {
+        primaryIntent: { requestedDemotion: false },
+        scopeTransition: { explicitRebindingApproved: false },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        hostname: 'partner.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        allowPrimaryDemotion: false,
+        allowScopeRebinding: false,
+        provider: 'reseller-edge',
+        provisioningMode: 'affiliate-managed',
+        dnsTarget: 'edge.partner.test',
+        certificateStatus: 'ready',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: false,
+      allowScopeRebinding: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: false },
+        scopeTransition: { explicitRebindingApproved: false },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+  });
+
+  it('should fall back to body tenant, user, and workspace values for domain writes when headers are absent', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'body.acme.test' },
+    });
+
+    const result = await controller.upsertDomain({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'body.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'body.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: { hostname: 'body.acme.test' },
+    });
+  });
+
+  it('should fall back to body tenant, user, and workspace values for affiliate domain writes when headers are absent', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.body.acme.test' },
+      governance: {
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'partner.body.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'partner.body.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.body.acme.test' },
+      governance: {
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+  });
+
+  it('should preserve body domain governance flags when domain writes run without headers', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+      },
+    });
+
+    const result = await controller.upsertDomain({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'body.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'body.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+      },
+    });
+  });
+
+  it('should preserve body domain governance flags for affiliate domain writes when headers are absent', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'partner.body.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'body-tenant',
+      userEmail: 'body@acme.test',
+      workspaceSlug: 'body-workspace',
+      hostname: 'partner.body.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+  });
+
+  it('should prefer headers while preserving affiliate domain governance flags when both are supplied', async () => {
+    tenancyOperations.upsertDomain.mockResolvedValue({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.acme.test' },
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
+      },
+    });
+
+    const result = await controller.upsertDomain(
+      {
+        tenantSlug: 'body-tenant',
+        userEmail: 'body@acme.test',
+        workspaceSlug: 'body-workspace',
+        hostname: 'partner.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        allowPrimaryDemotion: true,
+        allowScopeRebinding: true,
+        provider: 'reseller-edge',
+        provisioningMode: 'affiliate-managed',
+        dnsTarget: 'edge.partner.test',
+        certificateStatus: 'ready',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+    );
+
+    expect(tenancyOperations.upsertDomain).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      allowScopeRebinding: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: { hostname: 'partner.acme.test' },
+      governance: {
+        primaryIntent: { requestedDemotion: true },
+        scopeTransition: { explicitRebindingApproved: true },
+        provisioning: { provider: 'reseller-edge', mode: 'affiliate-managed' },
       },
     });
   });
