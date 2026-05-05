@@ -1687,6 +1687,21 @@ describe('OrchestrationService', () => {
           triggerMode: 'webhook',
           runnerStatus: 'pending',
           readinessStatus: 'awaiting-required-approval',
+          nextActionKey: 'plan:acme:ops:draft:action:1',
+          linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
+          linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      executionActionTopology: [
+        {
+          actionKey: 'plan:acme:ops:draft:action:1',
+          actionType: 'dispatch-required-approval',
+          actionStatus: 'pending',
+          actionTargetKey: 'plan:acme:ops:draft:approval:1',
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          readinessStatus: 'awaiting-required-approval',
           linkedApprovalDispatchKeys: ['plan:acme:ops:draft:approval:1'],
           linkedRollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
         },
@@ -1696,6 +1711,7 @@ describe('OrchestrationService', () => {
           contractKey: 'plan:acme:ops:draft:child:1',
           runnerStatus: 'pending',
           readinessStatus: 'awaiting-required-approval',
+          nextActionKey: 'plan:acme:ops:draft:action:1',
           workflowKey: 'qualify-lead',
           runtimeKey: 'n8n',
           systemKey: 'lead-router',
@@ -1774,11 +1790,13 @@ describe('OrchestrationService', () => {
         contractKey: 'plan:acme:ops:readiness:child:1',
         readinessStatus: 'awaiting-required-approval',
         runtimeBindingKey: 'plan:acme:ops:readiness:binding:1',
+        nextActionKey: 'plan:acme:ops:readiness:action:1',
       }),
       expect.objectContaining({
         contractKey: 'plan:acme:ops:readiness:child:2',
         readinessStatus: 'ready-for-dispatch',
         runtimeBindingKey: 'plan:acme:ops:readiness:binding:2',
+        nextActionKey: 'plan:acme:ops:readiness:action:2',
       }),
     ]);
     expect(result.executionRunnerBatch).toMatchObject({
@@ -1829,6 +1847,20 @@ describe('OrchestrationService', () => {
         }),
       ],
     });
+    expect(result.executionActionTopology).toEqual([
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:1',
+        actionType: 'dispatch-required-approval',
+        actionTargetKey: 'plan:acme:ops:readiness:approval:1',
+        runnerKey: 'plan:acme:ops:readiness:child:1:runner',
+      }),
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:2',
+        actionType: 'dispatch-child-workflow',
+        actionTargetKey: 'plan:acme:ops:readiness:child:2:runner',
+        runnerKey: 'plan:acme:ops:readiness:child:2:runner',
+      }),
+    ]);
     expect(result.contractSummary).toMatchObject({
       unresolvedRuntimeBindingCount: 0,
     });

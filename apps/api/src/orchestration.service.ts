@@ -1285,13 +1285,33 @@ export class OrchestrationService {
         triggerMode: runner.triggerMode,
         runnerStatus: runner.runnerStatus,
         readinessStatus: runner.readinessStatus,
+        nextActionKey:
+          executionActionRecords.find(
+            (action) => action.runnerKey === runner.runnerKey,
+          )?.actionKey ?? null,
         linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
         linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
+      })),
+      executionActionTopology: executionActionRecords.map((action) => ({
+        actionKey: action.actionKey,
+        actionType: action.actionType,
+        actionStatus: action.actionStatus,
+        actionTargetKey: action.actionTargetKey,
+        runnerKey: action.runnerKey,
+        contractKey: action.contractKey,
+        runtimeBindingKey: action.runtimeBindingKey,
+        readinessStatus: action.readinessStatus,
+        linkedApprovalDispatchKeys: action.linkedApprovalDispatchKeys,
+        linkedRollbackRecordKeys: action.linkedRollbackRecordKeys,
       })),
       executionRunnerHints: storedExecutionRunnerRecords.map((runner) => ({
         contractKey: runner.contractKey,
         runnerStatus: runner.runnerStatus,
         readinessStatus: runner.readinessStatus,
+        nextActionKey:
+          executionActionRecords.find(
+            (action) => action.runnerKey === runner.runnerKey,
+          )?.actionKey ?? null,
         workflowKey: runner.workflowKey,
         runtimeKey: runner.runtimeKey,
         systemKey: runner.systemKey,
