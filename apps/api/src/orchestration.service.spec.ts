@@ -1825,6 +1825,53 @@ describe('OrchestrationService', () => {
           },
         ],
       },
+      actionTransitionPolicies: [
+        {
+          actionKey: 'plan:acme:ops:draft:action:1',
+          actionType: 'dispatch-required-approval',
+          currentStatus: 'pending',
+          allowedNextStatuses: ['awaiting-approval-decision', 'cancelled'],
+        },
+      ],
+      runTransitionPolicies: [
+        {
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          currentStatus: 'awaiting-approval',
+          allowedNextStatuses: ['queued-for-dispatch', 'cancelled'],
+        },
+      ],
+      approvalTaskTransitionPolicies: [
+        {
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          currentStatus: 'pending-approval',
+          allowedNextStatuses: ['approved', 'rejected', 'changes-requested'],
+        },
+      ],
+      transitionPolicyBatch: {
+        batchKey: 'plan:acme:ops:draft:transition-policy',
+        status: 'draft',
+        actionPolicies: [
+          {
+            actionKey: 'plan:acme:ops:draft:action:1',
+            currentStatus: 'pending',
+            allowedNextStatuses: ['awaiting-approval-decision', 'cancelled'],
+          },
+        ],
+        runPolicies: [
+          {
+            runKey: 'plan:acme:ops:draft:child:1:runner:run',
+            currentStatus: 'awaiting-approval',
+            allowedNextStatuses: ['queued-for-dispatch', 'cancelled'],
+          },
+        ],
+        approvalTaskPolicies: [
+          {
+            taskKey: 'plan:acme:ops:draft:approval:1:task',
+            currentStatus: 'pending-approval',
+            allowedNextStatuses: ['approved', 'rejected', 'changes-requested'],
+          },
+        ],
+      },
       executionRunRecords: [
         {
           runKey: 'plan:acme:ops:draft:child:1:runner:run',
@@ -2035,6 +2082,7 @@ describe('OrchestrationService', () => {
       dispatchableRunCount: 1,
       readyProjectedDispatchCount: 1,
       projectedOutcomeCount: 3,
+      transitionPolicyCount: 5,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -2258,6 +2306,36 @@ describe('OrchestrationService', () => {
           outcomeRecordKey: 'plan:acme:ops:readiness:run-dispatch:2:outcome',
         }),
       ],
+    });
+    expect(result.actionTransitionPolicies).toEqual([
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:1',
+        allowedNextStatuses: ['awaiting-approval-decision', 'cancelled'],
+      }),
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:2',
+        allowedNextStatuses: ['dispatched', 'dispatch-failed'],
+      }),
+    ]);
+    expect(result.runTransitionPolicies).toEqual([
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:1:runner:run',
+        allowedNextStatuses: ['queued-for-dispatch', 'cancelled'],
+      }),
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:2:runner:run',
+        allowedNextStatuses: ['dispatched', 'dispatch-failed', 'cancelled'],
+      }),
+    ]);
+    expect(result.approvalTaskTransitionPolicies).toEqual([
+      expect.objectContaining({
+        taskKey: 'plan:acme:ops:readiness:approval:1:task',
+        allowedNextStatuses: ['approved', 'rejected', 'changes-requested'],
+      }),
+    ]);
+    expect(result.transitionPolicyBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:readiness:transition-policy',
+      status: 'draft',
     });
     expect(result.contractSummary).toMatchObject({
       unresolvedRuntimeBindingCount: 0,

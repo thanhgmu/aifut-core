@@ -1384,6 +1384,59 @@ export class OrchestrationService {
       })),
     };
 
+    const actionTransitionPolicies = executionActionRecords.map((action) => ({
+      actionKey: action.actionKey,
+      actionType: action.actionType,
+      currentStatus: action.actionStatus,
+      allowedNextStatuses:
+        action.actionStatus === 'blocked'
+          ? ['pending-runtime-resolution']
+          : action.actionType === 'dispatch-required-approval'
+            ? ['awaiting-approval-decision', 'cancelled']
+            : action.actionType === 'dispatch-child-workflow'
+              ? ['dispatched', 'dispatch-failed']
+              : ['runtime-binding-resolved', 'cancelled'],
+    }));
+
+    const runTransitionPolicies = executionRunRecords.map((run) => ({
+      runKey: run.runKey,
+      currentStatus: run.runStatus,
+      allowedNextStatuses:
+        run.runStatus === 'blocked'
+          ? ['queued-for-dispatch']
+          : run.runStatus === 'awaiting-approval'
+            ? ['queued-for-dispatch', 'cancelled']
+            : ['dispatched', 'dispatch-failed', 'cancelled'],
+    }));
+
+    const approvalTaskTransitionPolicies = approvalTaskRecords.map((task) => ({
+      taskKey: task.taskKey,
+      currentStatus: task.taskStatus,
+      allowedNextStatuses: task.required
+        ? ['approved', 'rejected', 'changes-requested']
+        : ['approved', 'skipped', 'review-requested'],
+    }));
+
+    const transitionPolicyBatch = {
+      batchKey: `${input.planId}:transition-policy`,
+      status: 'draft',
+      actionPolicies: actionTransitionPolicies.map((policy) => ({
+        actionKey: policy.actionKey,
+        currentStatus: policy.currentStatus,
+        allowedNextStatuses: policy.allowedNextStatuses,
+      })),
+      runPolicies: runTransitionPolicies.map((policy) => ({
+        runKey: policy.runKey,
+        currentStatus: policy.currentStatus,
+        allowedNextStatuses: policy.allowedNextStatuses,
+      })),
+      approvalTaskPolicies: approvalTaskTransitionPolicies.map((policy) => ({
+        taskKey: policy.taskKey,
+        currentStatus: policy.currentStatus,
+        allowedNextStatuses: policy.allowedNextStatuses,
+      })),
+    };
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1443,6 +1496,10 @@ export class OrchestrationService {
       projectedApprovalOutcomeRecords,
       projectedDispatchOutcomeRecords,
       projectedOutcomeBatch,
+      actionTransitionPolicies,
+      runTransitionPolicies,
+      approvalTaskTransitionPolicies,
+      transitionPolicyBatch,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1494,6 +1551,10 @@ export class OrchestrationService {
         projectedOutcomeCount:
           projectedApprovalOutcomeRecords.length +
           projectedDispatchOutcomeRecords.length,
+        transitionPolicyCount:
+          actionTransitionPolicies.length +
+          runTransitionPolicies.length +
+          approvalTaskTransitionPolicies.length,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({
         bindingKey: binding.bindingKey,
