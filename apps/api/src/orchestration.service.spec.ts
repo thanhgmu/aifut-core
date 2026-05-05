@@ -1766,6 +1766,8 @@ describe('OrchestrationService', () => {
       awaitingApprovalRunnerCount: 1,
       readyRunnerCount: 1,
       unresolvedChildWorkflowContracts: [],
+      pendingActionCount: 2,
+      blockedActionCount: 0,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -1790,6 +1792,40 @@ describe('OrchestrationService', () => {
         expect.objectContaining({
           runnerKey: 'plan:acme:ops:readiness:child:2:runner',
           readinessStatus: 'ready-for-dispatch',
+        }),
+      ],
+    });
+    expect(result.executionActionRecords).toEqual([
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:1',
+        actionType: 'dispatch-required-approval',
+        actionStatus: 'pending',
+        actionTargetKey: 'plan:acme:ops:readiness:approval:1',
+        runnerKey: 'plan:acme:ops:readiness:child:1:runner',
+        readinessStatus: 'awaiting-required-approval',
+      }),
+      expect.objectContaining({
+        actionKey: 'plan:acme:ops:readiness:action:2',
+        actionType: 'dispatch-child-workflow',
+        actionStatus: 'pending',
+        actionTargetKey: 'plan:acme:ops:readiness:child:2:runner',
+        runnerKey: 'plan:acme:ops:readiness:child:2:runner',
+        readinessStatus: 'ready-for-dispatch',
+      }),
+    ]);
+    expect(result.executionActionBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:readiness:execution-action',
+      status: 'pending',
+      records: [
+        expect.objectContaining({
+          actionKey: 'plan:acme:ops:readiness:action:1',
+          actionType: 'dispatch-required-approval',
+          actionStatus: 'pending',
+        }),
+        expect.objectContaining({
+          actionKey: 'plan:acme:ops:readiness:action:2',
+          actionType: 'dispatch-child-workflow',
+          actionStatus: 'pending',
         }),
       ],
     });

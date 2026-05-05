@@ -44,7 +44,7 @@ Current architectural emphasis:
 - package option commercialization and entitlement sync foundation
 - AI token-governance service foundation for provider/model policy, package quota/BYO-key rules, usage estimation, markup/platform-fee separation, included-quota coverage before AIFUT-managed overage charging, BYO platform-fee separation, and hard monthly quota enforcement
 - AI usage-estimation orchestration endpoint foundation so token/cost previews can resolve tenant/workspace context before package quota enforcement and model-routing work
-- orchestration draft surfaces for roadmap interpretation, app coordination, dataflow, optimization summary, workflow graph, and execution contract
+- orchestration draft surfaces for roadmap interpretation, app coordination, dataflow, optimization summary, workflow graph, and execution contract, now including first-pass execution-action records/batches derived from approval-gated versus ready runner states
 - globalization, orchestration, audit, entitlements capability roadmaps
 
 ## Build status
@@ -57,15 +57,15 @@ Current architectural emphasis:
 - Focused tenancy service verification remains green after extending non-primary affiliate-domain scope-rebinding coverage, explicit primary affiliate-domain demotion/rebinding coverage, explicit affiliate-domain promotion collision coverage so workspace-scoped affiliate primaries surface the same demotion/reassignment governance semantics when they displace an existing scope primary, package-assignment provisioning-state normalization/guard coverage so spaced or mixed-case `active` still enforces selected-option requirements before persistence, storage-policy mode normalization coverage so spaced or mixed-case storage modes still validate/persist consistently, explicit trimming coverage for optional storage-policy fields before persistence, explicit trimming coverage for hybrid backup targets before persistence, explicit source-field normalization coverage for package assignments including whitespace-only -> `null`, and explicit billing-snapshot passthrough coverage so structured commercial metadata persists without unintended normalization: `npm test -- --runInBand tenancy-operations.service.spec.ts` passing
 - A focused orchestration controller verification pass remains green after extending execution-contract header-precedence response continuity for both draft and submission, adding query-over-body context precedence for both submission and draft paths when headers are absent, and preserving body-supplied execution-contract structures even when draft/query context wins or when full body fallback is used: `npm test -- --runInBand orchestration.controller.spec.ts` passing
 - Focused orchestration service verification remains green after tightening the guardrail that approval-required child workflows cannot rely on optional-only approval contracts, explicitly rejecting optional approval contracts at submission time until full optional-approval semantics exist, rejecting escalation contracts that loop back to the same required approval role on the same checkpoint, rejecting rollback contracts that do not map to at least one approval-required child workflow on the same checkpoint and target system, scoping rollback linkage to child workflows that match both checkpoint and target system, rejecting duplicate escalation/rollback routes that would otherwise create ambiguous execution paths, rejecting duplicate child-workflow routes on the same workflow/runtime/system path, and rejecting execution-contract submissions that do not declare at least one child workflow contract: `npm test -- --runInBand orchestration.service.spec.ts` passing
-- Combined orchestration verification remains green after the latest execution-contract guardrail slices, including query-over-body context precedence for both draft and submission paths, escalation no-op rejection for same-role approval loops, and scoped rollback linkage: `npm test -- --runInBand orchestration.controller.spec.ts orchestration.service.spec.ts` passing
+- Combined orchestration verification remains green after the latest execution-contract guardrail and execution-action planning slices, including query-over-body context precedence for both draft and submission paths, escalation no-op rejection for same-role approval loops, scoped rollback linkage, and action records/batches for approval dispatch versus ready child-workflow dispatch: `npm test -- --runInBand orchestration.controller.spec.ts orchestration.service.spec.ts` passing
 - API build: passing (`npm run build` in `apps/api`)
 - API build was rechecked after the AI token-governance and storage-mode typing updates; the TypeScript gate is passing again.
 - Working tree: clean after `c3a988e` checkpoint before this status refresh.
 - Behavior-memory and localized interaction architecture is now explicitly documented in `docs/architecture/behavior-memory-and-localized-interaction.md`, locking a three-layer memory model (live context, compacted summaries, raw/archive logs) plus voice/localization direction without yet claiming implementation completion.
 
 ## Current best next steps
-1. Deepen orchestration from draft read-model surfaces into richer DTO/service contracts and execution-oriented write paths.
-2. Carry execution-contract semantics from pending persistence/dispatch scaffolds into real stored child-workflow contract structures plus live approval-dispatch and execution-runner integrations.
+1. Deepen orchestration execution-action semantics from derived records/batches into concrete persisted run/approval task state.
+2. Carry execution-contract semantics from pending persistence/dispatch scaffolds into live approval-dispatch and execution-runner integrations.
 3. Wire the new AI token-governance foundation into package/admin/user surfaces after the current orchestration checkpoint.
 4. Persist verification history and richer health state so integrations can be monitored over time instead of only checked ad hoc.
 5. Expand tenant operations from admin-only surfaces into fuller provisioning flows, including default-owner/bootstrap handling where needed.
@@ -75,6 +75,6 @@ Current architectural emphasis:
 ## Notes
 - Authoritative editable repo: `C:\Users\PC\.openclaw\workspace\aifut-core`
 - Latest checked local HEAD: `c3a988e` (`feat(api): add ai token governance foundation`).
-- Current checkpoint note: `c3a988e` committed the AI token-governance foundation, consolidated architecture/roadmap docs, prior domain-governance and orchestration hardening, and status updates. Working tree was clean before this status refresh.
+- Current checkpoint note: `c3b78f2` refreshed status after the AI token-governance foundation. Current in-flight work adds orchestration execution-action records/batches derived from runner readiness so submitted contracts now expose the next operational action (`dispatch-required-approval`, `dispatch-child-workflow`, or runtime-binding resolution).
 - Older paths should not be treated as primary unless explicitly re-aligned.
 

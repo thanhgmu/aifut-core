@@ -1077,6 +1077,59 @@ export class OrchestrationService {
       })),
     };
 
+    const executionActionRecords = storedExecutionRunnerRecords.map(
+      (runner, index) => {
+        const actionType =
+          runner.readinessStatus === 'awaiting-required-approval'
+            ? 'dispatch-required-approval'
+            : runner.readinessStatus === 'ready-for-dispatch'
+              ? 'dispatch-child-workflow'
+              : 'resolve-runtime-binding';
+        const actionStatus =
+          runner.readinessStatus === 'blocked-missing-runtime-binding'
+            ? 'blocked'
+            : 'pending';
+        const actionTargetKey =
+          actionType === 'dispatch-required-approval'
+            ? runner.linkedApprovalDispatchKeys[0]
+            : actionType === 'dispatch-child-workflow'
+              ? runner.runnerKey
+              : runner.contractKey;
+
+        return {
+          actionKey: `${input.planId}:action:${index + 1}`,
+          tenantSlug: input.tenantSlug,
+          workspaceSlug: input.workspaceSlug ?? null,
+          actionType,
+          actionStatus,
+          actionTargetKey,
+          runnerKey: runner.runnerKey,
+          contractKey: runner.contractKey,
+          runtimeBindingKey: runner.runtimeBindingKey,
+          readinessStatus: runner.readinessStatus,
+          linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
+          linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
+        };
+      },
+    );
+
+    const executionActionBatch = {
+      batchKey: `${input.planId}:execution-action`,
+      status: executionActionRecords.some(
+        (record) => record.actionStatus === 'blocked',
+      )
+        ? 'blocked'
+        : 'pending',
+      records: executionActionRecords.map((record) => ({
+        actionKey: record.actionKey,
+        actionType: record.actionType,
+        actionStatus: record.actionStatus,
+        actionTargetKey: record.actionTargetKey,
+        workspaceSlug: record.workspaceSlug,
+        runnerKey: record.runnerKey,
+      })),
+    };
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1103,6 +1156,7 @@ export class OrchestrationService {
       storedEscalationContracts,
       storedRollbackContracts,
       storedExecutionRunnerRecords,
+      executionActionRecords,
       runtimeBindingBatch,
       contractPersistenceBatch,
       approvalDispatchBatch,
@@ -1118,6 +1172,7 @@ export class OrchestrationService {
             )?.readinessStatus ?? 'pending',
         })),
       },
+      executionActionBatch,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1136,6 +1191,12 @@ export class OrchestrationService {
             runtimeKey: contract.runtimeKey,
             systemKey: contract.systemKey,
           })),
+        pendingActionCount: executionActionRecords.filter(
+          (record) => record.actionStatus === 'pending',
+        ).length,
+        blockedActionCount: executionActionRecords.filter(
+          (record) => record.actionStatus === 'blocked',
+        ).length,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({
         bindingKey: binding.bindingKey,
