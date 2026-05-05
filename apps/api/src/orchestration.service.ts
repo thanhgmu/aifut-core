@@ -1130,6 +1130,87 @@ export class OrchestrationService {
       })),
     };
 
+    const executionRunRecords = storedExecutionRunnerRecords.map((runner) => {
+      const nextAction = executionActionRecords.find(
+        (action) => action.runnerKey === runner.runnerKey,
+      );
+      const runStatus =
+        runner.readinessStatus === 'blocked-missing-runtime-binding'
+          ? 'blocked'
+          : runner.readinessStatus === 'awaiting-required-approval'
+            ? 'awaiting-approval'
+            : 'queued-for-dispatch';
+
+      return {
+        runKey: `${runner.runnerKey}:run`,
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+        runnerKey: runner.runnerKey,
+        contractKey: runner.contractKey,
+        runtimeBindingKey: runner.runtimeBindingKey,
+        workflowKey: runner.workflowKey,
+        runtimeKey: runner.runtimeKey,
+        systemKey: runner.systemKey,
+        triggerMode: runner.triggerMode,
+        runStatus,
+        readinessStatus: runner.readinessStatus,
+        nextActionKey: nextAction?.actionKey ?? null,
+        approvalTaskKeys: runner.linkedApprovalDispatchKeys.map(
+          (dispatchKey) => `${dispatchKey}:task`,
+        ),
+        rollbackRecordKeys: runner.linkedRollbackRecordKeys,
+      };
+    });
+
+    const approvalTaskRecords = storedApprovalDispatches.map((dispatch) => {
+      const taskKey = `${dispatch.dispatchKey}:task`;
+
+      return {
+        taskKey,
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+        dispatchKey: dispatch.dispatchKey,
+        checkpointKey: dispatch.checkpointKey,
+        approverRole: dispatch.approverRole,
+        channel: dispatch.channel,
+        required: dispatch.required,
+        taskStatus: dispatch.required ? 'pending-approval' : 'optional-pending',
+        linkedChildContractKeys: dispatch.linkedChildContractKeys,
+        linkedRunKeys: executionRunRecords
+          .filter((run) => run.approvalTaskKeys.includes(taskKey))
+          .map((run) => run.runKey),
+      };
+    });
+
+    const executionRunBatch = {
+      batchKey: `${input.planId}:execution-run`,
+      status: executionRunRecords.some((record) => record.runStatus === 'blocked')
+        ? 'blocked'
+        : 'pending',
+      records: executionRunRecords.map((record) => ({
+        runKey: record.runKey,
+        runnerKey: record.runnerKey,
+        runStatus: record.runStatus,
+        readinessStatus: record.readinessStatus,
+        nextActionKey: record.nextActionKey,
+        workspaceSlug: record.workspaceSlug,
+      })),
+    };
+
+    const approvalTaskBatch = {
+      batchKey: `${input.planId}:approval-task`,
+      status: approvalTaskRecords.length > 0 ? 'pending' : 'empty',
+      records: approvalTaskRecords.map((record) => ({
+        taskKey: record.taskKey,
+        dispatchKey: record.dispatchKey,
+        checkpointKey: record.checkpointKey,
+        approverRole: record.approverRole,
+        taskStatus: record.taskStatus,
+        workspaceSlug: record.workspaceSlug,
+        linkedRunKeys: record.linkedRunKeys,
+      })),
+    };
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1157,6 +1238,8 @@ export class OrchestrationService {
       storedRollbackContracts,
       storedExecutionRunnerRecords,
       executionActionRecords,
+      executionRunRecords,
+      approvalTaskRecords,
       runtimeBindingBatch,
       contractPersistenceBatch,
       approvalDispatchBatch,
@@ -1173,6 +1256,8 @@ export class OrchestrationService {
         })),
       },
       executionActionBatch,
+      executionRunBatch,
+      approvalTaskBatch,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1196,6 +1281,18 @@ export class OrchestrationService {
         ).length,
         blockedActionCount: executionActionRecords.filter(
           (record) => record.actionStatus === 'blocked',
+        ).length,
+        queuedRunCount: executionRunRecords.filter(
+          (record) => record.runStatus === 'queued-for-dispatch',
+        ).length,
+        awaitingApprovalRunCount: executionRunRecords.filter(
+          (record) => record.runStatus === 'awaiting-approval',
+        ).length,
+        blockedRunCount: executionRunRecords.filter(
+          (record) => record.runStatus === 'blocked',
+        ).length,
+        pendingApprovalTaskCount: approvalTaskRecords.filter(
+          (record) => record.taskStatus === 'pending-approval',
         ).length,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({
@@ -1303,6 +1400,32 @@ export class OrchestrationService {
         readinessStatus: action.readinessStatus,
         linkedApprovalDispatchKeys: action.linkedApprovalDispatchKeys,
         linkedRollbackRecordKeys: action.linkedRollbackRecordKeys,
+      })),
+      executionRunTopology: executionRunRecords.map((run) => ({
+        runKey: run.runKey,
+        runnerKey: run.runnerKey,
+        contractKey: run.contractKey,
+        runtimeBindingKey: run.runtimeBindingKey,
+        workflowKey: run.workflowKey,
+        runtimeKey: run.runtimeKey,
+        systemKey: run.systemKey,
+        triggerMode: run.triggerMode,
+        runStatus: run.runStatus,
+        readinessStatus: run.readinessStatus,
+        nextActionKey: run.nextActionKey,
+        approvalTaskKeys: run.approvalTaskKeys,
+        rollbackRecordKeys: run.rollbackRecordKeys,
+      })),
+      approvalTaskQueue: approvalTaskRecords.map((task) => ({
+        taskKey: task.taskKey,
+        dispatchKey: task.dispatchKey,
+        checkpointKey: task.checkpointKey,
+        approverRole: task.approverRole,
+        channel: task.channel,
+        required: task.required,
+        taskStatus: task.taskStatus,
+        linkedChildContractKeys: task.linkedChildContractKeys,
+        linkedRunKeys: task.linkedRunKeys,
       })),
       executionRunnerHints: storedExecutionRunnerRecords.map((runner) => ({
         contractKey: runner.contractKey,

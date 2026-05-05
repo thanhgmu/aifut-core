@@ -1675,7 +1675,106 @@ describe('OrchestrationService', () => {
         awaitingApprovalRunnerCount: 1,
         readyRunnerCount: 0,
         unresolvedChildWorkflowContracts: [],
+        pendingActionCount: 1,
+        blockedActionCount: 0,
+        queuedRunCount: 0,
+        awaitingApprovalRunCount: 1,
+        blockedRunCount: 0,
+        pendingApprovalTaskCount: 1,
       },
+      executionRunRecords: [
+        {
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          runStatus: 'awaiting-approval',
+          readinessStatus: 'awaiting-required-approval',
+          nextActionKey: 'plan:acme:ops:draft:action:1',
+          approvalTaskKeys: ['plan:acme:ops:draft:approval:1:task'],
+          rollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      approvalTaskRecords: [
+        {
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          dispatchKey: 'plan:acme:ops:draft:approval:1',
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          channel: '',
+          required: true,
+          taskStatus: 'pending-approval',
+          linkedChildContractKeys: ['plan:acme:ops:draft:child:1'],
+          linkedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+        },
+      ],
+      executionRunBatch: {
+        batchKey: 'plan:acme:ops:draft:execution-run',
+        status: 'pending',
+        records: [
+          {
+            runKey: 'plan:acme:ops:draft:child:1:runner:run',
+            runnerKey: 'plan:acme:ops:draft:child:1:runner',
+            runStatus: 'awaiting-approval',
+            readinessStatus: 'awaiting-required-approval',
+            nextActionKey: 'plan:acme:ops:draft:action:1',
+            workspaceSlug: 'ops',
+          },
+        ],
+      },
+      approvalTaskBatch: {
+        batchKey: 'plan:acme:ops:draft:approval-task',
+        status: 'pending',
+        records: [
+          {
+            taskKey: 'plan:acme:ops:draft:approval:1:task',
+            dispatchKey: 'plan:acme:ops:draft:approval:1',
+            checkpointKey: 'approve-copy',
+            approverRole: 'operator',
+            taskStatus: 'pending-approval',
+            workspaceSlug: 'ops',
+            linkedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+          },
+        ],
+      },
+      executionRunTopology: [
+        {
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          contractKey: 'plan:acme:ops:draft:child:1',
+          runtimeBindingKey: 'plan:acme:ops:draft:binding:1',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          runStatus: 'awaiting-approval',
+          readinessStatus: 'awaiting-required-approval',
+          nextActionKey: 'plan:acme:ops:draft:action:1',
+          approvalTaskKeys: ['plan:acme:ops:draft:approval:1:task'],
+          rollbackRecordKeys: ['plan:acme:ops:draft:rollback:1'],
+        },
+      ],
+      approvalTaskQueue: [
+        {
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          dispatchKey: 'plan:acme:ops:draft:approval:1',
+          checkpointKey: 'approve-copy',
+          approverRole: 'operator',
+          channel: '',
+          required: true,
+          taskStatus: 'pending-approval',
+          linkedChildContractKeys: ['plan:acme:ops:draft:child:1'],
+          linkedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+        },
+      ],
       executionRunnerTopology: [
         {
           runnerKey: 'plan:acme:ops:draft:child:1:runner',
@@ -1784,6 +1883,10 @@ describe('OrchestrationService', () => {
       unresolvedChildWorkflowContracts: [],
       pendingActionCount: 2,
       blockedActionCount: 0,
+      queuedRunCount: 1,
+      awaitingApprovalRunCount: 1,
+      blockedRunCount: 0,
+      pendingApprovalTaskCount: 1,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -1859,6 +1962,28 @@ describe('OrchestrationService', () => {
         actionType: 'dispatch-child-workflow',
         actionTargetKey: 'plan:acme:ops:readiness:child:2:runner',
         runnerKey: 'plan:acme:ops:readiness:child:2:runner',
+      }),
+    ]);
+    expect(result.executionRunTopology).toEqual([
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:1:runner:run',
+        runnerKey: 'plan:acme:ops:readiness:child:1:runner',
+        runStatus: 'awaiting-approval',
+        approvalTaskKeys: ['plan:acme:ops:readiness:approval:1:task'],
+      }),
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:2:runner:run',
+        runnerKey: 'plan:acme:ops:readiness:child:2:runner',
+        runStatus: 'queued-for-dispatch',
+        approvalTaskKeys: [],
+      }),
+    ]);
+    expect(result.approvalTaskQueue).toEqual([
+      expect.objectContaining({
+        taskKey: 'plan:acme:ops:readiness:approval:1:task',
+        dispatchKey: 'plan:acme:ops:readiness:approval:1',
+        taskStatus: 'pending-approval',
+        linkedRunKeys: ['plan:acme:ops:readiness:child:1:runner:run'],
       }),
     ]);
     expect(result.contractSummary).toMatchObject({
