@@ -1341,6 +1341,49 @@ export class OrchestrationService {
       })),
     };
 
+    const projectedApprovalOutcomeRecords = projectedApprovalDecisionRecords.map(
+      (record) => ({
+        outcomeRecordKey: `${record.decisionRecordKey}:outcome`,
+        decisionRecordKey: record.decisionRecordKey,
+        taskKey: record.taskKey,
+        projectedResolution:
+          record.defaultDecision === 'approve'
+            ? 'approval-clears-run-gate'
+            : 'approval-keeps-run-blocked',
+        affectedRunKeys: record.affectedRunKeys,
+        outcomeStatus: 'projected',
+      }),
+    );
+
+    const projectedDispatchOutcomeRecords = projectedRunDispatchRecords.map(
+      (record) => ({
+        outcomeRecordKey: `${record.dispatchRecordKey}:outcome`,
+        dispatchRecordKey: record.dispatchRecordKey,
+        runKey: record.runKey,
+        runnerKey: record.runnerKey,
+        projectedResolution:
+          record.projectedDispatchStatus === 'ready-to-dispatch'
+            ? 'runner-may-enter-dispatched-state'
+            : 'runner-remains-pending-prerequisite',
+        outcomeStatus: 'projected',
+      }),
+    );
+
+    const projectedOutcomeBatch = {
+      batchKey: `${input.planId}:projected-outcome`,
+      status: 'projected',
+      approvalOutcomes: projectedApprovalOutcomeRecords.map((record) => ({
+        outcomeRecordKey: record.outcomeRecordKey,
+        projectedResolution: record.projectedResolution,
+        taskKey: record.taskKey,
+      })),
+      dispatchOutcomes: projectedDispatchOutcomeRecords.map((record) => ({
+        outcomeRecordKey: record.outcomeRecordKey,
+        projectedResolution: record.projectedResolution,
+        runKey: record.runKey,
+      })),
+    };
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1397,6 +1440,9 @@ export class OrchestrationService {
       projectedApprovalDecisionRecords,
       projectedRunDispatchRecords,
       projectedMutationBatch,
+      projectedApprovalOutcomeRecords,
+      projectedDispatchOutcomeRecords,
+      projectedOutcomeBatch,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1445,6 +1491,9 @@ export class OrchestrationService {
         readyProjectedDispatchCount: projectedRunDispatchRecords.filter(
           (record) => record.projectedDispatchStatus === 'ready-to-dispatch',
         ).length,
+        projectedOutcomeCount:
+          projectedApprovalOutcomeRecords.length +
+          projectedDispatchOutcomeRecords.length,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({
         bindingKey: binding.bindingKey,

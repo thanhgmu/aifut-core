@@ -1787,6 +1787,44 @@ describe('OrchestrationService', () => {
           },
         ],
       },
+      projectedApprovalOutcomeRecords: [
+        {
+          outcomeRecordKey: 'plan:acme:ops:draft:approval-decision:1:outcome',
+          decisionRecordKey: 'plan:acme:ops:draft:approval-decision:1',
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          projectedResolution: 'approval-clears-run-gate',
+          affectedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+          outcomeStatus: 'projected',
+        },
+      ],
+      projectedDispatchOutcomeRecords: [
+        {
+          outcomeRecordKey: 'plan:acme:ops:draft:run-dispatch:1:outcome',
+          dispatchRecordKey: 'plan:acme:ops:draft:run-dispatch:1',
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          projectedResolution: 'runner-remains-pending-prerequisite',
+          outcomeStatus: 'projected',
+        },
+      ],
+      projectedOutcomeBatch: {
+        batchKey: 'plan:acme:ops:draft:projected-outcome',
+        status: 'projected',
+        approvalOutcomes: [
+          {
+            outcomeRecordKey: 'plan:acme:ops:draft:approval-decision:1:outcome',
+            projectedResolution: 'approval-clears-run-gate',
+            taskKey: 'plan:acme:ops:draft:approval:1:task',
+          },
+        ],
+        dispatchOutcomes: [
+          {
+            outcomeRecordKey: 'plan:acme:ops:draft:run-dispatch:1:outcome',
+            projectedResolution: 'runner-remains-pending-prerequisite',
+            runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          },
+        ],
+      },
       executionRunRecords: [
         {
           runKey: 'plan:acme:ops:draft:child:1:runner:run',
@@ -1996,6 +2034,7 @@ describe('OrchestrationService', () => {
       blockedTransitionCount: 0,
       dispatchableRunCount: 1,
       readyProjectedDispatchCount: 1,
+      projectedOutcomeCount: 3,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -2184,6 +2223,39 @@ describe('OrchestrationService', () => {
         }),
         expect.objectContaining({
           dispatchRecordKey: 'plan:acme:ops:readiness:run-dispatch:2',
+        }),
+      ],
+    });
+    expect(result.projectedApprovalOutcomeRecords).toEqual([
+      expect.objectContaining({
+        outcomeRecordKey: 'plan:acme:ops:readiness:approval-decision:1:outcome',
+        projectedResolution: 'approval-clears-run-gate',
+      }),
+    ]);
+    expect(result.projectedDispatchOutcomeRecords).toEqual([
+      expect.objectContaining({
+        outcomeRecordKey: 'plan:acme:ops:readiness:run-dispatch:1:outcome',
+        projectedResolution: 'runner-remains-pending-prerequisite',
+      }),
+      expect.objectContaining({
+        outcomeRecordKey: 'plan:acme:ops:readiness:run-dispatch:2:outcome',
+        projectedResolution: 'runner-may-enter-dispatched-state',
+      }),
+    ]);
+    expect(result.projectedOutcomeBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:readiness:projected-outcome',
+      status: 'projected',
+      approvalOutcomes: [
+        expect.objectContaining({
+          outcomeRecordKey: 'plan:acme:ops:readiness:approval-decision:1:outcome',
+        }),
+      ],
+      dispatchOutcomes: [
+        expect.objectContaining({
+          outcomeRecordKey: 'plan:acme:ops:readiness:run-dispatch:1:outcome',
+        }),
+        expect.objectContaining({
+          outcomeRecordKey: 'plan:acme:ops:readiness:run-dispatch:2:outcome',
         }),
       ],
     });
