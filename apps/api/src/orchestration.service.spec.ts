@@ -1683,6 +1683,11 @@ describe('OrchestrationService', () => {
         pendingApprovalTaskCount: 1,
         pendingTransitionCount: 1,
         blockedTransitionCount: 0,
+        dispatchableRunCount: 0,
+        readyProjectedDispatchCount: 0,
+        projectedOutcomeCount: 2,
+        transitionPolicyCount: 3,
+        projectedMutationContractCount: 1,
       },
       executionTransitionQueue: [
         {
@@ -1870,6 +1875,24 @@ describe('OrchestrationService', () => {
             currentStatus: 'pending-approval',
             allowedNextStatuses: ['approved', 'rejected', 'changes-requested'],
           },
+        ],
+      },
+      projectedMutationContract: {
+        contractKey: 'plan:acme:ops:draft:projected-mutation-contract',
+        status: 'draft',
+        approvalDecisionCount: 1,
+        runDispatchCount: 1,
+        approvalOutcomeCount: 1,
+        dispatchOutcomeCount: 1,
+        actionPolicyCount: 1,
+        runPolicyCount: 1,
+        approvalTaskPolicyCount: 1,
+        readyProjectedDispatchCount: 0,
+        approvalDecisionKeys: ['plan:acme:ops:draft:approval-decision:1'],
+        runDispatchKeys: ['plan:acme:ops:draft:run-dispatch:1'],
+        outcomeKeys: [
+          'plan:acme:ops:draft:approval-decision:1:outcome',
+          'plan:acme:ops:draft:run-dispatch:1:outcome',
         ],
       },
       executionRunRecords: [
@@ -2083,6 +2106,7 @@ describe('OrchestrationService', () => {
       readyProjectedDispatchCount: 1,
       projectedOutcomeCount: 3,
       transitionPolicyCount: 5,
+      projectedMutationContractCount: 1,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -2336,6 +2360,18 @@ describe('OrchestrationService', () => {
     expect(result.transitionPolicyBatch).toMatchObject({
       batchKey: 'plan:acme:ops:readiness:transition-policy',
       status: 'draft',
+    });
+    expect(result.projectedMutationContract).toMatchObject({
+      contractKey: 'plan:acme:ops:readiness:projected-mutation-contract',
+      status: 'draft',
+      approvalDecisionCount: 1,
+      runDispatchCount: 2,
+      approvalOutcomeCount: 1,
+      dispatchOutcomeCount: 2,
+      actionPolicyCount: 2,
+      runPolicyCount: 2,
+      approvalTaskPolicyCount: 1,
+      readyProjectedDispatchCount: 1,
     });
     expect(result.contractSummary).toMatchObject({
       unresolvedRuntimeBindingCount: 0,

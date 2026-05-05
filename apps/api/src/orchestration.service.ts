@@ -1437,6 +1437,31 @@ export class OrchestrationService {
       })),
     };
 
+    const projectedMutationContract = {
+      contractKey: `${input.planId}:projected-mutation-contract`,
+      status: 'draft',
+      approvalDecisionCount: projectedApprovalDecisionRecords.length,
+      runDispatchCount: projectedRunDispatchRecords.length,
+      approvalOutcomeCount: projectedApprovalOutcomeRecords.length,
+      dispatchOutcomeCount: projectedDispatchOutcomeRecords.length,
+      actionPolicyCount: actionTransitionPolicies.length,
+      runPolicyCount: runTransitionPolicies.length,
+      approvalTaskPolicyCount: approvalTaskTransitionPolicies.length,
+      readyProjectedDispatchCount: projectedRunDispatchRecords.filter(
+        (record) => record.projectedDispatchStatus === 'ready-to-dispatch',
+      ).length,
+      approvalDecisionKeys: projectedApprovalDecisionRecords.map(
+        (record) => record.decisionRecordKey,
+      ),
+      runDispatchKeys: projectedRunDispatchRecords.map(
+        (record) => record.dispatchRecordKey,
+      ),
+      outcomeKeys: [
+        ...projectedApprovalOutcomeRecords.map((record) => record.outcomeRecordKey),
+        ...projectedDispatchOutcomeRecords.map((record) => record.outcomeRecordKey),
+      ],
+    };
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1500,6 +1525,7 @@ export class OrchestrationService {
       runTransitionPolicies,
       approvalTaskTransitionPolicies,
       transitionPolicyBatch,
+      projectedMutationContract,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1555,6 +1581,7 @@ export class OrchestrationService {
           actionTransitionPolicies.length +
           runTransitionPolicies.length +
           approvalTaskTransitionPolicies.length,
+        projectedMutationContractCount: 1,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({
         bindingKey: binding.bindingKey,
