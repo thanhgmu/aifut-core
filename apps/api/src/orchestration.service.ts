@@ -1211,6 +1211,45 @@ export class OrchestrationService {
       })),
     };
 
+    const executionTransitionQueue = executionActionRecords.map((action) => ({
+      transitionKey: `${action.actionKey}:transition`,
+      sourceActionKey: action.actionKey,
+      sourceRunnerKey: action.runnerKey,
+      sourceContractKey: action.contractKey,
+      transitionType:
+        action.actionType === 'dispatch-required-approval'
+          ? 'await-approval-decision'
+          : action.actionType === 'dispatch-child-workflow'
+            ? 'dispatch-runner'
+            : 'resolve-runner-binding',
+      transitionStatus:
+        action.actionStatus === 'blocked' ? 'blocked' : 'pending',
+      targetKey: action.actionTargetKey,
+      readinessStatus: action.readinessStatus,
+    }));
+
+    const executionRunStateHints = executionRunRecords.map((run) => ({
+      runKey: run.runKey,
+      runStatus: run.runStatus,
+      nextTransitionKey:
+        executionTransitionQueue.find(
+          (transition) => transition.sourceRunnerKey === run.runnerKey,
+        )?.transitionKey ?? null,
+      completionGate:
+        run.runStatus === 'awaiting-approval'
+          ? 'approval-decision'
+          : run.runStatus === 'queued-for-dispatch'
+            ? 'runner-dispatch'
+            : 'runtime-binding-resolution',
+    }));
+
+    const approvalTaskStateHints = approvalTaskRecords.map((task) => ({
+      taskKey: task.taskKey,
+      taskStatus: task.taskStatus,
+      nextTransitionType: task.required ? 'record-approval-decision' : 'optional-review',
+      linkedRunKeys: task.linkedRunKeys,
+    }));
+
     return {
       ...draft,
       executionContractStatus: 'submitted',
@@ -1258,6 +1297,9 @@ export class OrchestrationService {
       executionActionBatch,
       executionRunBatch,
       approvalTaskBatch,
+      executionTransitionQueue,
+      executionRunStateHints,
+      approvalTaskStateHints,
       executionReadinessSummary: {
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
@@ -1293,6 +1335,12 @@ export class OrchestrationService {
         ).length,
         pendingApprovalTaskCount: approvalTaskRecords.filter(
           (record) => record.taskStatus === 'pending-approval',
+        ).length,
+        pendingTransitionCount: executionTransitionQueue.filter(
+          (transition) => transition.transitionStatus === 'pending',
+        ).length,
+        blockedTransitionCount: executionTransitionQueue.filter(
+          (transition) => transition.transitionStatus === 'blocked',
         ).length,
       },
       runtimeBindingTopology: storedRuntimeBindings.map((binding) => ({

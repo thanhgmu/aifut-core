@@ -1681,7 +1681,37 @@ describe('OrchestrationService', () => {
         awaitingApprovalRunCount: 1,
         blockedRunCount: 0,
         pendingApprovalTaskCount: 1,
+        pendingTransitionCount: 1,
+        blockedTransitionCount: 0,
       },
+      executionTransitionQueue: [
+        {
+          transitionKey: 'plan:acme:ops:draft:action:1:transition',
+          sourceActionKey: 'plan:acme:ops:draft:action:1',
+          sourceRunnerKey: 'plan:acme:ops:draft:child:1:runner',
+          sourceContractKey: 'plan:acme:ops:draft:child:1',
+          transitionType: 'await-approval-decision',
+          transitionStatus: 'pending',
+          targetKey: 'plan:acme:ops:draft:approval:1',
+          readinessStatus: 'awaiting-required-approval',
+        },
+      ],
+      executionRunStateHints: [
+        {
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          runStatus: 'awaiting-approval',
+          nextTransitionKey: 'plan:acme:ops:draft:action:1:transition',
+          completionGate: 'approval-decision',
+        },
+      ],
+      approvalTaskStateHints: [
+        {
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          taskStatus: 'pending-approval',
+          nextTransitionType: 'record-approval-decision',
+          linkedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+        },
+      ],
       executionRunRecords: [
         {
           runKey: 'plan:acme:ops:draft:child:1:runner:run',
@@ -1887,6 +1917,8 @@ describe('OrchestrationService', () => {
       awaitingApprovalRunCount: 1,
       blockedRunCount: 0,
       pendingApprovalTaskCount: 1,
+      pendingTransitionCount: 2,
+      blockedTransitionCount: 0,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -1984,6 +2016,34 @@ describe('OrchestrationService', () => {
         dispatchKey: 'plan:acme:ops:readiness:approval:1',
         taskStatus: 'pending-approval',
         linkedRunKeys: ['plan:acme:ops:readiness:child:1:runner:run'],
+      }),
+    ]);
+    expect(result.executionTransitionQueue).toEqual([
+      expect.objectContaining({
+        transitionKey: 'plan:acme:ops:readiness:action:1:transition',
+        transitionType: 'await-approval-decision',
+        targetKey: 'plan:acme:ops:readiness:approval:1',
+      }),
+      expect.objectContaining({
+        transitionKey: 'plan:acme:ops:readiness:action:2:transition',
+        transitionType: 'dispatch-runner',
+        targetKey: 'plan:acme:ops:readiness:child:2:runner',
+      }),
+    ]);
+    expect(result.executionRunStateHints).toEqual([
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:1:runner:run',
+        completionGate: 'approval-decision',
+      }),
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:readiness:child:2:runner:run',
+        completionGate: 'runner-dispatch',
+      }),
+    ]);
+    expect(result.approvalTaskStateHints).toEqual([
+      expect.objectContaining({
+        taskKey: 'plan:acme:ops:readiness:approval:1:task',
+        nextTransitionType: 'record-approval-decision',
       }),
     ]);
     expect(result.contractSummary).toMatchObject({
