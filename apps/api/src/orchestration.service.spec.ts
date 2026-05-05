@@ -1745,6 +1745,48 @@ describe('OrchestrationService', () => {
           },
         ],
       },
+      projectedApprovalDecisionRecords: [
+        {
+          decisionRecordKey: 'plan:acme:ops:draft:approval-decision:1',
+          taskKey: 'plan:acme:ops:draft:approval:1:task',
+          dispatchKey: 'plan:acme:ops:draft:approval:1',
+          defaultDecision: 'approve',
+          allowedDecisions: ['approve', 'reject', 'request-changes'],
+          projectedOutcomeStatus: 'awaiting-decision',
+          affectedRunKeys: ['plan:acme:ops:draft:child:1:runner:run'],
+        },
+      ],
+      projectedRunDispatchRecords: [
+        {
+          dispatchRecordKey: 'plan:acme:ops:draft:run-dispatch:1',
+          runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          runnerKey: 'plan:acme:ops:draft:child:1:runner',
+          dispatchReadiness: 'blocked-by-approval',
+          projectedDispatchStatus: 'awaiting-prerequisite',
+          nextTransitionKey: 'plan:acme:ops:draft:action:1:transition',
+          workflowKey: 'qualify-lead',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+        },
+      ],
+      projectedMutationBatch: {
+        batchKey: 'plan:acme:ops:draft:projected-mutation',
+        status: 'pending',
+        approvalDecisionRecords: [
+          {
+            decisionRecordKey: 'plan:acme:ops:draft:approval-decision:1',
+            projectedOutcomeStatus: 'awaiting-decision',
+            taskKey: 'plan:acme:ops:draft:approval:1:task',
+          },
+        ],
+        runDispatchRecords: [
+          {
+            dispatchRecordKey: 'plan:acme:ops:draft:run-dispatch:1',
+            projectedDispatchStatus: 'awaiting-prerequisite',
+            runKey: 'plan:acme:ops:draft:child:1:runner:run',
+          },
+        ],
+      },
       executionRunRecords: [
         {
           runKey: 'plan:acme:ops:draft:child:1:runner:run',
@@ -1953,6 +1995,7 @@ describe('OrchestrationService', () => {
       pendingTransitionCount: 2,
       blockedTransitionCount: 0,
       dispatchableRunCount: 1,
+      readyProjectedDispatchCount: 1,
     });
     expect(result.executionRunnerTopology).toEqual([
       expect.objectContaining({
@@ -2108,6 +2151,39 @@ describe('OrchestrationService', () => {
         expect.objectContaining({
           transitionKey: 'plan:acme:ops:readiness:action:2:transition',
           transitionType: 'dispatch-runner',
+        }),
+      ],
+    });
+    expect(result.projectedApprovalDecisionRecords).toEqual([
+      expect.objectContaining({
+        decisionRecordKey: 'plan:acme:ops:readiness:approval-decision:1',
+        projectedOutcomeStatus: 'awaiting-decision',
+      }),
+    ]);
+    expect(result.projectedRunDispatchRecords).toEqual([
+      expect.objectContaining({
+        dispatchRecordKey: 'plan:acme:ops:readiness:run-dispatch:1',
+        projectedDispatchStatus: 'awaiting-prerequisite',
+      }),
+      expect.objectContaining({
+        dispatchRecordKey: 'plan:acme:ops:readiness:run-dispatch:2',
+        projectedDispatchStatus: 'ready-to-dispatch',
+      }),
+    ]);
+    expect(result.projectedMutationBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:readiness:projected-mutation',
+      status: 'partially-ready',
+      approvalDecisionRecords: [
+        expect.objectContaining({
+          decisionRecordKey: 'plan:acme:ops:readiness:approval-decision:1',
+        }),
+      ],
+      runDispatchRecords: [
+        expect.objectContaining({
+          dispatchRecordKey: 'plan:acme:ops:readiness:run-dispatch:1',
+        }),
+        expect.objectContaining({
+          dispatchRecordKey: 'plan:acme:ops:readiness:run-dispatch:2',
         }),
       ],
     });
