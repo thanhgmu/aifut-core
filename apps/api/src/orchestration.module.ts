@@ -4,6 +4,7 @@ import { PrismaService } from './prisma.service';
 import { OrchestrationController } from './orchestration.controller';
 import { OrchestrationService } from './orchestration.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
+import { OrchestrationRuntimeHistoryService } from './orchestration-runtime-history.service';
 
 @Module({
   controllers: [OrchestrationController],
@@ -12,6 +13,7 @@ import { AiTokenGovernanceService } from './ai-token-governance.service';
     ActorContextService,
     OrchestrationService,
     AiTokenGovernanceService,
+    OrchestrationRuntimeHistoryService,
   ],
 })
 export class OrchestrationModule {}

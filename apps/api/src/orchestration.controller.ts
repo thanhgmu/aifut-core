@@ -2,6 +2,13 @@ import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/comm
 import { ActorContextService } from './actor-context.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { ORCHESTRATION_FOUNDATION_ROADMAP } from './orchestration.constants';
+import {
+  OrchestrationApprovalContractInput,
+  OrchestrationChildWorkflowContractInput,
+  OrchestrationEscalationContractInput,
+  OrchestrationRollbackContractInput,
+  OrchestrationRuntimeBindingInput,
+} from './orchestration-runtime.models';
 import { OrchestrationService } from './orchestration.service';
 
 @Controller('orchestration')
@@ -484,6 +491,68 @@ export class OrchestrationController {
       workspaceSlug?: string;
       objective?: string;
       executionModes?: string[];
+      runtimeBindings?: OrchestrationRuntimeBindingInput[];
+      childWorkflowContracts?: OrchestrationChildWorkflowContractInput[];
+      approvalContracts?: OrchestrationApprovalContractInput[];
+      escalationContracts?: OrchestrationEscalationContractInput[];
+      rollbackContracts?: OrchestrationRollbackContractInput[];
+      submissionNotes?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-contracts-submitted',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      executionContractSubmission: this.orchestration.submitExecutionContract({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        executionModes: body.executionModes,
+        runtimeBindings: body.runtimeBindings,
+        childWorkflowContracts: body.childWorkflowContracts,
+        approvalContracts: body.approvalContracts,
+        escalationContracts: body.escalationContracts,
+        rollbackContracts: body.rollbackContracts,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submissionNotes: body.submissionNotes,
+      }),
+      next: ['execution-runner', 'approval-dispatch', 'verification-history'],
+    };
+  }
+
+  @Post('plans/:planId/execution-runtime/activate')
+  async activateExecutionRuntime(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      executionModes?: string[];
       runtimeBindings?: Array<{
         runtimeKey?: string;
         systemKey?: string;
@@ -542,13 +611,13 @@ export class OrchestrationController {
 
     return {
       capability: 'orchestration',
-      status: 'execution-contracts-submitted',
+      status: 'execution-runtime-activated',
       context: {
         tenant: context.tenant,
         activeWorkspace: context.activeWorkspace,
         activeMembership: context.activeMembership,
       },
-      executionContractSubmission: this.orchestration.submitExecutionContract({
+      executionRuntime: await this.orchestration.materializeExecutionRuntime({
         tenantSlug: context.tenant.slug,
         workspaceSlug: context.activeWorkspace?.slug,
         planId,
@@ -562,7 +631,139 @@ export class OrchestrationController {
         submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
         submissionNotes: body.submissionNotes,
       }),
-      next: ['execution-runner', 'approval-dispatch', 'verification-history'],
+      next: ['approval-decision', 'runner-execution', 'verification-history'],
+    };
+  }
+
+  @Post('plans/:planId/execution-runtime/approval-decision')
+  async applyExecutionApprovalDecision(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      executionModes?: string[];
+      runtimeBindings?: OrchestrationRuntimeBindingInput[];
+      childWorkflowContracts?: OrchestrationChildWorkflowContractInput[];
+      approvalContracts?: OrchestrationApprovalContractInput[];
+      escalationContracts?: OrchestrationEscalationContractInput[];
+      rollbackContracts?: OrchestrationRollbackContractInput[];
+      submissionNotes?: string;
+      taskKey: string;
+      decision: 'approve' | 'reject' | 'request-changes';
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-approval-decision-applied',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      executionApprovalDecision: await this.orchestration.applyApprovalDecision({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        executionModes: body.executionModes,
+        runtimeBindings: body.runtimeBindings,
+        childWorkflowContracts: body.childWorkflowContracts,
+        approvalContracts: body.approvalContracts,
+        escalationContracts: body.escalationContracts,
+        rollbackContracts: body.rollbackContracts,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submissionNotes: body.submissionNotes,
+        taskKey: body.taskKey,
+        decision: body.decision,
+        decidedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      }),
+      next: ['runner-execution', 'verification-history'],
+    };
+  }
+
+  @Post('plans/:planId/execution-runtime/dispatch-run')
+  async dispatchExecutionRuntimeRun(
+    @Param('planId') planId: string,
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      objective?: string;
+      executionModes?: string[];
+      runtimeBindings?: OrchestrationRuntimeBindingInput[];
+      childWorkflowContracts?: OrchestrationChildWorkflowContractInput[];
+      approvalContracts?: OrchestrationApprovalContractInput[];
+      escalationContracts?: OrchestrationEscalationContractInput[];
+      rollbackContracts?: OrchestrationRollbackContractInput[];
+      submissionNotes?: string;
+      runKey: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug:
+        tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-run-dispatched',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      executionDispatch: await this.orchestration.dispatchExecutionRun({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        objective: body.objective,
+        executionModes: body.executionModes,
+        runtimeBindings: body.runtimeBindings,
+        childWorkflowContracts: body.childWorkflowContracts,
+        approvalContracts: body.approvalContracts,
+        escalationContracts: body.escalationContracts,
+        rollbackContracts: body.rollbackContracts,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submissionNotes: body.submissionNotes,
+        runKey: body.runKey,
+        dispatchedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      }),
+      next: ['verification-history', 'dispatch-outcome-tracking'],
     };
   }
 

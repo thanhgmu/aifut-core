@@ -2495,4 +2495,262 @@ describe('OrchestrationService', () => {
       'Execution contract submission does not yet support optional approval contract optional-ops-review; declare it as required or remove it from the submission.',
     );
   });
+
+  it('should materialize approval dispatches and dispatchable runners into live runtime mutations', async () => {
+    const result = await service.materializeExecutionRuntime({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:live-runtime',
+      runtimeBindings: [
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+          approvalRequired: true,
+        },
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: false,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'review-ops-brief',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+        {
+          workflowKey: 'dispatch-router',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: false,
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-ops',
+          approverRole: 'operator',
+          channel: 'web-ui',
+          required: true,
+        },
+      ],
+      submittedBy: 'ops@acme.test',
+      submissionNotes: 'materialize runtime',
+    });
+
+    expect(result.executionRuntimeStatus).toBe('materialized');
+    expect(result.approvalDispatchIntegrations).toEqual([
+      expect.objectContaining({
+        integrationKey:
+          'plan:acme:ops:live-runtime:approval:1:task:integration',
+        integrationStatus: 'dispatched-for-approval',
+        appliedDispatchStatus: 'dispatched',
+        appliedTaskStatus: 'awaiting-decision',
+      }),
+    ]);
+    expect(result.executionRunnerIntegrations).toEqual([
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:live-runtime:child:1:runner:run',
+        integrationStatus: 'awaiting-approval-clearance',
+        appliedRunStatus: 'awaiting-approval',
+        appliedActionStatus: 'awaiting-approval-decision',
+      }),
+      expect.objectContaining({
+        runKey: 'plan:acme:ops:live-runtime:child:2:runner:run',
+        integrationStatus: 'runner-dispatched',
+        appliedRunStatus: 'dispatched',
+        appliedRunnerStatus: 'dispatched',
+      }),
+    ]);
+    expect(result.liveMutationBatch).toMatchObject({
+      batchKey: 'plan:acme:ops:live-runtime:live-mutation',
+      status: 'partially-applied',
+    });
+    expect(result.liveRuntimeSummary).toMatchObject({
+      dispatchedApprovalCount: 1,
+      dispatchedRunnerCount: 1,
+      awaitingApprovalClearanceCount: 1,
+      awaitingRuntimeBindingCount: 0,
+    });
+    expect(result.runtimeSnapshot).toMatchObject({
+      snapshotKey: 'plan:acme:ops:live-runtime:materialized-runtime:snapshot',
+      snapshotType: 'materialized-runtime',
+      runtimeStatus: 'materialized',
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      contractSummary: {
+        childWorkflowContractCount: 2,
+        approvalContractCount: 1,
+      },
+      summary: {
+        dispatchedApprovalCount: 1,
+        dispatchedRunnerCount: 1,
+      },
+    });
+    expect(result.runtimeEventRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'execution-runtime-materialized',
+          planId: 'plan:acme:ops:live-runtime',
+        }),
+      ]),
+    );
+  });
+
+  it('should apply an approval decision to awaiting runtime tasks and advance linked runs', async () => {
+    const result = await service.applyApprovalDecision({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:decision-runtime',
+      runtimeBindings: [
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'review-ops-brief',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-ops',
+          approverRole: 'operator',
+          channel: 'web-ui',
+          required: true,
+        },
+      ],
+      taskKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+      decision: 'approve',
+      decidedBy: 'operator@acme.test',
+    });
+
+    expect(result.decisionApplicationStatus).toBe('applied');
+    expect(result.approvalDecision).toMatchObject({
+      taskKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+      decision: 'approve',
+      taskStatus: 'approved',
+      decidedBy: 'operator@acme.test',
+    });
+    expect(result.approvalDecisionMutations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetType: 'approval-task',
+          fromStatus: 'awaiting-decision',
+          toStatus: 'approved',
+        }),
+        expect.objectContaining({
+          targetType: 'execution-run',
+          fromStatus: 'awaiting-approval',
+          toStatus: 'queued-for-dispatch',
+        }),
+      ]),
+    );
+    expect(result.approvalDecisionSummary).toMatchObject({
+      approvedRunCount: 1,
+      cancelledRunCount: 0,
+    });
+    expect(result.runtimeSnapshot).toMatchObject({
+      snapshotKey: 'plan:acme:ops:decision-runtime:approval-decision:snapshot',
+      snapshotType: 'approval-decision',
+      runtimeStatus: 'decision-applied',
+      summary: {
+        approvedRunCount: 1,
+        cancelledRunCount: 0,
+      },
+    });
+    expect(result.runtimeEventRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'approval-decision-applied',
+          relatedKeys: expect.objectContaining({
+            taskKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('should dispatch a ready execution run into applied runtime state', async () => {
+    const result = await service.dispatchExecutionRun({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:dispatch-runtime',
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: false,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'dispatch-router',
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          triggerMode: 'webhook',
+          approvalRequired: false,
+        },
+      ],
+      runKey: 'plan:acme:ops:dispatch-runtime:child:1:runner:run',
+      dispatchedBy: 'runner@acme.test',
+    });
+
+    expect(result.runnerDispatchStatus).toBe('applied');
+    expect(result.executionDispatch).toMatchObject({
+      runKey: 'plan:acme:ops:dispatch-runtime:child:1:runner:run',
+      runnerKey: 'plan:acme:ops:dispatch-runtime:child:1:runner',
+      dispatchedBy: 'runner@acme.test',
+    });
+    expect(result.executionDispatchMutations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetType: 'execution-run',
+          fromStatus: 'queued-for-dispatch',
+          toStatus: 'dispatched',
+        }),
+        expect.objectContaining({
+          targetType: 'execution-runner',
+          fromStatus: 'pending',
+          toStatus: 'dispatched',
+        }),
+      ]),
+    );
+    expect(result.executionDispatchSummary).toMatchObject({
+      dispatchedRunCount: 1,
+    });
+    expect(result.runtimeSnapshot).toMatchObject({
+      snapshotKey: 'plan:acme:ops:dispatch-runtime:run-dispatch:snapshot',
+      snapshotType: 'run-dispatch',
+      runtimeStatus: 'dispatch-applied',
+      summary: {
+        dispatchedRunCount: 1,
+      },
+    });
+    expect(result.runtimeEventRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'execution-run-dispatched',
+          relatedKeys: expect.objectContaining({
+            runKey: 'plan:acme:ops:dispatch-runtime:child:1:runner:run',
+          }),
+        }),
+      ]),
+    );
+  });
 });

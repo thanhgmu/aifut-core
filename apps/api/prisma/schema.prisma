@@ -288,3 +288,41 @@ model TenantPackageAssignment {
   @@index([tenantId, basePlanKey])
   @@index([workspaceId])
 }
+
+model OrchestrationRuntimeSnapshot {
+  id              String   @id @default(cuid())
+  snapshotKey     String   @unique
+  planId          String
+  snapshotType    String
+  runtimeStatus   String
+  tenantSlug      String
+  workspaceSlug   String?
+  recordedBy      String
+  contractSummary Json
+  summary         Json
+  mutationRecords Json
+  eventRecords    Json
+  createdAt       DateTime @default(now())
+
+  @@index([tenantSlug, planId])
+  @@index([planId, snapshotType])
+}
+
+model OrchestrationRuntimeEvent {
+  id           String   @id @default(cuid())
+  eventKey     String   @unique
+  planId       String
+  eventType    String
+  runtimeStatus String
+  tenantSlug   String
+  workspaceSlug String?
+  actorKey     String
+  relatedKeys  Json
+  metadata     Json
+  recordedAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([tenantSlug, planId])
+  @@index([planId, eventType])
+  @@index([recordedAt])
+}

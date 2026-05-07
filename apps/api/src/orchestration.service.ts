@@ -1,7 +1,89 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  OrchestrationApprovalDecisionInput,
+  OrchestrationExecutionDispatchInput,
+  OrchestrationRuntimeContextInput,
+  OrchestrationRuntimeEventRecord,
+  OrchestrationRuntimeMutationRecord,
+  OrchestrationRuntimeSnapshotRecord,
+} from './orchestration-runtime.models';
+import { OrchestrationRuntimeHistoryService } from './orchestration-runtime-history.service';
 
 @Injectable()
 export class OrchestrationService {
+  constructor(
+    private readonly runtimeHistory?: OrchestrationRuntimeHistoryService,
+  ) {}
+
+  private buildRuntimeActorKey(input: {
+    submittedBy?: string;
+    decidedBy?: string;
+    dispatchedBy?: string;
+  }) {
+    return (
+      input.decidedBy?.trim() ||
+      input.dispatchedBy?.trim() ||
+      input.submittedBy?.trim() ||
+      'system'
+    );
+  }
+
+  private buildRuntimeRecordedAt() {
+    return new Date().toISOString();
+  }
+
+  private buildRuntimeScope(input: OrchestrationRuntimeContextInput) {
+    return {
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug ?? null,
+    };
+  }
+
+  private buildRuntimeSnapshotRecord(input: {
+    planId: string;
+    snapshotType: 'materialized-runtime' | 'approval-decision' | 'run-dispatch';
+    runtimeStatus: string;
+    actorKey: string;
+    recordedAt: string;
+    tenantSlug: string;
+    workspaceSlug: string | null;
+    contractSummary: {
+      executionModeCount: number;
+      runtimeBindingCount: number;
+      childWorkflowContractCount: number;
+      approvalContractCount: number;
+      escalationContractCount: number;
+      rollbackContractCount: number;
+      unresolvedRuntimeBindingCount: number;
+    };
+    summary: Record<string, number | string | boolean | null>;
+    mutationRecords: OrchestrationRuntimeMutationRecord[];
+    eventRecords: OrchestrationRuntimeEventRecord[];
+  }): OrchestrationRuntimeSnapshotRecord {
+    return {
+      snapshotKey: `${input.planId}:${input.snapshotType}:snapshot`,
+      planId: input.planId,
+      snapshotType: input.snapshotType,
+      runtimeStatus: input.runtimeStatus,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      recordedBy: input.actorKey,
+      recordedAt: input.recordedAt,
+      contractSummary: input.contractSummary,
+      summary: input.summary,
+      mutationRecords: input.mutationRecords,
+      eventRecords: input.eventRecords,
+    };
+  }
+
+  private async persistRuntimeSnapshot(snapshot: OrchestrationRuntimeSnapshotRecord) {
+    if (!this.runtimeHistory) {
+      return null;
+    }
+
+    return this.runtimeHistory.persistRuntimeHistory(snapshot);
+  }
+
   private normalizeStringList(values?: string[]) {
     if (!values) {
       return [];
@@ -1742,6 +1824,580 @@ export class OrchestrationService {
           (contract) => !contract.runtimeBindingKey,
         ).length,
       },
+    };
+  }
+
+  async materializeExecutionRuntime(input: OrchestrationRuntimeContextInput) {
+    const submission = this.submitExecutionContract(input);
+
+    const approvalDispatchIntegrations = submission.approvalTaskQueue.map((task) => {
+      const decisionOption = submission.approvalDecisionOptions.find(
+        (option) => option.taskKey === task.taskKey,
+      );
+
+      return {
+        integrationKey: `${task.taskKey}:integration`,
+        dispatchKey: task.dispatchKey,
+        taskKey: task.taskKey,
+        channel: task.channel,
+        approverRole: task.approverRole,
+        integrationStatus: task.required
+          ? 'dispatched-for-approval'
+          : 'optional-review-routed',
+        appliedDispatchStatus: task.required ? 'dispatched' : 'optional-review',
+        appliedTaskStatus: task.required ? 'awaiting-decision' : 'review-requested',
+        defaultDecision: decisionOption?.defaultDecision ?? null,
+        allowedDecisions: decisionOption?.decisionOptions ?? [],
+        affectedRunKeys: task.linkedRunKeys,
+      };
+    });
+
+    const executionRunnerIntegrations = submission.executionRunDispatchQueue.map((run) => {
+      const runner = submission.executionRunnerTopology.find(
+        (record) => record.runnerKey === run.runnerKey,
+      );
+      const action = submission.executionActionTopology.find(
+        (record) => record.runnerKey === run.runnerKey,
+      );
+      const transition = submission.executionTransitionQueue.find(
+        (record) => record.sourceRunnerKey === run.runnerKey,
+      );
+      const projectedDispatch = submission.projectedRunDispatchRecords.find(
+        (record) => record.runKey === run.runKey,
+      );
+      const isDispatchable = run.dispatchReadiness === 'dispatchable';
+      const blockedByApproval = run.dispatchReadiness === 'blocked-by-approval';
+
+      return {
+        integrationKey: `${run.runKey}:integration`,
+        runKey: run.runKey,
+        runnerKey: run.runnerKey,
+        actionKey: action?.actionKey ?? null,
+        transitionKey: transition?.transitionKey ?? null,
+        projectedDispatchRecordKey:
+          projectedDispatch?.dispatchRecordKey ?? null,
+        integrationStatus: isDispatchable
+          ? 'runner-dispatched'
+          : blockedByApproval
+            ? 'awaiting-approval-clearance'
+            : 'awaiting-runtime-binding',
+        appliedRunnerStatus: isDispatchable
+          ? 'dispatched'
+          : runner?.runnerStatus ?? 'pending',
+        appliedRunStatus: isDispatchable
+          ? 'dispatched'
+          : blockedByApproval
+            ? 'awaiting-approval'
+            : 'blocked',
+        appliedActionStatus: isDispatchable
+          ? 'dispatched'
+          : blockedByApproval
+            ? 'awaiting-approval-decision'
+            : 'pending-runtime-resolution',
+        appliedTransitionStatus: isDispatchable
+          ? 'applied'
+          : blockedByApproval
+            ? 'awaiting-approval-decision'
+            : 'blocked',
+        runtimeKey: run.runtimeKey,
+        systemKey: run.systemKey,
+        workflowKey: run.workflowKey,
+      };
+    });
+
+    const approvalDispatchMutationRecords = approvalDispatchIntegrations.flatMap(
+      (integration) => [
+        {
+          mutationKey: `${integration.dispatchKey}:live-dispatch`,
+          targetKey: integration.dispatchKey,
+          targetType: 'approval-dispatch',
+          fromStatus: 'pending',
+          toStatus: integration.appliedDispatchStatus,
+          mutationStatus: 'applied',
+        },
+        {
+          mutationKey: `${integration.taskKey}:live-task`,
+          targetKey: integration.taskKey,
+          targetType: 'approval-task',
+          fromStatus: 'pending-approval',
+          toStatus: integration.appliedTaskStatus,
+          mutationStatus: 'applied',
+        },
+      ],
+    );
+
+    const executionRunnerMutationRecords = executionRunnerIntegrations.flatMap(
+      (integration) => {
+        if (integration.integrationStatus === 'awaiting-runtime-binding') {
+          return [
+            {
+              mutationKey: `${integration.runKey}:live-transition`,
+              targetKey: integration.transitionKey,
+              targetType: 'execution-transition',
+              fromStatus: 'blocked',
+              toStatus: integration.appliedTransitionStatus,
+              mutationStatus: 'blocked',
+            },
+          ];
+        }
+
+        const mutations = [
+          {
+            mutationKey: `${integration.runKey}:live-run`,
+            targetKey: integration.runKey,
+            targetType: 'execution-run',
+            fromStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'queued-for-dispatch'
+                : 'awaiting-approval',
+            toStatus: integration.appliedRunStatus,
+            mutationStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'applied'
+                : 'pending-approval',
+          },
+          {
+            mutationKey: `${integration.runnerKey}:live-runner`,
+            targetKey: integration.runnerKey,
+            targetType: 'execution-runner',
+            fromStatus: 'pending',
+            toStatus: integration.appliedRunnerStatus,
+            mutationStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'applied'
+                : 'pending-approval',
+          },
+          {
+            mutationKey: `${integration.actionKey ?? integration.runKey}:live-action`,
+            targetKey: integration.actionKey,
+            targetType: 'execution-action',
+            fromStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'pending'
+                : 'pending',
+            toStatus: integration.appliedActionStatus,
+            mutationStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'applied'
+                : 'pending-approval',
+          },
+          {
+            mutationKey: `${integration.transitionKey ?? integration.runKey}:live-transition`,
+            targetKey: integration.transitionKey,
+            targetType: 'execution-transition',
+            fromStatus: 'pending',
+            toStatus: integration.appliedTransitionStatus,
+            mutationStatus:
+              integration.integrationStatus === 'runner-dispatched'
+                ? 'applied'
+                : 'pending-approval',
+          },
+        ];
+
+        return mutations;
+      },
+    );
+
+    const liveMutationBatch = {
+      batchKey: `${input.planId}:live-mutation`,
+      status: executionRunnerIntegrations.some(
+        (integration) => integration.integrationStatus === 'runner-dispatched',
+      )
+        ? 'partially-applied'
+        : executionRunnerIntegrations.some(
+              (integration) =>
+                integration.integrationStatus === 'awaiting-runtime-binding',
+            )
+          ? 'blocked'
+          : 'pending-approval',
+      approvalDispatchRecords: approvalDispatchMutationRecords,
+      executionRunnerRecords: executionRunnerMutationRecords,
+    };
+
+    const liveRuntimeSummary = {
+      dispatchedApprovalCount: approvalDispatchIntegrations.filter(
+        (integration) => integration.integrationStatus === 'dispatched-for-approval',
+      ).length,
+      optionalReviewCount: approvalDispatchIntegrations.filter(
+        (integration) => integration.integrationStatus === 'optional-review-routed',
+      ).length,
+      dispatchedRunnerCount: executionRunnerIntegrations.filter(
+        (integration) => integration.integrationStatus === 'runner-dispatched',
+      ).length,
+      awaitingApprovalClearanceCount: executionRunnerIntegrations.filter(
+        (integration) =>
+          integration.integrationStatus === 'awaiting-approval-clearance',
+      ).length,
+      awaitingRuntimeBindingCount: executionRunnerIntegrations.filter(
+        (integration) => integration.integrationStatus === 'awaiting-runtime-binding',
+      ).length,
+      appliedMutationCount: [
+        ...approvalDispatchMutationRecords,
+        ...executionRunnerMutationRecords,
+      ].filter((record) => record.mutationStatus === 'applied').length,
+      pendingApprovalMutationCount: executionRunnerMutationRecords.filter(
+        (record) => record.mutationStatus === 'pending-approval',
+      ).length,
+      blockedMutationCount: executionRunnerMutationRecords.filter(
+        (record) => record.mutationStatus === 'blocked',
+      ).length,
+    };
+
+    const recordedAt = this.buildRuntimeRecordedAt();
+    const actorKey = this.buildRuntimeActorKey({ submittedBy: input.submittedBy });
+    const scope = this.buildRuntimeScope(input);
+    const mutationRecords = [
+      ...approvalDispatchMutationRecords,
+      ...executionRunnerMutationRecords,
+    ];
+    const eventRecords: OrchestrationRuntimeEventRecord[] = [
+      {
+        eventKey: `${input.planId}:materialized`,
+        eventType: 'execution-runtime-materialized',
+        planId: input.planId,
+        runtimeStatus: 'materialized',
+        actorKey,
+        recordedAt,
+        scope,
+        relatedKeys: {},
+        metadata: {
+          approvalDispatchCount: approvalDispatchIntegrations.length,
+          runnerIntegrationCount: executionRunnerIntegrations.length,
+          liveMutationBatchKey: liveMutationBatch.batchKey,
+        },
+      },
+    ];
+    const runtimeSnapshot = this.buildRuntimeSnapshotRecord({
+      planId: input.planId,
+      snapshotType: 'materialized-runtime',
+      runtimeStatus: 'materialized',
+      actorKey,
+      recordedAt,
+      tenantSlug: scope.tenantSlug,
+      workspaceSlug: scope.workspaceSlug,
+      contractSummary: submission.contractSummary,
+      summary: liveRuntimeSummary,
+      mutationRecords,
+      eventRecords,
+    });
+
+    const persistence = await this.persistRuntimeSnapshot(runtimeSnapshot);
+
+    return {
+      ...submission,
+      executionRuntimeStatus: 'materialized',
+      approvalDispatchIntegrations,
+      executionRunnerIntegrations,
+      liveMutationBatch,
+      liveRuntimeSummary,
+      runtimeSnapshot,
+      runtimeEventRecords: eventRecords,
+      runtimePersistence: persistence,
+    };
+  }
+
+  async applyApprovalDecision(input: OrchestrationApprovalDecisionInput) {
+    const runtime = await this.materializeExecutionRuntime(input);
+    const task = runtime.approvalTaskQueue.find(
+      (record) => record.taskKey === input.taskKey,
+    );
+
+    if (!task) {
+      throw new BadRequestException(
+        `Approval task ${input.taskKey} does not exist in execution runtime ${input.planId}.`,
+      );
+    }
+
+    const materializedTaskStatus =
+      task.taskStatus === 'pending-approval'
+        ? 'awaiting-decision'
+        : task.taskStatus;
+
+    if (materializedTaskStatus !== 'awaiting-decision') {
+      throw new BadRequestException(
+        `Approval task ${input.taskKey} is not awaiting a decision; current status is ${materializedTaskStatus}.`,
+      );
+    }
+
+    const taskDecisionStatus =
+      input.decision === 'approve'
+        ? 'approved'
+        : input.decision === 'reject'
+          ? 'rejected'
+          : 'changes-requested';
+    const linkedRunStatus =
+      input.decision === 'approve'
+        ? 'queued-for-dispatch'
+        : 'cancelled';
+    const linkedActionStatus =
+      input.decision === 'approve'
+        ? 'pending'
+        : 'cancelled';
+    const linkedTransitionStatus =
+      input.decision === 'approve'
+        ? 'pending'
+        : 'cancelled';
+    const linkedRunnerStatus =
+      input.decision === 'approve'
+        ? 'pending'
+        : 'cancelled';
+
+    const affectedRunUpdates = task.linkedRunKeys.map((runKey) => {
+      const runIntegration = runtime.executionRunnerIntegrations.find(
+        (record) => record.runKey === runKey,
+      );
+
+      return {
+        runKey,
+        runnerKey: runIntegration?.runnerKey ?? null,
+        actionKey: runIntegration?.actionKey ?? null,
+        transitionKey: runIntegration?.transitionKey ?? null,
+        fromRunStatus: 'awaiting-approval',
+        toRunStatus: linkedRunStatus,
+        fromActionStatus: 'awaiting-approval-decision',
+        toActionStatus: linkedActionStatus,
+        fromTransitionStatus: 'awaiting-approval-decision',
+        toTransitionStatus: linkedTransitionStatus,
+        fromRunnerStatus: 'pending',
+        toRunnerStatus: linkedRunnerStatus,
+      };
+    });
+
+    const approvalDecisionMutations: OrchestrationRuntimeMutationRecord[] = [
+      {
+        mutationKey: `${task.dispatchKey}:decision-dispatch`,
+        targetKey: task.dispatchKey,
+        targetType: 'approval-dispatch',
+        fromStatus: 'dispatched',
+        toStatus: taskDecisionStatus,
+        mutationStatus: 'applied',
+      },
+      {
+        mutationKey: `${task.taskKey}:decision-task`,
+        targetKey: task.taskKey,
+        targetType: 'approval-task',
+        fromStatus: materializedTaskStatus,
+        toStatus: taskDecisionStatus,
+        mutationStatus: 'applied',
+      },
+      ...affectedRunUpdates.flatMap((update) => [
+        {
+          mutationKey: `${update.runKey}:decision-run`,
+          targetKey: update.runKey,
+          targetType: 'execution-run',
+          fromStatus: update.fromRunStatus,
+          toStatus: update.toRunStatus,
+          mutationStatus: 'applied',
+        },
+        {
+          mutationKey: `${update.runnerKey ?? update.runKey}:decision-runner`,
+          targetKey: update.runnerKey,
+          targetType: 'execution-runner',
+          fromStatus: update.fromRunnerStatus,
+          toStatus: update.toRunnerStatus,
+          mutationStatus: 'applied',
+        },
+        {
+          mutationKey: `${update.actionKey ?? update.runKey}:decision-action`,
+          targetKey: update.actionKey,
+          targetType: 'execution-action',
+          fromStatus: update.fromActionStatus,
+          toStatus: update.toActionStatus,
+          mutationStatus: 'applied',
+        },
+        {
+          mutationKey: `${update.transitionKey ?? update.runKey}:decision-transition`,
+          targetKey: update.transitionKey,
+          targetType: 'execution-transition',
+          fromStatus: update.fromTransitionStatus,
+          toStatus: update.toTransitionStatus,
+          mutationStatus: 'applied',
+        },
+      ]),
+    ];
+    const approvalDecisionSummary = {
+      approvedRunCount: input.decision === 'approve' ? affectedRunUpdates.length : 0,
+      cancelledRunCount: input.decision === 'approve' ? 0 : affectedRunUpdates.length,
+    };
+    const recordedAt = this.buildRuntimeRecordedAt();
+    const actorKey = this.buildRuntimeActorKey({
+      decidedBy: input.decidedBy,
+      submittedBy: input.submittedBy,
+    });
+    const scope = this.buildRuntimeScope(input);
+    const approvalDecisionEvents: OrchestrationRuntimeEventRecord[] = [
+      {
+        eventKey: `${task.taskKey}:decision`,
+        eventType: 'approval-decision-applied',
+        planId: input.planId,
+        runtimeStatus: 'decision-applied',
+        actorKey,
+        recordedAt,
+        scope,
+        relatedKeys: {
+          taskKey: task.taskKey,
+          dispatchKey: task.dispatchKey,
+          runKey: affectedRunUpdates[0]?.runKey ?? null,
+          runnerKey: affectedRunUpdates[0]?.runnerKey ?? null,
+        },
+        metadata: {
+          decision: input.decision,
+          affectedRunCount: affectedRunUpdates.length,
+          taskStatus: taskDecisionStatus,
+        },
+      },
+    ];
+    const runtimeSnapshot = this.buildRuntimeSnapshotRecord({
+      planId: input.planId,
+      snapshotType: 'approval-decision',
+      runtimeStatus: 'decision-applied',
+      actorKey,
+      recordedAt,
+      tenantSlug: scope.tenantSlug,
+      workspaceSlug: scope.workspaceSlug,
+      contractSummary: runtime.contractSummary,
+      summary: approvalDecisionSummary,
+      mutationRecords: approvalDecisionMutations,
+      eventRecords: approvalDecisionEvents,
+    });
+
+    const persistence = await this.persistRuntimeSnapshot(runtimeSnapshot);
+
+    return {
+      ...runtime,
+      decisionApplicationStatus: 'applied',
+      approvalDecision: {
+        taskKey: task.taskKey,
+        dispatchKey: task.dispatchKey,
+        decision: input.decision,
+        taskStatus: taskDecisionStatus,
+        decidedBy: actorKey,
+      },
+      approvalDecisionMutations,
+      approvalDecisionSummary,
+      runtimeSnapshot,
+      runtimeEventRecords: [...(runtime.runtimeEventRecords ?? []), ...approvalDecisionEvents],
+      runtimePersistence: persistence,
+    };
+  }
+
+  async dispatchExecutionRun(input: OrchestrationExecutionDispatchInput) {
+    const runtime = await this.materializeExecutionRuntime(input);
+    const run = runtime.executionRunDispatchQueue.find(
+      (record) => record.runKey === input.runKey,
+    );
+
+    if (!run) {
+      throw new BadRequestException(
+        `Execution run ${input.runKey} does not exist in execution runtime ${input.planId}.`,
+      );
+    }
+
+    if (run.dispatchReadiness !== 'dispatchable') {
+      throw new BadRequestException(
+        `Execution run ${input.runKey} is not dispatchable; current readiness is ${run.dispatchReadiness}.`,
+      );
+    }
+
+    const runIntegration = runtime.executionRunnerIntegrations.find(
+      (record) => record.runKey === input.runKey,
+    );
+
+    const executionDispatchMutations: OrchestrationRuntimeMutationRecord[] = [
+      {
+        mutationKey: `${run.runKey}:dispatch-run`,
+        targetKey: run.runKey,
+        targetType: 'execution-run',
+        fromStatus: 'queued-for-dispatch',
+        toStatus: 'dispatched',
+        mutationStatus: 'applied',
+      },
+      {
+        mutationKey: `${run.runnerKey}:dispatch-runner`,
+        targetKey: run.runnerKey,
+        targetType: 'execution-runner',
+        fromStatus: 'pending',
+        toStatus: 'dispatched',
+        mutationStatus: 'applied',
+      },
+      {
+        mutationKey: `${runIntegration?.actionKey ?? run.runKey}:dispatch-action`,
+        targetKey: runIntegration?.actionKey ?? null,
+        targetType: 'execution-action',
+        fromStatus: 'dispatched',
+        toStatus: 'completed',
+        mutationStatus: 'applied',
+      },
+      {
+        mutationKey: `${run.nextTransitionKey ?? run.runKey}:dispatch-transition`,
+        targetKey: run.nextTransitionKey ?? null,
+        targetType: 'execution-transition',
+        fromStatus: 'applied',
+        toStatus: 'completed',
+        mutationStatus: 'applied',
+      },
+    ];
+    const executionDispatchSummary = {
+      dispatchedRunCount: 1,
+    };
+    const recordedAt = this.buildRuntimeRecordedAt();
+    const actorKey = this.buildRuntimeActorKey({
+      dispatchedBy: input.dispatchedBy,
+      submittedBy: input.submittedBy,
+    });
+    const scope = this.buildRuntimeScope(input);
+    const executionDispatchEvents: OrchestrationRuntimeEventRecord[] = [
+      {
+        eventKey: `${run.runKey}:dispatch`,
+        eventType: 'execution-run-dispatched',
+        planId: input.planId,
+        runtimeStatus: 'dispatch-applied',
+        actorKey,
+        recordedAt,
+        scope,
+        relatedKeys: {
+          runKey: run.runKey,
+          runnerKey: run.runnerKey,
+        },
+        metadata: {
+          workflowKey: run.workflowKey,
+          runtimeKey: run.runtimeKey,
+          systemKey: run.systemKey,
+        },
+      },
+    ];
+    const runtimeSnapshot = this.buildRuntimeSnapshotRecord({
+      planId: input.planId,
+      snapshotType: 'run-dispatch',
+      runtimeStatus: 'dispatch-applied',
+      actorKey,
+      recordedAt,
+      tenantSlug: scope.tenantSlug,
+      workspaceSlug: scope.workspaceSlug,
+      contractSummary: runtime.contractSummary,
+      summary: executionDispatchSummary,
+      mutationRecords: executionDispatchMutations,
+      eventRecords: executionDispatchEvents,
+    });
+
+    const persistence = await this.persistRuntimeSnapshot(runtimeSnapshot);
+
+    return {
+      ...runtime,
+      runnerDispatchStatus: 'applied',
+      executionDispatch: {
+        runKey: run.runKey,
+        runnerKey: run.runnerKey,
+        workflowKey: run.workflowKey,
+        runtimeKey: run.runtimeKey,
+        systemKey: run.systemKey,
+        dispatchedBy: actorKey,
+      },
+      executionDispatchMutations,
+      executionDispatchSummary,
+      runtimeSnapshot,
+      runtimeEventRecords: [...(runtime.runtimeEventRecords ?? []), ...executionDispatchEvents],
+      runtimePersistence: persistence,
     };
   }
 }

@@ -17,6 +17,9 @@ describe('OrchestrationController', () => {
     buildWorkflowGraphDraft: jest.Mock;
     buildExecutionContractDraft: jest.Mock;
     submitExecutionContract: jest.Mock;
+    materializeExecutionRuntime: jest.Mock;
+    applyApprovalDecision: jest.Mock;
+    dispatchExecutionRun: jest.Mock;
   };
   let aiTokenGovernance: {
     estimateUsage: jest.Mock;
@@ -37,6 +40,9 @@ describe('OrchestrationController', () => {
       buildWorkflowGraphDraft: jest.fn(),
       buildExecutionContractDraft: jest.fn(),
       submitExecutionContract: jest.fn(),
+      materializeExecutionRuntime: jest.fn(),
+      applyApprovalDecision: jest.fn(),
+      dispatchExecutionRun: jest.fn(),
     };
 
     aiTokenGovernance = {
@@ -2630,6 +2636,286 @@ describe('OrchestrationController', () => {
         contractSummary: {
           runtimeBindingCount: 1,
           approvalContractCount: 1,
+        },
+      },
+    });
+  });
+
+  it('should activate execution runtime in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.materializeExecutionRuntime.mockReturnValue({
+      planId: 'plan:acme:ops:runtime',
+      executionContractStatus: 'submitted',
+      executionRuntimeStatus: 'materialized',
+      liveRuntimeSummary: {
+        dispatchedApprovalCount: 1,
+        dispatchedRunnerCount: 1,
+        awaitingApprovalClearanceCount: 1,
+      },
+    });
+
+    const result = await controller.activateExecutionRuntime(
+      'plan:acme:ops:runtime',
+      {
+        objective: 'Activate runtime bridge',
+        executionModes: ['human-approved', 'event-driven'],
+        runtimeBindings: [
+          {
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            deliveryMode: 'human-review',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'review-ops-brief',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            triggerMode: 'human-review',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-ops',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-ops',
+            approverRole: 'operator',
+            channel: 'web-ui',
+            required: true,
+          },
+        ],
+        submissionNotes: 'activate runtime bridge',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'acme.test',
+    });
+    expect(orchestration.materializeExecutionRuntime).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      objective: 'Activate runtime bridge',
+      executionModes: ['human-approved', 'event-driven'],
+      runtimeBindings: [
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'review-ops-brief',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-ops',
+          approverRole: 'operator',
+          channel: 'web-ui',
+          required: true,
+        },
+      ],
+      escalationContracts: undefined,
+      rollbackContracts: undefined,
+      submittedBy: 'ops@acme.test',
+      submissionNotes: 'activate runtime bridge',
+    });
+    expect(result).toMatchObject({
+      status: 'execution-runtime-activated',
+      executionRuntime: {
+        planId: 'plan:acme:ops:runtime',
+        executionRuntimeStatus: 'materialized',
+        liveRuntimeSummary: {
+          dispatchedApprovalCount: 1,
+          dispatchedRunnerCount: 1,
+          awaitingApprovalClearanceCount: 1,
+        },
+      },
+      context: {
+        tenant: { slug: 'acme' },
+        activeWorkspace: { slug: 'ops' },
+      },
+    });
+  });
+
+  it('should apply an execution approval decision in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.applyApprovalDecision.mockReturnValue({
+      planId: 'plan:acme:ops:runtime',
+      decisionApplicationStatus: 'applied',
+      approvalDecision: {
+        taskKey: 'plan:acme:ops:runtime:approval:1:task',
+        decision: 'approve',
+      },
+      approvalDecisionSummary: {
+        approvedRunCount: 1,
+      },
+    });
+
+    const result = await controller.applyExecutionApprovalDecision(
+      'plan:acme:ops:runtime',
+      {
+        taskKey: 'plan:acme:ops:runtime:approval:1:task',
+        decision: 'approve',
+        childWorkflowContracts: [
+          {
+            workflowKey: 'review-ops-brief',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            triggerMode: 'human-review',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-ops',
+          },
+        ],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(orchestration.applyApprovalDecision).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      objective: undefined,
+      executionModes: undefined,
+      runtimeBindings: undefined,
+      childWorkflowContracts: [
+        {
+          workflowKey: 'review-ops-brief',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+      ],
+      approvalContracts: undefined,
+      escalationContracts: undefined,
+      rollbackContracts: undefined,
+      submittedBy: 'ops@acme.test',
+      submissionNotes: undefined,
+      taskKey: 'plan:acme:ops:runtime:approval:1:task',
+      decision: 'approve',
+      decidedBy: 'ops@acme.test',
+    });
+    expect(result).toMatchObject({
+      status: 'execution-approval-decision-applied',
+      executionApprovalDecision: {
+        decisionApplicationStatus: 'applied',
+        approvalDecision: {
+          taskKey: 'plan:acme:ops:runtime:approval:1:task',
+          decision: 'approve',
+        },
+      },
+    });
+  });
+
+  it('should dispatch an execution runtime run in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.dispatchExecutionRun.mockReturnValue({
+      planId: 'plan:acme:ops:runtime',
+      runnerDispatchStatus: 'applied',
+      executionDispatch: {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+      },
+      executionDispatchSummary: {
+        dispatchedRunCount: 1,
+      },
+    });
+
+    const result = await controller.dispatchExecutionRuntimeRun(
+      'plan:acme:ops:runtime',
+      {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            deliveryMode: 'webhook',
+            approvalRequired: false,
+          },
+        ],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(orchestration.dispatchExecutionRun).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      objective: undefined,
+      executionModes: undefined,
+      runtimeBindings: [
+        {
+          runtimeKey: 'n8n',
+          systemKey: 'lead-router',
+          deliveryMode: 'webhook',
+          approvalRequired: false,
+        },
+      ],
+      childWorkflowContracts: undefined,
+      approvalContracts: undefined,
+      escalationContracts: undefined,
+      rollbackContracts: undefined,
+      submittedBy: 'ops@acme.test',
+      submissionNotes: undefined,
+      runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+      dispatchedBy: 'ops@acme.test',
+    });
+    expect(result).toMatchObject({
+      status: 'execution-run-dispatched',
+      executionDispatch: {
+        runnerDispatchStatus: 'applied',
+        executionDispatch: {
+          runKey: 'plan:acme:ops:runtime:child:1:runner:run',
         },
       },
     });
