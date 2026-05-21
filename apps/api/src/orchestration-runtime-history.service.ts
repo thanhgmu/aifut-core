@@ -335,7 +335,7 @@ export class OrchestrationRuntimeHistoryService {
     try {
       const snapshot = await this.prisma.orchestrationRuntimeSnapshot.findFirst({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       });
 
       return this.normalizePersistedSnapshotRecord(snapshot);
@@ -372,7 +372,7 @@ export class OrchestrationRuntimeHistoryService {
     try {
       const snapshots = await this.prisma.orchestrationRuntimeSnapshot.findMany({
         where,
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
         take: input.snapshotTake ?? 20,
         select: {
           mutationRecords: true,

@@ -705,7 +705,7 @@ describe('OrchestrationRuntimeHistoryService', () => {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
       },
-      orderBy: [{ createdAt: 'desc' }],
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: 20,
       select: {
         mutationRecords: true,
@@ -784,7 +784,7 @@ describe('OrchestrationRuntimeHistoryService', () => {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
       },
-      orderBy: [{ createdAt: 'desc' }],
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: 20,
       select: {
         mutationRecords: true,
@@ -841,7 +841,7 @@ describe('OrchestrationRuntimeHistoryService', () => {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
     });
     expect(result).toMatchObject({
       snapshotKey: 'snapshot_2',
