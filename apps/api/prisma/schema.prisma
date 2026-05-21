@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum MembershipRole {
@@ -87,6 +88,7 @@ model Tenant {
   integrations       IntegrationConnection[]
   entitlements       Entitlement[]
   auditEvents        AuditEvent[]
+  auditLogs          AuditLog[]
   domains            TenantDomain[]
   storagePolicies    TenantStoragePolicy[]
   packageAssignments TenantPackageAssignment[]
@@ -119,6 +121,7 @@ model User {
   memberships   Membership[]
   sessions      Session[]
   auditEvents   AuditEvent[]
+  auditLogs     AuditLog[]   @relation("AuditActorLogs")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -309,20 +312,39 @@ model OrchestrationRuntimeSnapshot {
 }
 
 model OrchestrationRuntimeEvent {
-  id           String   @id @default(cuid())
-  eventKey     String   @unique
-  planId       String
-  eventType    String
+  id            String   @id @default(cuid())
+  eventKey      String   @unique
+  planId        String
+  eventType     String
   runtimeStatus String
-  tenantSlug   String
+  tenantSlug    String
   workspaceSlug String?
-  actorKey     String
-  relatedKeys  Json
-  metadata     Json
-  recordedAt   DateTime
-  createdAt    DateTime @default(now())
+  actorKey      String
+  relatedKeys   Json
+  metadata      Json
+  recordedAt    DateTime
+  createdAt     DateTime @default(now())
 
   @@index([tenantSlug, planId])
   @@index([planId, eventType])
   @@index([recordedAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actorUserId String?
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AuditActorLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
 }
