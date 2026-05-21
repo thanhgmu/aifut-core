@@ -35,6 +35,7 @@ export class OrchestrationRuntimeHistoryService {
         update: {
           runtimeStatus: snapshot.runtimeStatus,
           recordedBy: snapshot.recordedBy,
+          recordedAt: new Date(snapshot.recordedAt),
           contractSummary: this.asJsonValue(snapshot.contractSummary),
           summary: this.asJsonValue(snapshot.summary),
           mutationRecords: this.asJsonValue(snapshot.mutationRecords),
@@ -48,6 +49,7 @@ export class OrchestrationRuntimeHistoryService {
           tenantSlug: snapshot.tenantSlug,
           workspaceSlug: snapshot.workspaceSlug,
           recordedBy: snapshot.recordedBy,
+          recordedAt: new Date(snapshot.recordedAt),
           contractSummary: this.asJsonValue(snapshot.contractSummary),
           summary: this.asJsonValue(snapshot.summary),
           mutationRecords: this.asJsonValue(snapshot.mutationRecords),
@@ -445,7 +447,7 @@ export class OrchestrationRuntimeHistoryService {
       const [snapshots, events] = await Promise.all([
         this.prisma.orchestrationRuntimeSnapshot.findMany({
           where,
-          orderBy: [{ createdAt: 'desc' }],
+          orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
           take: input.snapshotTake ?? 10,
         }),
         this.prisma.orchestrationRuntimeEvent.findMany({

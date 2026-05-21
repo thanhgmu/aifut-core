@@ -301,6 +301,7 @@ model OrchestrationRuntimeSnapshot {
   tenantSlug      String
   workspaceSlug   String?
   recordedBy      String
+  recordedAt      DateTime
   contractSummary Json
   summary         Json
   mutationRecords Json
@@ -309,6 +310,7 @@ model OrchestrationRuntimeSnapshot {
 
   @@index([tenantSlug, planId])
   @@index([planId, snapshotType])
+  @@index([recordedAt])
 }
 
 model OrchestrationRuntimeEvent {

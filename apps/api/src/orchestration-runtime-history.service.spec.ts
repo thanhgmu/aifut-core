@@ -65,6 +65,16 @@ describe('OrchestrationRuntimeHistoryService', () => {
     const result = await service.persistRuntimeHistory(buildSnapshot());
 
     expect(prisma.orchestrationRuntimeSnapshot.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.orchestrationRuntimeSnapshot.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          recordedAt: new Date('2026-05-07T00:45:00.000Z'),
+        }),
+        create: expect.objectContaining({
+          recordedAt: new Date('2026-05-07T00:45:00.000Z'),
+        }),
+      }),
+    );
     expect(prisma.orchestrationRuntimeEvent.upsert).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       persistedSnapshotKey: 'snapshot_1',
@@ -234,7 +244,7 @@ describe('OrchestrationRuntimeHistoryService', () => {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
       },
-      orderBy: [{ createdAt: 'desc' }],
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: 2,
     });
     expect(prisma.orchestrationRuntimeEvent.findMany).toHaveBeenCalledWith({

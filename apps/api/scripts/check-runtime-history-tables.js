@@ -21,6 +21,7 @@ const requiredSchema = {
     'tenantSlug',
     'workspaceSlug',
     'recordedBy',
+    'recordedAt',
     'contractSummary',
     'summary',
     'mutationRecords',
