@@ -20,6 +20,7 @@ describe('OrchestrationController', () => {
     materializeExecutionRuntime: jest.Mock;
     applyApprovalDecision: jest.Mock;
     dispatchExecutionRun: jest.Mock;
+    getExecutionRuntimeHistory: jest.Mock;
   };
   let aiTokenGovernance: {
     estimateUsage: jest.Mock;
@@ -43,6 +44,7 @@ describe('OrchestrationController', () => {
       materializeExecutionRuntime: jest.fn(),
       applyApprovalDecision: jest.fn(),
       dispatchExecutionRun: jest.fn(),
+      getExecutionRuntimeHistory: jest.fn(),
     };
 
     aiTokenGovernance = {
@@ -2916,6 +2918,84 @@ describe('OrchestrationController', () => {
         runnerDispatchStatus: 'applied',
         executionDispatch: {
           runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        },
+      },
+    });
+  });
+
+  it('should fetch execution runtime history in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.getExecutionRuntimeHistory.mockResolvedValue({
+      planId: 'plan:acme:ops:runtime',
+      historyStatus: 'available',
+      diagnosticsSummary: {
+        snapshotCount: 2,
+        eventCount: 3,
+        latestSnapshotType: 'run-dispatch',
+        latestRuntimeStatus: 'dispatch-applied',
+        latestRecordedAt: '2026-05-07T00:46:00.000Z',
+        latestEventType: 'execution-run-dispatched',
+        latestEventRecordedAt: '2026-05-07T00:46:05.000Z',
+        mutatedTargetCount: 1,
+      },
+      latestSnapshot: {
+        snapshotKey: 'plan:acme:ops:runtime:run-dispatch:snapshot',
+      },
+      events: [
+        {
+          eventKey: 'plan:acme:ops:runtime:child:1:runner:run:dispatch',
+        },
+      ],
+    });
+
+    const result = await controller.getExecutionRuntimeHistory(
+      'plan:acme:ops:runtime',
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '5',
+      '7',
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(orchestration.getExecutionRuntimeHistory).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      snapshotTake: 5,
+      eventTake: 7,
+    });
+    expect(result).toMatchObject({
+      status: 'execution-runtime-history-fetched',
+      runtimeHistory: {
+        historyStatus: 'available',
+        diagnosticsSummary: {
+          snapshotCount: 2,
+          eventCount: 3,
+          latestSnapshotType: 'run-dispatch',
+          latestRuntimeStatus: 'dispatch-applied',
+          latestRecordedAt: '2026-05-07T00:46:00.000Z',
+          latestEventType: 'execution-run-dispatched',
+          latestEventRecordedAt: '2026-05-07T00:46:05.000Z',
+          mutatedTargetCount: 1,
+        },
+        latestSnapshot: {
+          snapshotKey: 'plan:acme:ops:runtime:run-dispatch:snapshot',
         },
       },
     });

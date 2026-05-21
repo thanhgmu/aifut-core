@@ -2584,9 +2584,15 @@ describe('OrchestrationService', () => {
       runtimeStatus: 'materialized',
       tenantSlug: 'acme',
       workspaceSlug: 'ops',
+      recordedBy: 'ops@acme.test',
       contractSummary: {
+        executionModeCount: 0,
+        runtimeBindingCount: 2,
         childWorkflowContractCount: 2,
         approvalContractCount: 1,
+        escalationContractCount: 0,
+        rollbackContractCount: 0,
+        unresolvedRuntimeBindingCount: 0,
       },
       summary: {
         dispatchedApprovalCount: 1,
@@ -2685,6 +2691,87 @@ describe('OrchestrationService', () => {
     );
   });
 
+  it('should reject approval decisions when persisted history shows the task is no longer awaiting a decision', async () => {
+    const runtimeHistory = {
+      persistRuntimeHistory: jest.fn().mockResolvedValue({
+        persistedSnapshotKey:
+          'plan:acme:ops:decision-runtime:materialized-runtime:snapshot',
+        persistedEventKeys: [
+          'plan:acme:ops:decision-runtime:approval:1:task:integration',
+        ],
+      }),
+      findLatestMutations: jest.fn().mockResolvedValue({
+        'approval-task:plan:acme:ops:decision-runtime:approval:1:task': {
+          mutationKey:
+            'plan:acme:ops:decision-runtime:approval:1:task:decision-task',
+          targetKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+          targetType: 'approval-task',
+          fromStatus: 'awaiting-decision',
+          toStatus: 'approved',
+          mutationStatus: 'applied',
+        },
+      }),
+      findLatestMutation: jest.fn(),
+      findLatestSnapshot: jest.fn(),
+    };
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
+
+    await expect(
+      serviceWithHistory.applyApprovalDecision({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:decision-runtime',
+        runtimeBindings: [
+          {
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            deliveryMode: 'human-review',
+            approvalRequired: true,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'review-ops-brief',
+            runtimeKey: 'openclaw',
+            systemKey: 'ops-agent',
+            triggerMode: 'human-review',
+            approvalRequired: true,
+            approvalCheckpointKey: 'approve-ops',
+          },
+        ],
+        approvalContracts: [
+          {
+            checkpointKey: 'approve-ops',
+            approverRole: 'operator',
+            channel: 'web-ui',
+            required: true,
+          },
+        ],
+        taskKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+        decision: 'approve',
+        decidedBy: 'operator@acme.test',
+      }),
+    ).rejects.toThrow(
+      'Approval task plan:acme:ops:decision-runtime:approval:1:task is not awaiting a decision; current status is approved.',
+    );
+
+    expect(runtimeHistory.findLatestMutations).toHaveBeenCalledWith({
+      planId: 'plan:acme:ops:decision-runtime',
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      targets: [
+        {
+          targetType: 'approval-task',
+          targetKey: 'plan:acme:ops:decision-runtime:approval:1:task',
+        },
+      ],
+    });
+    expect(runtimeHistory.findLatestMutation).not.toHaveBeenCalled();
+    expect(runtimeHistory.findLatestSnapshot).not.toHaveBeenCalled();
+  });
+
   it('should dispatch a ready execution run into applied runtime state', async () => {
     const result = await service.dispatchExecutionRun({
       tenantSlug: 'acme',
@@ -2752,5 +2839,285 @@ describe('OrchestrationService', () => {
         }),
       ]),
     );
+  });
+
+  it('should allow dispatch when persisted approval history advanced the run state', async () => {
+    const runtimeHistory = {
+      persistRuntimeHistory: jest.fn().mockResolvedValue({
+        persistedSnapshotKey:
+          'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+        persistedEventKeys: [
+          'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
+        ],
+      }),
+      findLatestMutations: jest.fn().mockResolvedValue({
+        'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
+          mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:decision-run',
+          targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+          targetType: 'execution-run',
+          fromStatus: 'awaiting-approval',
+          toStatus: 'queued-for-dispatch',
+          mutationStatus: 'applied',
+        },
+        'execution-runner:plan:acme:ops:progression-runtime:child:1:runner': null,
+        'execution-action:plan:acme:ops:progression-runtime:child:1:runner:action': null,
+        'execution-transition:plan:acme:ops:progression-runtime:child:1:runner:transition:1': null,
+      }),
+      findLatestMutation: jest.fn(),
+      findLatestSnapshot: jest.fn(),
+    };
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
+
+    const result = await serviceWithHistory.dispatchExecutionRun({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:progression-runtime',
+      runtimeBindings: [
+        {
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          deliveryMode: 'human-review',
+          approvalRequired: true,
+        },
+      ],
+      childWorkflowContracts: [
+        {
+          workflowKey: 'review-ops-brief',
+          runtimeKey: 'openclaw',
+          systemKey: 'ops-agent',
+          triggerMode: 'human-review',
+          approvalRequired: true,
+          approvalCheckpointKey: 'approve-ops',
+        },
+      ],
+      approvalContracts: [
+        {
+          checkpointKey: 'approve-ops',
+          approverRole: 'operator',
+          channel: 'web-ui',
+          required: true,
+        },
+      ],
+      runKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+      dispatchedBy: 'runner@acme.test',
+    });
+
+    expect(runtimeHistory.findLatestMutations).toHaveBeenCalledWith({
+      planId: 'plan:acme:ops:progression-runtime',
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      targets: [
+        {
+          targetType: 'execution-run',
+          targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+        },
+      ],
+    });
+    expect(runtimeHistory.findLatestMutation).not.toHaveBeenCalled();
+    expect(runtimeHistory.findLatestSnapshot).not.toHaveBeenCalled();
+    expect(result.runnerDispatchStatus).toBe('applied');
+    expect(result.executionDispatchMutations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetType: 'execution-run',
+          fromStatus: 'queued-for-dispatch',
+          toStatus: 'dispatched',
+        }),
+      ]),
+    );
+  });
+
+  it('should reject dispatch when persisted history already moved the run past dispatchable state', async () => {
+    const runtimeHistory = {
+      persistRuntimeHistory: jest.fn(),
+      findLatestMutations: jest.fn().mockResolvedValue({
+        'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
+          mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+          targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+          targetType: 'execution-run',
+          fromStatus: 'queued-for-dispatch',
+          toStatus: 'dispatched',
+          mutationStatus: 'applied',
+        },
+      }),
+      findLatestMutation: jest.fn(),
+      findLatestSnapshot: jest.fn(),
+    };
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
+
+    await expect(
+      serviceWithHistory.dispatchExecutionRun({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:progression-runtime',
+        runtimeBindings: [
+          {
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            deliveryMode: 'webhook',
+            approvalRequired: false,
+          },
+        ],
+        childWorkflowContracts: [
+          {
+            workflowKey: 'dispatch-router',
+            runtimeKey: 'n8n',
+            systemKey: 'lead-router',
+            triggerMode: 'webhook',
+            approvalRequired: false,
+          },
+        ],
+        runKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+        dispatchedBy: 'runner@acme.test',
+      }),
+    ).rejects.toThrow(
+      'Execution run plan:acme:ops:progression-runtime:child:1:runner:run is not dispatchable; current status is dispatched.',
+    );
+
+    expect(runtimeHistory.findLatestMutations).toHaveBeenCalledWith({
+      planId: 'plan:acme:ops:progression-runtime',
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      targets: [
+        {
+          targetType: 'execution-run',
+          targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+        },
+      ],
+    });
+    expect(runtimeHistory.persistRuntimeHistory).toHaveBeenCalledTimes(1);
+    expect(runtimeHistory.findLatestMutation).not.toHaveBeenCalled();
+    expect(runtimeHistory.findLatestSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('should read persisted execution runtime history when runtime history is available', async () => {
+    const runtimeHistory = {
+      readRuntimeHistory: jest.fn().mockResolvedValue({
+        latestSnapshot: {
+          snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+          snapshotType: 'run-dispatch',
+          runtimeStatus: 'dispatch-applied',
+          recordedAt: '2026-05-07T00:46:00.000Z',
+          mutationRecords: [
+            {
+              mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+              targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+              targetType: 'execution-run',
+              fromStatus: 'queued-for-dispatch',
+              toStatus: 'dispatched',
+              mutationStatus: 'applied',
+            },
+          ],
+          contractSummary: {
+            executionModeCount: 1,
+            runtimeBindingCount: 1,
+            childWorkflowContractCount: 1,
+            approvalContractCount: 1,
+            escalationContractCount: 0,
+            rollbackContractCount: 0,
+            unresolvedRuntimeBindingCount: 0,
+          },
+        },
+        latestMutationByTarget: {
+          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
+            mutationKey:
+              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+            targetKey:
+              'plan:acme:ops:progression-runtime:child:1:runner:run',
+            targetType: 'execution-run',
+            fromStatus: 'queued-for-dispatch',
+            toStatus: 'dispatched',
+            mutationStatus: 'applied',
+          },
+        },
+        snapshots: [
+          {
+            snapshotKey:
+              'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+            snapshotType: 'run-dispatch',
+            contractSummary: {
+              executionModeCount: 1,
+              runtimeBindingCount: 1,
+              childWorkflowContractCount: 1,
+              approvalContractCount: 1,
+              escalationContractCount: 0,
+              rollbackContractCount: 0,
+              unresolvedRuntimeBindingCount: 0,
+            },
+          },
+        ],
+        events: [
+          {
+            eventKey:
+              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
+            eventType: 'execution-run-dispatched',
+            recordedAt: '2026-05-07T00:46:05.000Z',
+          },
+        ],
+      }),
+    };
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
+
+    const result = await serviceWithHistory.getExecutionRuntimeHistory({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:progression-runtime',
+      snapshotTake: 3,
+      eventTake: 5,
+    });
+
+    expect(runtimeHistory.readRuntimeHistory).toHaveBeenCalledWith({
+      planId: 'plan:acme:ops:progression-runtime',
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      snapshotTake: 3,
+      eventTake: 5,
+    });
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:progression-runtime',
+      historyStatus: 'available',
+      diagnosticsSummary: {
+        snapshotCount: 1,
+        eventCount: 1,
+        latestSnapshotType: 'run-dispatch',
+        latestRuntimeStatus: 'dispatch-applied',
+        latestRecordedAt: '2026-05-07T00:46:00.000Z',
+        latestEventType: 'execution-run-dispatched',
+        latestEventRecordedAt: '2026-05-07T00:46:05.000Z',
+        mutatedTargetCount: 1,
+      },
+      latestSnapshot: {
+        snapshotKey:
+          'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+      },
+      latestMutationByTarget: {
+        'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
+          mutationKey:
+            'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+          targetKey:
+            'plan:acme:ops:progression-runtime:child:1:runner:run',
+          targetType: 'execution-run',
+          fromStatus: 'queued-for-dispatch',
+          toStatus: 'dispatched',
+          mutationStatus: 'applied',
+        },
+      },
+      events: [
+        {
+          eventKey:
+            'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
+        },
+      ],
+    });
+    expect(result.contextScope).toEqual({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+    });
   });
 });

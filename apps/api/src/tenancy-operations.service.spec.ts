@@ -487,6 +487,7 @@ describe('TenancyOperationsService', () => {
       allowPrimaryDemotion: true,
     });
 
+    expect(prisma.tenantDomain.updateMany).not.toHaveBeenCalled();
     expect(result.governance).toMatchObject({
       bindingScope: 'tenant',
       primaryScope: null,
@@ -503,6 +504,130 @@ describe('TenancyOperationsService', () => {
         previousScope: 'tenant:default',
         targetScope: 'tenant:default',
         action: 'retained-domain-scope',
+      },
+    });
+  });
+
+  it('should allow tenant-scope primary affiliate demotion without rebinding approval', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing_affiliate',
+      tenantId: 'tenant_1',
+      workspaceId: null,
+      isPrimary: true,
+      workspace: null,
+    });
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_existing_affiliate',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:31:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:31:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      allowPrimaryDemotion: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+
+    expect(prisma.tenantDomain.updateMany).not.toHaveBeenCalled();
+    expect(result.governance).toMatchObject({
+      bindingScope: 'tenant',
+      primaryScope: null,
+      primaryIntent: {
+        requestedPromotion: false,
+        requestedDemotion: true,
+        explicitDemotionApproved: true,
+        resultingPrimary: false,
+        resultingAction: 'retain-or-write-non-primary-domain',
+      },
+      scopeTransition: {
+        rebindingRequested: false,
+        explicitRebindingApproved: false,
+        previousScope: 'tenant:default',
+        targetScope: 'tenant:default',
+        action: 'retained-domain-scope',
+      },
+      readiness: {
+        routeReady: true,
+      },
+      provisioning: {
+        provider: 'reseller-edge',
+        mode: 'affiliate-managed',
+        externallyManaged: true,
+      },
+    });
+  });
+
+  it('should demote only tenant-scope primaries when promoting a tenant-scope primary domain', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_tenant_primary_2',
+      hostname: 'tenant-primary.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:45:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:45:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'tenant-primary.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'cloudflare',
+      provisioningMode: 'managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+
+    expect(prisma.tenantDomain.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant_1',
+        id: { not: 'domain_tenant_primary_2' },
+        workspaceId: null,
+      },
+      data: {
+        isPrimary: false,
+      },
+    });
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      governance: {
+        bindingScope: 'tenant',
+        primaryScope: 'tenant:default',
+        primaryReassignment: {
+          scope: 'tenant:default',
+          demotedPrimaryCount: 1,
+          collisionDetected: true,
+          action: 'promoted-and-demoted-existing-primary',
+        },
+        primaryIntent: {
+          resultingAction: 'promote-target-and-demote-existing-scope-primary',
+        },
       },
     });
   });
@@ -1053,6 +1178,132 @@ describe('TenancyOperationsService', () => {
     });
   });
 
+  it('should surface non-route-ready governance for degraded custom domains without managed provisioning metadata', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_degraded_custom_1',
+      hostname: 'ops.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.DEGRADED,
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:30:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:30:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'ops.acme.test',
+      kind: TenantDomainKind.CUSTOM,
+      status: TenantDomainStatus.DEGRADED,
+      isPrimary: false,
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          provider: null,
+          provisioningMode: null,
+          dnsTarget: null,
+          certificateStatus: null,
+        }),
+        create: expect.objectContaining({
+          provider: null,
+          provisioningMode: null,
+          dnsTarget: null,
+          certificateStatus: null,
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: {
+        status: TenantDomainStatus.DEGRADED,
+        provider: null,
+        provisioningMode: null,
+      },
+      governance: {
+        readiness: {
+          routeReady: false,
+        },
+        provisioning: {
+          provider: null,
+          mode: null,
+          externallyManaged: false,
+        },
+      },
+    });
+  });
+
+  it('should surface non-route-ready governance for degraded affiliate domains without managed provisioning metadata', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_degraded_affiliate_1',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.DEGRADED,
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:30:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:30:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.DEGRADED,
+      isPrimary: false,
+      provider: '   ',
+      provisioningMode: '   ',
+      dnsTarget: '   ',
+      certificateStatus: '   ',
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          provider: null,
+          provisioningMode: null,
+          dnsTarget: null,
+          certificateStatus: null,
+        }),
+        create: expect.objectContaining({
+          provider: null,
+          provisioningMode: null,
+          dnsTarget: null,
+          certificateStatus: null,
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: {
+        status: TenantDomainStatus.DEGRADED,
+        provider: null,
+        provisioningMode: null,
+      },
+      governance: {
+        readiness: {
+          routeReady: false,
+        },
+        provisioning: {
+          provider: null,
+          mode: null,
+          externallyManaged: false,
+        },
+      },
+    });
+  });
+
   it('should still require provider metadata for managed active domains after provisioning mode normalization', async () => {
     await expect(
       service.upsertDomain({
@@ -1391,6 +1642,128 @@ describe('TenancyOperationsService', () => {
     });
   });
 
+  it('should demote only tenant-scope primaries when promoting a tenant-level primary domain', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_tenant_primary',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:05:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:05:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+    });
+
+    expect(prisma.tenantDomain.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant_1',
+        id: { not: 'domain_tenant_primary' },
+        workspaceId: null,
+      },
+      data: {
+        isPrimary: false,
+      },
+    });
+    expect(result.governance).toMatchObject({
+      bindingScope: 'tenant',
+      primaryScope: 'tenant:default',
+      primaryReassignment: {
+        scope: 'tenant:default',
+        demotedPrimaryCount: 1,
+        collisionDetected: true,
+        action: 'promoted-and-demoted-existing-primary',
+      },
+      primaryIntent: {
+        requestedPromotion: true,
+        requestedDemotion: false,
+        explicitDemotionApproved: false,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-and-demote-existing-scope-primary',
+      },
+    });
+  });
+
+  it('should demote only tenant-scope primaries when promoting a tenant-level primary affiliate domain', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_tenant_affiliate_primary',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:06:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:06:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+
+    expect(prisma.tenantDomain.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant_1',
+        id: { not: 'domain_tenant_affiliate_primary' },
+        workspaceId: null,
+      },
+      data: {
+        isPrimary: false,
+      },
+    });
+    expect(result.governance).toMatchObject({
+      bindingScope: 'tenant',
+      primaryScope: 'tenant:default',
+      primaryReassignment: {
+        scope: 'tenant:default',
+        demotedPrimaryCount: 1,
+        collisionDetected: true,
+        action: 'promoted-and-demoted-existing-primary',
+      },
+      primaryIntent: {
+        requestedPromotion: true,
+        requestedDemotion: false,
+        explicitDemotionApproved: false,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-and-demote-existing-scope-primary',
+      },
+      readiness: {
+        routeReady: true,
+      },
+      provisioning: {
+        provider: 'reseller-edge',
+        mode: 'affiliate-managed',
+        externallyManaged: true,
+      },
+    });
+  });
+
   it('should surface non-collision promotion intent when no existing primary is displaced', async () => {
     prisma.tenantDomain.upsert.mockResolvedValue({
       id: 'domain_2',
@@ -1439,6 +1812,70 @@ describe('TenancyOperationsService', () => {
         previousScope: null,
         targetScope: 'tenant:default',
         action: 'retained-domain-scope',
+      },
+    });
+  });
+
+  it('should surface non-collision promotion intent for a tenant-level primary affiliate domain when no existing primary is displaced', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_affiliate_no_collision',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:11:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:11:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+    });
+
+    expect(result.governance).toMatchObject({
+      bindingScope: 'tenant',
+      primaryScope: 'tenant:default',
+      primaryReassignment: {
+        scope: 'tenant:default',
+        demotedPrimaryCount: 0,
+        collisionDetected: false,
+        action: 'promoted-without-existing-primary-collision',
+      },
+      primaryIntent: {
+        requestedPromotion: true,
+        requestedDemotion: false,
+        explicitDemotionApproved: false,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-as-scope-primary',
+      },
+      scopeTransition: {
+        rebindingRequested: false,
+        explicitRebindingApproved: false,
+        previousScope: null,
+        targetScope: 'tenant:default',
+        action: 'retained-domain-scope',
+      },
+      readiness: {
+        routeReady: true,
+      },
+      provisioning: {
+        provider: 'reseller-edge',
+        mode: 'affiliate-managed',
+        externallyManaged: true,
       },
     });
   });
@@ -2218,6 +2655,82 @@ describe('TenancyOperationsService', () => {
         provider: 'reseller-edge',
         mode: 'affiliate-managed',
         externallyManaged: true,
+      },
+    });
+  });
+
+  it('should allow scope rebinding of an existing primary domain while keeping it primary and reassigning the target-scope primary', async () => {
+    prisma.workspace.findUnique.mockResolvedValue({
+      id: 'ws_1',
+      name: 'Ops',
+      slug: 'ops',
+    });
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing',
+      tenantId: 'tenant_1',
+      workspaceId: null,
+      isPrimary: true,
+      workspace: null,
+    });
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_existing',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: 'ws_1',
+      createdAt: new Date('2026-04-26T09:35:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:35:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      allowScopeRebinding: true,
+    });
+
+    expect(prisma.tenantDomain.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant_1',
+        id: { not: 'domain_existing' },
+        workspaceId: 'ws_1',
+      },
+      data: {
+        isPrimary: false,
+      },
+    });
+    expect(result.governance).toMatchObject({
+      bindingScope: 'workspace',
+      primaryScope: 'workspace:ops',
+      primaryReassignment: {
+        scope: 'workspace:ops',
+        demotedPrimaryCount: 1,
+        collisionDetected: true,
+        action: 'promoted-and-demoted-existing-primary',
+      },
+      primaryIntent: {
+        requestedPromotion: true,
+        requestedDemotion: false,
+        explicitDemotionApproved: false,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-and-demote-existing-scope-primary',
+      },
+      scopeTransition: {
+        rebindingRequested: true,
+        explicitRebindingApproved: true,
+        previousScope: 'tenant:default',
+        targetScope: 'workspace:ops',
+        action: 'rebound-domain-scope',
       },
     });
   });

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantStorageMode } from '@prisma/client';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
@@ -100,5 +100,190 @@ describe('StorageRoutingPolicyService', () => {
       enforcedWritePath:
         'tenants/acme/workspaces/ops/storage/assets/uploads/logo.png',
     });
+  });
+
+  it('should reject missing storage policies on write enforcement', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.requireWritePolicy({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: 'ops',
+        policyKey: 'missing-assets',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('should reject disabled storage policies on write enforcement', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'policy_disabled',
+        key: 'assets',
+        mode: TenantStorageMode.DISABLED,
+        storageClass: null,
+        targetRef: null,
+        targetRegion: null,
+        backupTargetRef: null,
+        meteringEnabled: false,
+        workspaceId: 'ws_1',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.requireWritePolicy({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: 'ops',
+        policyKey: 'assets',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('should reject tenant-managed write policies without a targetRef', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: null,
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'policy_tenant_managed',
+        key: 'assets',
+        mode: TenantStorageMode.TENANT_MANAGED,
+        storageClass: 'standard',
+        targetRef: null,
+        targetRegion: 'ap-southeast-1',
+        backupTargetRef: null,
+        meteringEnabled: true,
+        workspaceId: null,
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.requireWritePolicy({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        policyKey: 'assets',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('should allow workspace writes to fall back to tenant scope when explicitly allowed', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'policy_tenant_fallback',
+        key: 'assets',
+        mode: TenantStorageMode.PLATFORM_MANAGED,
+        storageClass: 'standard',
+        targetRef: null,
+        targetRegion: null,
+        backupTargetRef: null,
+        meteringEnabled: true,
+        workspaceId: null,
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.requireWritePolicy({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      policyKey: 'assets',
+      allowTenantScope: true,
+      writePath: 'reports/daily.json',
+    });
+
+    expect(result.resolution).toMatchObject({
+      workspaceScoped: false,
+      activeWorkspaceSlug: 'ops',
+      fallbackToTenantPolicy: true,
+    });
+    expect(result.storageTopology).toMatchObject({
+      ownershipScope: 'tenant',
+      workspaceSlug: null,
+      rootPrefix: 'tenants/acme/storage/assets',
+    });
+    expect(result.writeGuardrail).toMatchObject({
+      enforcedWritePath: 'tenants/acme/storage/assets/reports/daily.json',
+    });
+  });
+
+  it('should preserve an already-prefixed workspace write path', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'policy_prefixed',
+        key: 'assets',
+        mode: TenantStorageMode.PLATFORM_MANAGED,
+        storageClass: 'standard',
+        targetRef: null,
+        targetRegion: null,
+        backupTargetRef: null,
+        meteringEnabled: true,
+        workspaceId: 'ws_1',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.requireWritePolicy({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      policyKey: 'assets',
+      writePath: 'tenants/acme/workspaces/ops/storage/assets/uploads/logo.png',
+    });
+
+    expect(result.writeGuardrail).toMatchObject({
+      enforcedWritePath:
+        'tenants/acme/workspaces/ops/storage/assets/uploads/logo.png',
+    });
+  });
+
+  it('should reject invalid write path traversal segments', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'policy_secure',
+        key: 'assets',
+        mode: TenantStorageMode.PLATFORM_MANAGED,
+        storageClass: 'standard',
+        targetRef: null,
+        targetRegion: null,
+        backupTargetRef: null,
+        meteringEnabled: true,
+        workspaceId: 'ws_1',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.requireWritePolicy({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: 'ops',
+        policyKey: 'assets',
+        writePath: '../secrets.txt',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

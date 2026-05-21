@@ -1,11 +1,53 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   OrchestrationApprovalDecisionInput,
+  OrchestrationApprovalDecisionRecord,
+  OrchestrationApprovalDecisionOptionRecord,
+  OrchestrationApprovalDecisionSummary,
+  OrchestrationApprovalDispatchIntegrationRecord,
+  OrchestrationApprovalTaskQueueRecord,
+  OrchestrationApprovalTaskStateHintRecord,
+  OrchestrationExecutionActionTopologyRecord,
   OrchestrationExecutionDispatchInput,
+  OrchestrationExecutionDispatchRecord,
+  OrchestrationExecutionDispatchSummary,
+  OrchestrationExecutionReadinessSummary,
+  OrchestrationExecutionRunDispatchQueueRecord,
+  OrchestrationExecutionRunnerHintRecord,
+  OrchestrationExecutionRunStateHintRecord,
+  OrchestrationExecutionRunTopologyRecord,
+  OrchestrationExecutionRunnerIntegrationRecord,
+  OrchestrationExecutionRunnerTopologyRecord,
+  OrchestrationExecutionStateTransitionBatch,
+  OrchestrationExecutionTransitionQueueRecord,
+  OrchestrationProjectedApprovalDecisionRecord,
+  OrchestrationProjectedApprovalOutcomeRecord,
+  OrchestrationProjectedDispatchOutcomeBatchRecord,
+  OrchestrationProjectedDispatchOutcomeRecord,
+  OrchestrationProjectedMutationBatch,
+  OrchestrationProjectedMutationContract,
+  OrchestrationProjectedOutcomeBatch,
+  OrchestrationProjectedApprovalOutcomeBatchRecord,
+  OrchestrationProjectedApprovalDecisionBatchRecord,
+  OrchestrationProjectedRunDispatchBatchRecord,
+  OrchestrationProjectedRunDispatchRecord,
   OrchestrationRuntimeContextInput,
   OrchestrationRuntimeEventRecord,
+  OrchestrationLiveMutationBatch,
+  OrchestrationLiveRuntimeSummary,
+  OrchestrationMaterializedRuntimeResponse,
+  OrchestrationPersistedRuntimeSnapshotRecord,
+  OrchestrationRuntimeContractSummary,
+  OrchestrationRuntimeHistoryQuery,
+  OrchestrationRuntimeHistoryResponse,
   OrchestrationRuntimeMutationRecord,
+  OrchestrationRuntimePersistenceResult,
+  OrchestrationRuntimeScope,
   OrchestrationRuntimeSnapshotRecord,
+  OrchestrationActionTransitionPolicy,
+  OrchestrationRunTransitionPolicy,
+  OrchestrationApprovalTaskTransitionPolicy,
+  OrchestrationTransitionPolicyBatch,
 } from './orchestration-runtime.models';
 import { OrchestrationRuntimeHistoryService } from './orchestration-runtime-history.service';
 
@@ -32,7 +74,9 @@ export class OrchestrationService {
     return new Date().toISOString();
   }
 
-  private buildRuntimeScope(input: OrchestrationRuntimeContextInput) {
+  private buildRuntimeScope(
+    input: OrchestrationRuntimeContextInput,
+  ): OrchestrationRuntimeScope {
     return {
       tenantSlug: input.tenantSlug,
       workspaceSlug: input.workspaceSlug ?? null,
@@ -47,16 +91,8 @@ export class OrchestrationService {
     recordedAt: string;
     tenantSlug: string;
     workspaceSlug: string | null;
-    contractSummary: {
-      executionModeCount: number;
-      runtimeBindingCount: number;
-      childWorkflowContractCount: number;
-      approvalContractCount: number;
-      escalationContractCount: number;
-      rollbackContractCount: number;
-      unresolvedRuntimeBindingCount: number;
-    };
-    summary: Record<string, number | string | boolean | null>;
+    contractSummary: OrchestrationRuntimeContractSummary;
+    summary: OrchestrationRuntimeSnapshotRecord['summary'];
     mutationRecords: OrchestrationRuntimeMutationRecord[];
     eventRecords: OrchestrationRuntimeEventRecord[];
   }): OrchestrationRuntimeSnapshotRecord {
@@ -76,12 +112,155 @@ export class OrchestrationService {
     };
   }
 
-  private async persistRuntimeSnapshot(snapshot: OrchestrationRuntimeSnapshotRecord) {
+  private async persistRuntimeSnapshot(
+    snapshot: OrchestrationRuntimeSnapshotRecord,
+  ): Promise<OrchestrationRuntimePersistenceResult | null> {
     if (!this.runtimeHistory) {
       return null;
     }
 
     return this.runtimeHistory.persistRuntimeHistory(snapshot);
+  }
+
+  private async findLatestPersistedRuntimeSnapshot(input: {
+    planId: string;
+    tenantSlug?: string;
+    workspaceSlug?: string | null;
+  }) {
+    if (!this.runtimeHistory) {
+      return null;
+    }
+
+    return this.runtimeHistory.findLatestSnapshot(input);
+  }
+
+  private latestPersistedMutationStatus(
+    snapshot: OrchestrationPersistedRuntimeSnapshotRecord | null,
+    targetType: string,
+    targetKey: string | null | undefined,
+  ) {
+    if (!snapshot || !targetKey) {
+      return null;
+    }
+
+    const mutation = [...snapshot.mutationRecords]
+      .reverse()
+      .find(
+        (record) =>
+          record.targetType === targetType && record.targetKey === targetKey,
+      );
+
+    return mutation?.toStatus ?? null;
+  }
+
+  private async findLatestPersistedMutationStatus(input: {
+    planId: string;
+    tenantSlug?: string;
+    workspaceSlug?: string | null;
+    targetType: string;
+    targetKey: string | null | undefined;
+  }) {
+    const statuses = await this.findLatestPersistedMutationStatuses({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targets: [
+        {
+          targetType: input.targetType,
+          targetKey: input.targetKey,
+        },
+      ],
+    });
+
+    return statuses[`${input.targetType}:${input.targetKey ?? ''}`] ?? null;
+  }
+
+  private async findLatestPersistedMutationStatuses(input: {
+    planId: string;
+    tenantSlug?: string;
+    workspaceSlug?: string | null;
+    targets: Array<{
+      targetType: string;
+      targetKey: string | null | undefined;
+    }>;
+  }) {
+    const normalizedTargets = input.targets.filter(
+      (target): target is { targetType: string; targetKey: string } =>
+        Boolean(target.targetKey),
+    );
+    const emptyResult = Object.fromEntries(
+      input.targets.map((target) => [
+        `${target.targetType}:${target.targetKey ?? ''}`,
+        null,
+      ]),
+    ) as Record<string, string | null>;
+
+    if (!this.runtimeHistory || normalizedTargets.length === 0) {
+      return emptyResult;
+    }
+
+    if ('findLatestMutations' in this.runtimeHistory) {
+      const mutations = await this.runtimeHistory.findLatestMutations({
+        planId: input.planId,
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        targets: normalizedTargets,
+      });
+
+      return {
+        ...emptyResult,
+        ...Object.fromEntries(
+          Object.entries(mutations).map(([key, mutation]) => [
+            key,
+            mutation?.toStatus ?? null,
+          ]),
+        ),
+      };
+    }
+
+    if ('findLatestMutation' in this.runtimeHistory) {
+      const mutations = await Promise.all(
+        normalizedTargets.map(async (target) => {
+          const mutation = await this.runtimeHistory?.findLatestMutation({
+            planId: input.planId,
+            tenantSlug: input.tenantSlug,
+            workspaceSlug: input.workspaceSlug,
+            targetType: target.targetType,
+            targetKey: target.targetKey,
+          });
+
+          return [
+            `${target.targetType}:${target.targetKey}`,
+            mutation?.toStatus ?? null,
+          ] as const;
+        }),
+      );
+
+      return {
+        ...emptyResult,
+        ...Object.fromEntries(mutations),
+      };
+    }
+
+    const latestSnapshot = await this.findLatestPersistedRuntimeSnapshot({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+    });
+
+    return {
+      ...emptyResult,
+      ...Object.fromEntries(
+        normalizedTargets.map((target) => [
+          `${target.targetType}:${target.targetKey}`,
+          this.latestPersistedMutationStatus(
+            latestSnapshot,
+            target.targetType,
+            target.targetKey,
+          ),
+        ]),
+      ),
+    };
   }
 
   private normalizeStringList(values?: string[]) {
@@ -1293,7 +1472,7 @@ export class OrchestrationService {
       })),
     };
 
-    const executionTransitionQueue = executionActionRecords.map((action) => ({
+    const executionTransitionQueue: OrchestrationExecutionTransitionQueueRecord[] = executionActionRecords.map((action) => ({
       transitionKey: `${action.actionKey}:transition`,
       sourceActionKey: action.actionKey,
       sourceRunnerKey: action.runnerKey,
@@ -1310,7 +1489,7 @@ export class OrchestrationService {
       readinessStatus: action.readinessStatus,
     }));
 
-    const executionRunStateHints = executionRunRecords.map((run) => ({
+    const executionRunStateHints: OrchestrationExecutionRunStateHintRecord[] = executionRunRecords.map((run) => ({
       runKey: run.runKey,
       runStatus: run.runStatus,
       nextTransitionKey:
@@ -1325,14 +1504,14 @@ export class OrchestrationService {
             : 'runtime-binding-resolution',
     }));
 
-    const approvalTaskStateHints = approvalTaskRecords.map((task) => ({
+    const approvalTaskStateHints: OrchestrationApprovalTaskStateHintRecord[] = approvalTaskRecords.map((task) => ({
       taskKey: task.taskKey,
       taskStatus: task.taskStatus,
       nextTransitionType: task.required ? 'record-approval-decision' : 'optional-review',
       linkedRunKeys: task.linkedRunKeys,
     }));
 
-    const approvalDecisionOptions = approvalTaskRecords.map((task) => ({
+    const approvalDecisionOptions: OrchestrationApprovalDecisionOptionRecord[] = approvalTaskRecords.map((task) => ({
       taskKey: task.taskKey,
       dispatchKey: task.dispatchKey,
       decisionOptions: task.required
@@ -1342,24 +1521,25 @@ export class OrchestrationService {
       affectedRunKeys: task.linkedRunKeys,
     }));
 
-    const executionRunDispatchQueue = executionRunRecords.map((run) => ({
-      runKey: run.runKey,
-      runnerKey: run.runnerKey,
-      dispatchReadiness:
-        run.runStatus === 'queued-for-dispatch'
-          ? 'dispatchable'
-          : run.runStatus === 'awaiting-approval'
-            ? 'blocked-by-approval'
-            : 'blocked-by-binding',
-      nextTransitionKey:
-        executionRunStateHints.find((hint) => hint.runKey === run.runKey)
-          ?.nextTransitionKey ?? null,
-      workflowKey: run.workflowKey,
-      runtimeKey: run.runtimeKey,
-      systemKey: run.systemKey,
-    }));
+    const executionRunDispatchQueue: OrchestrationExecutionRunDispatchQueueRecord[] =
+      executionRunRecords.map((run) => ({
+        runKey: run.runKey,
+        runnerKey: run.runnerKey,
+        dispatchReadiness:
+          run.runStatus === 'queued-for-dispatch'
+            ? 'dispatchable'
+            : run.runStatus === 'awaiting-approval'
+              ? 'blocked-by-approval'
+              : 'blocked-by-binding',
+        nextTransitionKey:
+          executionRunStateHints.find((hint) => hint.runKey === run.runKey)
+            ?.nextTransitionKey ?? null,
+        workflowKey: run.workflowKey,
+        runtimeKey: run.runtimeKey,
+        systemKey: run.systemKey,
+      }));
 
-    const executionStateTransitionBatch = {
+    const executionStateTransitionBatch: OrchestrationExecutionStateTransitionBatch = {
       batchKey: `${input.planId}:execution-transition`,
       status: executionTransitionQueue.some(
         (transition) => transition.transitionStatus === 'blocked',
@@ -1375,8 +1555,8 @@ export class OrchestrationService {
       })),
     };
 
-    const projectedApprovalDecisionRecords = approvalDecisionOptions.map(
-      (option, index) => ({
+    const projectedApprovalDecisionRecords: OrchestrationProjectedApprovalDecisionRecord[] =
+      approvalDecisionOptions.map((option, index) => ({
         decisionRecordKey: `${input.planId}:approval-decision:${index + 1}`,
         taskKey: option.taskKey,
         dispatchKey: option.dispatchKey,
@@ -1384,11 +1564,10 @@ export class OrchestrationService {
         allowedDecisions: option.decisionOptions,
         projectedOutcomeStatus: 'awaiting-decision',
         affectedRunKeys: option.affectedRunKeys,
-      }),
-    );
+      }));
 
-    const projectedRunDispatchRecords = executionRunDispatchQueue.map(
-      (run, index) => ({
+    const projectedRunDispatchRecords: OrchestrationProjectedRunDispatchRecord[] =
+      executionRunDispatchQueue.map((run, index) => ({
         dispatchRecordKey: `${input.planId}:run-dispatch:${index + 1}`,
         runKey: run.runKey,
         runnerKey: run.runnerKey,
@@ -1401,30 +1580,33 @@ export class OrchestrationService {
         workflowKey: run.workflowKey,
         runtimeKey: run.runtimeKey,
         systemKey: run.systemKey,
-      }),
-    );
+      }));
 
-    const projectedMutationBatch = {
+    const projectedMutationBatch: OrchestrationProjectedMutationBatch = {
       batchKey: `${input.planId}:projected-mutation`,
       status: projectedRunDispatchRecords.some(
         (record) => record.projectedDispatchStatus === 'ready-to-dispatch',
       )
         ? 'partially-ready'
         : 'pending',
-      approvalDecisionRecords: projectedApprovalDecisionRecords.map((record) => ({
-        decisionRecordKey: record.decisionRecordKey,
-        projectedOutcomeStatus: record.projectedOutcomeStatus,
-        taskKey: record.taskKey,
-      })),
-      runDispatchRecords: projectedRunDispatchRecords.map((record) => ({
-        dispatchRecordKey: record.dispatchRecordKey,
-        projectedDispatchStatus: record.projectedDispatchStatus,
-        runKey: record.runKey,
-      })),
+      approvalDecisionRecords: projectedApprovalDecisionRecords.map(
+        (record): OrchestrationProjectedApprovalDecisionBatchRecord => ({
+          decisionRecordKey: record.decisionRecordKey,
+          projectedOutcomeStatus: record.projectedOutcomeStatus,
+          taskKey: record.taskKey,
+        }),
+      ),
+      runDispatchRecords: projectedRunDispatchRecords.map(
+        (record): OrchestrationProjectedRunDispatchBatchRecord => ({
+          dispatchRecordKey: record.dispatchRecordKey,
+          projectedDispatchStatus: record.projectedDispatchStatus,
+          runKey: record.runKey,
+        }),
+      ),
     };
 
-    const projectedApprovalOutcomeRecords = projectedApprovalDecisionRecords.map(
-      (record) => ({
+    const projectedApprovalOutcomeRecords: OrchestrationProjectedApprovalOutcomeRecord[] =
+      projectedApprovalDecisionRecords.map((record) => ({
         outcomeRecordKey: `${record.decisionRecordKey}:outcome`,
         decisionRecordKey: record.decisionRecordKey,
         taskKey: record.taskKey,
@@ -1434,11 +1616,10 @@ export class OrchestrationService {
             : 'approval-keeps-run-blocked',
         affectedRunKeys: record.affectedRunKeys,
         outcomeStatus: 'projected',
-      }),
-    );
+      }));
 
-    const projectedDispatchOutcomeRecords = projectedRunDispatchRecords.map(
-      (record) => ({
+    const projectedDispatchOutcomeRecords: OrchestrationProjectedDispatchOutcomeRecord[] =
+      projectedRunDispatchRecords.map((record) => ({
         outcomeRecordKey: `${record.dispatchRecordKey}:outcome`,
         dispatchRecordKey: record.dispatchRecordKey,
         runKey: record.runKey,
@@ -1448,25 +1629,29 @@ export class OrchestrationService {
             ? 'runner-may-enter-dispatched-state'
             : 'runner-remains-pending-prerequisite',
         outcomeStatus: 'projected',
-      }),
-    );
+      }));
 
-    const projectedOutcomeBatch = {
+    const projectedOutcomeBatch: OrchestrationProjectedOutcomeBatch = {
       batchKey: `${input.planId}:projected-outcome`,
       status: 'projected',
-      approvalOutcomes: projectedApprovalOutcomeRecords.map((record) => ({
-        outcomeRecordKey: record.outcomeRecordKey,
-        projectedResolution: record.projectedResolution,
-        taskKey: record.taskKey,
-      })),
-      dispatchOutcomes: projectedDispatchOutcomeRecords.map((record) => ({
-        outcomeRecordKey: record.outcomeRecordKey,
-        projectedResolution: record.projectedResolution,
-        runKey: record.runKey,
-      })),
+      approvalOutcomes: projectedApprovalOutcomeRecords.map(
+        (record): OrchestrationProjectedApprovalOutcomeBatchRecord => ({
+          outcomeRecordKey: record.outcomeRecordKey,
+          projectedResolution: record.projectedResolution,
+          taskKey: record.taskKey,
+        }),
+      ),
+      dispatchOutcomes: projectedDispatchOutcomeRecords.map(
+        (record): OrchestrationProjectedDispatchOutcomeBatchRecord => ({
+          outcomeRecordKey: record.outcomeRecordKey,
+          projectedResolution: record.projectedResolution,
+          runKey: record.runKey,
+        }),
+      ),
     };
 
-    const actionTransitionPolicies = executionActionRecords.map((action) => ({
+    const actionTransitionPolicies: OrchestrationActionTransitionPolicy[] =
+      executionActionRecords.map((action) => ({
       actionKey: action.actionKey,
       actionType: action.actionType,
       currentStatus: action.actionStatus,
@@ -1480,7 +1665,8 @@ export class OrchestrationService {
               : ['runtime-binding-resolved', 'cancelled'],
     }));
 
-    const runTransitionPolicies = executionRunRecords.map((run) => ({
+    const runTransitionPolicies: OrchestrationRunTransitionPolicy[] =
+      executionRunRecords.map((run) => ({
       runKey: run.runKey,
       currentStatus: run.runStatus,
       allowedNextStatuses:
@@ -1491,7 +1677,8 @@ export class OrchestrationService {
             : ['dispatched', 'dispatch-failed', 'cancelled'],
     }));
 
-    const approvalTaskTransitionPolicies = approvalTaskRecords.map((task) => ({
+    const approvalTaskTransitionPolicies: OrchestrationApprovalTaskTransitionPolicy[] =
+      approvalTaskRecords.map((task) => ({
       taskKey: task.taskKey,
       currentStatus: task.taskStatus,
       allowedNextStatuses: task.required
@@ -1499,27 +1686,15 @@ export class OrchestrationService {
         : ['approved', 'skipped', 'review-requested'],
     }));
 
-    const transitionPolicyBatch = {
+    const transitionPolicyBatch: OrchestrationTransitionPolicyBatch = {
       batchKey: `${input.planId}:transition-policy`,
       status: 'draft',
-      actionPolicies: actionTransitionPolicies.map((policy) => ({
-        actionKey: policy.actionKey,
-        currentStatus: policy.currentStatus,
-        allowedNextStatuses: policy.allowedNextStatuses,
-      })),
-      runPolicies: runTransitionPolicies.map((policy) => ({
-        runKey: policy.runKey,
-        currentStatus: policy.currentStatus,
-        allowedNextStatuses: policy.allowedNextStatuses,
-      })),
-      approvalTaskPolicies: approvalTaskTransitionPolicies.map((policy) => ({
-        taskKey: policy.taskKey,
-        currentStatus: policy.currentStatus,
-        allowedNextStatuses: policy.allowedNextStatuses,
-      })),
+      actionPolicies: actionTransitionPolicies,
+      runPolicies: runTransitionPolicies,
+      approvalTaskPolicies: approvalTaskTransitionPolicies,
     };
 
-    const projectedMutationContract = {
+    const projectedMutationContract: OrchestrationProjectedMutationContract = {
       contractKey: `${input.planId}:projected-mutation-contract`,
       status: 'draft',
       approvalDecisionCount: projectedApprovalDecisionRecords.length,
@@ -1608,7 +1783,7 @@ export class OrchestrationService {
       approvalTaskTransitionPolicies,
       transitionPolicyBatch,
       projectedMutationContract,
-      executionReadinessSummary: {
+      executionReadinessSummary: <OrchestrationExecutionReadinessSummary>{
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
         ).length,
@@ -1742,77 +1917,87 @@ export class OrchestrationService {
             : [],
         };
       }),
-      executionRunnerTopology: storedExecutionRunnerRecords.map((runner) => ({
-        runnerKey: runner.runnerKey,
-        contractKey: runner.contractKey,
-        runtimeBindingKey: runner.runtimeBindingKey,
-        workflowKey: runner.workflowKey,
-        runtimeKey: runner.runtimeKey,
-        systemKey: runner.systemKey,
-        triggerMode: runner.triggerMode,
-        runnerStatus: runner.runnerStatus,
-        readinessStatus: runner.readinessStatus,
-        nextActionKey:
-          executionActionRecords.find(
-            (action) => action.runnerKey === runner.runnerKey,
-          )?.actionKey ?? null,
-        linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
-        linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
-      })),
-      executionActionTopology: executionActionRecords.map((action) => ({
-        actionKey: action.actionKey,
-        actionType: action.actionType,
-        actionStatus: action.actionStatus,
-        actionTargetKey: action.actionTargetKey,
-        runnerKey: action.runnerKey,
-        contractKey: action.contractKey,
-        runtimeBindingKey: action.runtimeBindingKey,
-        readinessStatus: action.readinessStatus,
-        linkedApprovalDispatchKeys: action.linkedApprovalDispatchKeys,
-        linkedRollbackRecordKeys: action.linkedRollbackRecordKeys,
-      })),
-      executionRunTopology: executionRunRecords.map((run) => ({
-        runKey: run.runKey,
-        runnerKey: run.runnerKey,
-        contractKey: run.contractKey,
-        runtimeBindingKey: run.runtimeBindingKey,
-        workflowKey: run.workflowKey,
-        runtimeKey: run.runtimeKey,
-        systemKey: run.systemKey,
-        triggerMode: run.triggerMode,
-        runStatus: run.runStatus,
-        readinessStatus: run.readinessStatus,
-        nextActionKey: run.nextActionKey,
-        approvalTaskKeys: run.approvalTaskKeys,
-        rollbackRecordKeys: run.rollbackRecordKeys,
-      })),
-      approvalTaskQueue: approvalTaskRecords.map((task) => ({
-        taskKey: task.taskKey,
-        dispatchKey: task.dispatchKey,
-        checkpointKey: task.checkpointKey,
-        approverRole: task.approverRole,
-        channel: task.channel,
-        required: task.required,
-        taskStatus: task.taskStatus,
-        linkedChildContractKeys: task.linkedChildContractKeys,
-        linkedRunKeys: task.linkedRunKeys,
-      })),
-      executionRunnerHints: storedExecutionRunnerRecords.map((runner) => ({
-        contractKey: runner.contractKey,
-        runnerStatus: runner.runnerStatus,
-        readinessStatus: runner.readinessStatus,
-        nextActionKey:
-          executionActionRecords.find(
-            (action) => action.runnerKey === runner.runnerKey,
-          )?.actionKey ?? null,
-        workflowKey: runner.workflowKey,
-        runtimeKey: runner.runtimeKey,
-        systemKey: runner.systemKey,
-        triggerMode: runner.triggerMode,
-        runtimeBindingKey: runner.runtimeBindingKey,
-        linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
-        linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
-      })),
+      executionRunnerTopology: storedExecutionRunnerRecords.map(
+        (runner): OrchestrationExecutionRunnerTopologyRecord => ({
+          runnerKey: runner.runnerKey,
+          contractKey: runner.contractKey,
+          runtimeBindingKey: runner.runtimeBindingKey,
+          workflowKey: runner.workflowKey,
+          runtimeKey: runner.runtimeKey,
+          systemKey: runner.systemKey,
+          triggerMode: runner.triggerMode,
+          runnerStatus: runner.runnerStatus,
+          readinessStatus: runner.readinessStatus,
+          nextActionKey:
+            executionActionRecords.find(
+              (action) => action.runnerKey === runner.runnerKey,
+            )?.actionKey ?? null,
+          linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
+          linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
+        }),
+      ),
+      executionActionTopology: executionActionRecords.map(
+        (action): OrchestrationExecutionActionTopologyRecord => ({
+          actionKey: action.actionKey,
+          actionType: action.actionType,
+          actionStatus: action.actionStatus,
+          actionTargetKey: action.actionTargetKey,
+          runnerKey: action.runnerKey,
+          contractKey: action.contractKey,
+          runtimeBindingKey: action.runtimeBindingKey,
+          readinessStatus: action.readinessStatus,
+          linkedApprovalDispatchKeys: action.linkedApprovalDispatchKeys,
+          linkedRollbackRecordKeys: action.linkedRollbackRecordKeys,
+        }),
+      ),
+      executionRunTopology: executionRunRecords.map(
+        (run): OrchestrationExecutionRunTopologyRecord => ({
+          runKey: run.runKey,
+          runnerKey: run.runnerKey,
+          contractKey: run.contractKey,
+          runtimeBindingKey: run.runtimeBindingKey,
+          workflowKey: run.workflowKey,
+          runtimeKey: run.runtimeKey,
+          systemKey: run.systemKey,
+          triggerMode: run.triggerMode,
+          runStatus: run.runStatus,
+          readinessStatus: run.readinessStatus,
+          nextActionKey: run.nextActionKey,
+          approvalTaskKeys: run.approvalTaskKeys,
+          rollbackRecordKeys: run.rollbackRecordKeys,
+        }),
+      ),
+      approvalTaskQueue: approvalTaskRecords.map(
+        (task): OrchestrationApprovalTaskQueueRecord => ({
+          taskKey: task.taskKey,
+          dispatchKey: task.dispatchKey,
+          checkpointKey: task.checkpointKey,
+          approverRole: task.approverRole,
+          channel: task.channel,
+          required: task.required,
+          taskStatus: task.taskStatus,
+          linkedChildContractKeys: task.linkedChildContractKeys,
+          linkedRunKeys: task.linkedRunKeys,
+        }),
+      ),
+      executionRunnerHints: storedExecutionRunnerRecords.map(
+        (runner): OrchestrationExecutionRunnerHintRecord => ({
+          contractKey: runner.contractKey,
+          runnerStatus: runner.runnerStatus,
+          readinessStatus: runner.readinessStatus,
+          nextActionKey:
+            executionActionRecords.find(
+              (action) => action.runnerKey === runner.runnerKey,
+            )?.actionKey ?? null,
+          workflowKey: runner.workflowKey,
+          runtimeKey: runner.runtimeKey,
+          systemKey: runner.systemKey,
+          triggerMode: runner.triggerMode,
+          runtimeBindingKey: runner.runtimeBindingKey,
+          linkedApprovalDispatchKeys: runner.linkedApprovalDispatchKeys,
+          linkedRollbackRecordKeys: runner.linkedRollbackRecordKeys,
+        }),
+      ),
       contractSummary: {
         executionModeCount: draft.executionModes.length,
         runtimeBindingCount: draft.runtimeBindings.length,
@@ -1827,10 +2012,12 @@ export class OrchestrationService {
     };
   }
 
-  async materializeExecutionRuntime(input: OrchestrationRuntimeContextInput) {
+  async materializeExecutionRuntime(
+    input: OrchestrationRuntimeContextInput,
+  ): Promise<ReturnType<OrchestrationService['submitExecutionContract']> & OrchestrationMaterializedRuntimeResponse> {
     const submission = this.submitExecutionContract(input);
 
-    const approvalDispatchIntegrations = submission.approvalTaskQueue.map((task) => {
+    const approvalDispatchIntegrations: OrchestrationApprovalDispatchIntegrationRecord[] = submission.approvalTaskQueue.map((task) => {
       const decisionOption = submission.approvalDecisionOptions.find(
         (option) => option.taskKey === task.taskKey,
       );
@@ -1852,7 +2039,7 @@ export class OrchestrationService {
       };
     });
 
-    const executionRunnerIntegrations = submission.executionRunDispatchQueue.map((run) => {
+    const executionRunnerIntegrations: OrchestrationExecutionRunnerIntegrationRecord[] = submission.executionRunDispatchQueue.map((run) => {
       const runner = submission.executionRunnerTopology.find(
         (record) => record.runnerKey === run.runnerKey,
       );
@@ -1998,7 +2185,7 @@ export class OrchestrationService {
       },
     );
 
-    const liveMutationBatch = {
+    const liveMutationBatch: OrchestrationLiveMutationBatch = {
       batchKey: `${input.planId}:live-mutation`,
       status: executionRunnerIntegrations.some(
         (integration) => integration.integrationStatus === 'runner-dispatched',
@@ -2014,7 +2201,7 @@ export class OrchestrationService {
       executionRunnerRecords: executionRunnerMutationRecords,
     };
 
-    const liveRuntimeSummary = {
+    const liveRuntimeSummary: OrchestrationLiveRuntimeSummary = {
       dispatchedApprovalCount: approvalDispatchIntegrations.filter(
         (integration) => integration.integrationStatus === 'dispatched-for-approval',
       ).length,
@@ -2108,14 +2295,29 @@ export class OrchestrationService {
       );
     }
 
-    const materializedTaskStatus =
-      task.taskStatus === 'pending-approval'
+    const persistedTaskStatus = await this.findLatestPersistedMutationStatus({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targetType: 'approval-task',
+      targetKey: task.taskKey,
+    });
+    const persistedDispatchStatus = await this.findLatestPersistedMutationStatus({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targetType: 'approval-dispatch',
+      targetKey: task.dispatchKey,
+    });
+    const effectiveTaskStatus =
+      persistedTaskStatus ??
+      (task.taskStatus === 'pending-approval'
         ? 'awaiting-decision'
-        : task.taskStatus;
+        : task.taskStatus);
 
-    if (materializedTaskStatus !== 'awaiting-decision') {
+    if (effectiveTaskStatus !== 'awaiting-decision') {
       throw new BadRequestException(
-        `Approval task ${input.taskKey} is not awaiting a decision; current status is ${materializedTaskStatus}.`,
+        `Approval task ${input.taskKey} is not awaiting a decision; current status is ${effectiveTaskStatus}.`,
       );
     }
 
@@ -2142,33 +2344,67 @@ export class OrchestrationService {
         ? 'pending'
         : 'cancelled';
 
-    const affectedRunUpdates = task.linkedRunKeys.map((runKey) => {
-      const runIntegration = runtime.executionRunnerIntegrations.find(
+    const runIntegrations = task.linkedRunKeys.map((runKey) => ({
+      runKey,
+      runIntegration: runtime.executionRunnerIntegrations.find(
         (record) => record.runKey === runKey,
-      );
-
-      return {
-        runKey,
-        runnerKey: runIntegration?.runnerKey ?? null,
-        actionKey: runIntegration?.actionKey ?? null,
-        transitionKey: runIntegration?.transitionKey ?? null,
-        fromRunStatus: 'awaiting-approval',
-        toRunStatus: linkedRunStatus,
-        fromActionStatus: 'awaiting-approval-decision',
-        toActionStatus: linkedActionStatus,
-        fromTransitionStatus: 'awaiting-approval-decision',
-        toTransitionStatus: linkedTransitionStatus,
-        fromRunnerStatus: 'pending',
-        toRunnerStatus: linkedRunnerStatus,
-      };
+      ),
+    }));
+    const affectedRunMutationStatuses = await this.findLatestPersistedMutationStatuses({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targets: runIntegrations.flatMap(({ runKey, runIntegration }) => [
+        {
+          targetType: 'execution-run',
+          targetKey: runKey,
+        },
+        {
+          targetType: 'execution-action',
+          targetKey: runIntegration?.actionKey,
+        },
+        {
+          targetType: 'execution-transition',
+          targetKey: runIntegration?.transitionKey,
+        },
+        {
+          targetType: 'execution-runner',
+          targetKey: runIntegration?.runnerKey,
+        },
+      ]),
     });
+    const affectedRunUpdates = runIntegrations.map(({ runKey, runIntegration }) => ({
+      runKey,
+      runnerKey: runIntegration?.runnerKey ?? null,
+      actionKey: runIntegration?.actionKey ?? null,
+      transitionKey: runIntegration?.transitionKey ?? null,
+      fromRunStatus:
+        affectedRunMutationStatuses[`execution-run:${runKey}`] ??
+        'awaiting-approval',
+      toRunStatus: linkedRunStatus,
+      fromActionStatus:
+        affectedRunMutationStatuses[
+          `execution-action:${runIntegration?.actionKey ?? ''}`
+        ] ?? 'awaiting-approval-decision',
+      toActionStatus: linkedActionStatus,
+      fromTransitionStatus:
+        affectedRunMutationStatuses[
+          `execution-transition:${runIntegration?.transitionKey ?? ''}`
+        ] ?? 'awaiting-approval-decision',
+      toTransitionStatus: linkedTransitionStatus,
+      fromRunnerStatus:
+        affectedRunMutationStatuses[
+          `execution-runner:${runIntegration?.runnerKey ?? ''}`
+        ] ?? 'pending',
+      toRunnerStatus: linkedRunnerStatus,
+    }));
 
     const approvalDecisionMutations: OrchestrationRuntimeMutationRecord[] = [
       {
         mutationKey: `${task.dispatchKey}:decision-dispatch`,
         targetKey: task.dispatchKey,
         targetType: 'approval-dispatch',
-        fromStatus: 'dispatched',
+        fromStatus: persistedDispatchStatus ?? 'dispatched',
         toStatus: taskDecisionStatus,
         mutationStatus: 'applied',
       },
@@ -2176,7 +2412,7 @@ export class OrchestrationService {
         mutationKey: `${task.taskKey}:decision-task`,
         targetKey: task.taskKey,
         targetType: 'approval-task',
-        fromStatus: materializedTaskStatus,
+        fromStatus: effectiveTaskStatus,
         toStatus: taskDecisionStatus,
         mutationStatus: 'applied',
       },
@@ -2215,7 +2451,7 @@ export class OrchestrationService {
         },
       ]),
     ];
-    const approvalDecisionSummary = {
+    const approvalDecisionSummary: OrchestrationApprovalDecisionSummary = {
       approvedRunCount: input.decision === 'approve' ? affectedRunUpdates.length : 0,
       cancelledRunCount: input.decision === 'approve' ? 0 : affectedRunUpdates.length,
     };
@@ -2272,7 +2508,7 @@ export class OrchestrationService {
         decision: input.decision,
         taskStatus: taskDecisionStatus,
         decidedBy: actorKey,
-      },
+      } satisfies OrchestrationApprovalDecisionRecord,
       approvalDecisionMutations,
       approvalDecisionSummary,
       runtimeSnapshot,
@@ -2293,22 +2529,70 @@ export class OrchestrationService {
       );
     }
 
-    if (run.dispatchReadiness !== 'dispatchable') {
+    const persistedRunStatus = await this.findLatestPersistedMutationStatus({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targetType: 'execution-run',
+      targetKey: input.runKey,
+    });
+
+    if (
+      persistedRunStatus &&
+      persistedRunStatus !== 'queued-for-dispatch'
+    ) {
       throw new BadRequestException(
-        `Execution run ${input.runKey} is not dispatchable; current readiness is ${run.dispatchReadiness}.`,
+        `Execution run ${input.runKey} is not dispatchable; current status is ${persistedRunStatus}.`,
+      );
+    }
+
+    const effectiveDispatchReadiness =
+      run.dispatchReadiness === 'blocked-by-approval' &&
+      persistedRunStatus === 'queued-for-dispatch'
+        ? 'dispatchable'
+        : run.dispatchReadiness;
+
+    if (effectiveDispatchReadiness !== 'dispatchable') {
+      throw new BadRequestException(
+        `Execution run ${input.runKey} is not dispatchable; current readiness is ${effectiveDispatchReadiness}.`,
       );
     }
 
     const runIntegration = runtime.executionRunnerIntegrations.find(
       (record) => record.runKey === input.runKey,
     );
+    const persistedStatuses = await this.findLatestPersistedMutationStatuses({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      targets: [
+        {
+          targetType: 'execution-runner',
+          targetKey: run.runnerKey,
+        },
+        {
+          targetType: 'execution-action',
+          targetKey: runIntegration?.actionKey,
+        },
+        {
+          targetType: 'execution-transition',
+          targetKey: run.nextTransitionKey,
+        },
+      ],
+    });
+    const persistedRunnerStatus =
+      persistedStatuses[`execution-runner:${run.runnerKey}`];
+    const persistedActionStatus =
+      persistedStatuses[`execution-action:${runIntegration?.actionKey ?? ''}`];
+    const persistedTransitionStatus =
+      persistedStatuses[`execution-transition:${run.nextTransitionKey ?? ''}`];
 
     const executionDispatchMutations: OrchestrationRuntimeMutationRecord[] = [
       {
         mutationKey: `${run.runKey}:dispatch-run`,
         targetKey: run.runKey,
         targetType: 'execution-run',
-        fromStatus: 'queued-for-dispatch',
+        fromStatus: persistedRunStatus ?? 'queued-for-dispatch',
         toStatus: 'dispatched',
         mutationStatus: 'applied',
       },
@@ -2316,7 +2600,7 @@ export class OrchestrationService {
         mutationKey: `${run.runnerKey}:dispatch-runner`,
         targetKey: run.runnerKey,
         targetType: 'execution-runner',
-        fromStatus: 'pending',
+        fromStatus: persistedRunnerStatus ?? 'pending',
         toStatus: 'dispatched',
         mutationStatus: 'applied',
       },
@@ -2324,7 +2608,7 @@ export class OrchestrationService {
         mutationKey: `${runIntegration?.actionKey ?? run.runKey}:dispatch-action`,
         targetKey: runIntegration?.actionKey ?? null,
         targetType: 'execution-action',
-        fromStatus: 'dispatched',
+        fromStatus: persistedActionStatus ?? 'dispatched',
         toStatus: 'completed',
         mutationStatus: 'applied',
       },
@@ -2332,12 +2616,12 @@ export class OrchestrationService {
         mutationKey: `${run.nextTransitionKey ?? run.runKey}:dispatch-transition`,
         targetKey: run.nextTransitionKey ?? null,
         targetType: 'execution-transition',
-        fromStatus: 'applied',
+        fromStatus: persistedTransitionStatus ?? 'applied',
         toStatus: 'completed',
         mutationStatus: 'applied',
       },
     ];
-    const executionDispatchSummary = {
+    const executionDispatchSummary: OrchestrationExecutionDispatchSummary = {
       dispatchedRunCount: 1,
     };
     const recordedAt = this.buildRuntimeRecordedAt();
@@ -2392,12 +2676,75 @@ export class OrchestrationService {
         runtimeKey: run.runtimeKey,
         systemKey: run.systemKey,
         dispatchedBy: actorKey,
-      },
+      } satisfies OrchestrationExecutionDispatchRecord,
       executionDispatchMutations,
       executionDispatchSummary,
       runtimeSnapshot,
       runtimeEventRecords: [...(runtime.runtimeEventRecords ?? []), ...executionDispatchEvents],
       runtimePersistence: persistence,
+    };
+  }
+
+  async getExecutionRuntimeHistory(
+    input: OrchestrationRuntimeHistoryQuery,
+  ): Promise<OrchestrationRuntimeHistoryResponse> {
+    if (!this.runtimeHistory) {
+      return {
+        planId: input.planId,
+        contextScope: {
+          tenantSlug: input.tenantSlug,
+          workspaceSlug: input.workspaceSlug ?? null,
+        },
+        historyStatus: 'unavailable',
+        diagnosticsSummary: {
+          snapshotCount: 0,
+          eventCount: 0,
+          latestSnapshotType: null,
+          latestRuntimeStatus: null,
+          latestRecordedAt: null,
+          latestEventType: null,
+          latestEventRecordedAt: null,
+          mutatedTargetCount: 0,
+        },
+        latestSnapshot: null,
+        latestMutationByTarget: {},
+        snapshots: [],
+        events: [],
+      };
+    }
+
+    const history = await this.runtimeHistory.readRuntimeHistory({
+      planId: input.planId,
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      snapshotTake: input.snapshotTake,
+      eventTake: input.eventTake,
+    });
+
+    return {
+      planId: input.planId,
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+      historyStatus: history.latestSnapshot ? 'available' : 'empty',
+      diagnosticsSummary: {
+        snapshotCount: history.snapshots.length,
+        eventCount: history.events.length,
+        latestSnapshotType: history.latestSnapshot?.snapshotType ?? null,
+        latestRuntimeStatus: history.latestSnapshot?.runtimeStatus ?? null,
+        latestRecordedAt:
+          history.latestSnapshot?.recordedAt ?? history.latestSnapshot?.createdAt ?? null,
+        latestEventType: history.events[0]?.eventType ?? null,
+        latestEventRecordedAt: history.events[0]?.recordedAt ?? null,
+        mutatedTargetCount: Object.values(history.latestMutationByTarget).filter(
+          (mutation) => mutation !== null,
+        ).length,
+      },
+      latestSnapshot: history.latestSnapshot,
+      latestMutationByTarget: history.latestMutationByTarget,
+      snapshots: history.snapshots,
+      events: history.events,
     };
   }
 }

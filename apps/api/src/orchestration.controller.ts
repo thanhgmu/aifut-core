@@ -767,6 +767,56 @@ export class OrchestrationController {
     };
   }
 
+  @Get('plans/:planId/execution-runtime/history')
+  async getExecutionRuntimeHistory(
+    @Param('planId') planId: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('snapshotTake') snapshotTakeQuery?: string,
+    @Query('eventTake') eventTakeQuery?: string,
+  ) {
+    const context = await this.actorContext.resolve({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+    });
+
+    const parseOptionalPositiveInt = (value?: string) => {
+      if (!value) {
+        return undefined;
+      }
+
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    };
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-runtime-history-fetched',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      runtimeHistory: await this.orchestration.getExecutionRuntimeHistory({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        snapshotTake: parseOptionalPositiveInt(snapshotTakeQuery),
+        eventTake: parseOptionalPositiveInt(eventTakeQuery),
+      }),
+      next: ['approval-decision', 'runner-execution', 'verification-history'],
+    };
+  }
+
   @Get('roadmap')
   roadmap() {
     return {
