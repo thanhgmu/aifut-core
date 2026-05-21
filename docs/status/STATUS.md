@@ -12,6 +12,7 @@ Current architectural emphasis:
 - future hosting-affiliate and token-governance boundaries
 
 ## Latest confirmed milestones
+- `c7498a0` feat(api): align runtime lookup ordering with recorded time
 - working tree milestone: align latest runtime snapshot/mutation lookups to `recordedAt` ordering instead of `createdAt` fallback
 - `3537bd7` feat(api): persist runtime snapshot recorded timestamps
 - working tree milestone: persist orchestration runtime snapshot `recordedAt` and sort history by recorded time
@@ -92,7 +93,7 @@ Current architectural emphasis:
 
 ## Notes
 - Authoritative editable repo: `C:\Users\PC\.openclaw\workspace\aifut-core`
-- Latest checked local HEAD: working tree is ahead of `3537bd7` with a follow-on runtime-history lookup-alignment slice not yet committed at the time of this status note.
+- Latest checked local HEAD: `c7498a0` (`feat(api): align runtime lookup ordering with recorded time`).
 - Git safety checkpoint: the large local runtime lane was protected with backup branch `backup/2026-05-21-pre-sync` and tag `safety-pre-sync-2026-05-21` before sync; local and `origin/main` are now aligned.
 - Current checkpoint note: after the execution projection chain (`7b08e42` -> `01aaa60`), the orchestration layer now also exposes `materializeExecutionRuntime(...)` plus `POST /orchestration/plans/:planId/execution-runtime/activate`, materializing approval-dispatch integrations, runner-dispatch integrations, and live mutation batches from submitted execution contracts. That bridge is now extended with committed `applyApprovalDecision(...)` and `dispatchExecutionRun(...)` write paths plus matching controller/API surfaces for approval-decision and run-dispatch actions, a persistence-oriented runtime snapshot/event-record boundary, a Prisma-backed `OrchestrationRuntimeHistoryService`, schema models for runtime snapshots/events, a committed Prisma migration scaffold, a working runtime-history schema check entrypoint, verified local tables/columns for the runtime-history store, Prisma adapter plumbing for engine-type `client`, live local seed/exercise scripts, an explicit persisted-history progression fix so dispatch can honor the approval state already stored in runtime history, a `GET /orchestration/plans/:planId/execution-runtime/history` read surface that resolves tenant/workspace context before returning persisted snapshots/events, explicit typed-response coverage for materialized-runtime and persisted-history surfaces, per-target persisted-mutation lookup, batched persisted-mutation lookup for approval/dispatch progression, and focused test/build proof. This runtime-hardening checkpoint is now foundation-locked; the active next lane is deeper shared runtime DTO/contract expansion plus further persistence-first progression.
 - Older paths should not be treated as primary unless explicitly re-aligned.
