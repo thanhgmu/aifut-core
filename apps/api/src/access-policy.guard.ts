@@ -1,10 +1,16 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessPolicyService } from './access-policy.service';
 import {
   AccessPolicyRequirement,
   ACCESS_POLICY_METADATA_KEY,
 } from './access-policy.constants';
+import { verifyAuthToken } from './auth/jwt.util';
 
 type RequestWithContext = {
   headers?: Record<string, string | string[] | undefined>;
@@ -54,6 +60,7 @@ export class AccessPolicyGuard implements CanActivate {
           request.query?.hostname,
           request.body?.hostname,
         ),
+        authUserId: this.extractAuthUserId(request.headers?.authorization),
         enforceWorkspaceDomainMatch: true,
       },
       requirement,
@@ -61,6 +68,35 @@ export class AccessPolicyGuard implements CanActivate {
 
     request.accessPolicy = resolved;
     return true;
+  }
+
+  private extractAuthUserId(authorization?: string | string[]) {
+    const token = this.extractBearerToken(authorization);
+
+    if (!token) {
+      return undefined;
+    }
+
+    try {
+      return verifyAuthToken(token).sub;
+    } catch {
+      throw new UnauthorizedException('Invalid bearer token');
+    }
+  }
+
+  private extractBearerToken(value?: string | string[]) {
+    const authorization = this.pickString(value);
+
+    if (!authorization) {
+      return undefined;
+    }
+
+    const [type, token] = authorization.split(' ');
+    if (type !== 'Bearer' || !token) {
+      return undefined;
+    }
+
+    return token;
   }
 
   private pickString(...values: unknown[]) {
