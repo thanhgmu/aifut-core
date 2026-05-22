@@ -3,6 +3,7 @@ import { OrchestrationController } from './orchestration.controller';
 import { ActorContextService } from './actor-context.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { OrchestrationService } from './orchestration.service';
+import * as orchestrationAuthContext from './orchestration-auth-context.util';
 
 describe('OrchestrationController', () => {
   let controller: OrchestrationController;
@@ -70,6 +71,55 @@ describe('OrchestrationController', () => {
     }).compile();
 
     controller = module.get<OrchestrationController>(OrchestrationController);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should resolve orchestration context from bearer identity when explicit tenant/user headers are absent', async () => {
+    jest
+      .spyOn(orchestrationAuthContext, 'resolveAuthUserId')
+      .mockReturnValue('user_1');
+
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      user: { id: 'user_1', email: 'owner@acme.test' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildRoadmapDraft.mockReturnValue({
+      id: 'draft:acme:ops:roadmap',
+      sourceKind: 'note',
+      title: 'Runtime hardening',
+      interpretationStatus: 'pending',
+    });
+
+    await controller.ingestRoadmap(
+      {
+        title: 'Runtime hardening',
+        sourceKind: 'note',
+        content: 'Use bearer identity when available',
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'Bearer token-123',
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: undefined,
+      userEmail: undefined,
+      workspaceSlug: undefined,
+      hostname: undefined,
+      authUserId: 'user_1',
+    });
   });
 
   it('should estimate AI usage in resolved tenant/workspace context', async () => {

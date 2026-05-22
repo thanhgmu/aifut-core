@@ -10,6 +10,7 @@ import {
   OrchestrationRuntimeBindingInput,
 } from './orchestration-runtime.models';
 import { OrchestrationService } from './orchestration.service';
+import { resolveAuthUserId } from './orchestration-auth-context.util';
 
 @Controller('orchestration')
 export class OrchestrationController {
@@ -18,6 +19,24 @@ export class OrchestrationController {
     private readonly orchestration: OrchestrationService,
     private readonly aiTokenGovernance: AiTokenGovernanceService,
   ) {}
+
+  private resolveActorContext(input: {
+    authorizationHeader?: string;
+    tenantSlug?: string;
+    userEmail?: string;
+    workspaceSlug?: string;
+    hostname?: string;
+  }) {
+    const authUserId = resolveAuthUserId(input.authorizationHeader);
+
+    return this.actorContext.resolve({
+      tenantSlug: input.tenantSlug,
+      userEmail: input.userEmail,
+      workspaceSlug: input.workspaceSlug,
+      hostname: input.hostname,
+      ...(authUserId ? { authUserId } : {}),
+    });
+  }
 
   @Get('capabilities')
   capabilities() {
@@ -56,14 +75,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -110,14 +131,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -163,14 +186,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -216,14 +241,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -265,14 +292,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -314,14 +343,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -363,14 +394,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -447,14 +480,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -507,14 +542,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -536,7 +573,7 @@ export class OrchestrationController {
         approvalContracts: body.approvalContracts,
         escalationContracts: body.escalationContracts,
         rollbackContracts: body.rollbackContracts,
-        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
         submissionNotes: body.submissionNotes,
       }),
       next: ['execution-runner', 'approval-dispatch', 'verification-history'],
@@ -599,14 +636,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -628,7 +667,7 @@ export class OrchestrationController {
         approvalContracts: body.approvalContracts,
         escalationContracts: body.escalationContracts,
         rollbackContracts: body.rollbackContracts,
-        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
         submissionNotes: body.submissionNotes,
       }),
       next: ['approval-decision', 'runner-execution', 'verification-history'],
@@ -663,14 +702,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -692,11 +733,11 @@ export class OrchestrationController {
         approvalContracts: body.approvalContracts,
         escalationContracts: body.escalationContracts,
         rollbackContracts: body.rollbackContracts,
-        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
         submissionNotes: body.submissionNotes,
         taskKey: body.taskKey,
         decision: body.decision,
-        decidedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        decidedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
       }),
       next: ['runner-execution', 'verification-history'],
     };
@@ -729,14 +770,16 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug:
         tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
@@ -758,10 +801,10 @@ export class OrchestrationController {
         approvalContracts: body.approvalContracts,
         escalationContracts: body.escalationContracts,
         rollbackContracts: body.rollbackContracts,
-        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
         submissionNotes: body.submissionNotes,
         runKey: body.runKey,
-        dispatchedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+        dispatchedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
       }),
       next: ['verification-history', 'dispatch-outcome-tracking'],
     };
@@ -781,12 +824,14 @@ export class OrchestrationController {
     @Query('hostname') hostnameQuery?: string,
     @Query('snapshotTake') snapshotTakeQuery?: string,
     @Query('eventTake') eventTakeQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     const parseOptionalPositiveInt = (value?: string) => {
@@ -863,13 +908,15 @@ export class OrchestrationController {
     @Query('userEmail') userEmailQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
-    const context = await this.actorContext.resolve({
+    const context = await this.resolveActorContext({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
       userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
       workspaceSlug:
         workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
     });
 
     return {
