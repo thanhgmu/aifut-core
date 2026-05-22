@@ -7,6 +7,7 @@ export type ActorContextInput = {
   userEmail?: string;
   workspaceSlug?: string;
   hostname?: string;
+  authUserId?: string;
   enforceWorkspaceDomainMatch?: boolean;
 };
 
@@ -21,20 +22,21 @@ export class ActorContextService {
     const tenantSlug = input.tenantSlug?.trim().toLowerCase();
     const userEmail = input.userEmail?.trim().toLowerCase();
     const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
+    const authUserId = input.authUserId?.trim();
 
-    if (!tenantSlug && !input.hostname?.trim()) {
+    if (!tenantSlug && !input.hostname?.trim() && !authUserId) {
       throw new BadRequestException(
-        'Missing tenant slug or hostname. Provide x-tenant-slug, x-forwarded-host/host header, or matching query params.',
+        'Missing tenant slug, hostname, or auth user identity. Provide x-tenant-slug, x-forwarded-host/host header, a matching query param, or a verified auth token.',
       );
     }
 
-    if (!userEmail) {
+    if (!userEmail && !authUserId) {
       throw new BadRequestException(
-        'Missing user email. Provide x-user-email header or userEmail query param.',
+        'Missing user email or auth user identity. Provide x-user-email header, userEmail query param, or a verified auth token.',
       );
     }
 
-    const domainResolution = tenantSlug
+    const domainResolution = tenantSlug || authUserId
       ? null
       : await this.tenantDomainResolution.resolveHostname({
           hostname: input.hostname,
@@ -42,23 +44,72 @@ export class ActorContextService {
           enforceWorkspaceMatch: input.enforceWorkspaceDomainMatch,
         });
 
-    const resolvedTenantSlug = tenantSlug ?? domainResolution?.tenant.slug;
+    let tenant = null;
+    let user = null;
+    let usedAuthIdentityResolution = false;
+
+    if (authUserId) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          id: authUserId,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+
+      if (!user?.tenant) {
+        throw new NotFoundException(
+          `User not found for auth identity: ${authUserId}`,
+        );
+      }
+
+      if (userEmail && user.email !== userEmail) {
+        throw new NotFoundException(
+          `User ${userEmail} does not match the provided auth identity in tenant ${user.tenant.slug}`,
+        );
+      }
+
+      if (tenantSlug && user.tenant.slug !== tenantSlug) {
+        throw new NotFoundException(
+          `Auth identity tenant ${user.tenant.slug} does not match requested tenant ${tenantSlug}`,
+        );
+      }
+
+      tenant = user.tenant;
+      usedAuthIdentityResolution = true;
+    }
+
+    const resolvedTenantSlug = tenantSlug ?? tenant?.slug ?? domainResolution?.tenant.slug;
 
     if (!resolvedTenantSlug) {
       throw new BadRequestException(
-        'Unable to resolve tenant slug from the provided tenant slug or hostname.',
+        'Unable to resolve tenant slug from the provided tenant slug, hostname, or auth identity.',
       );
     }
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: resolvedTenantSlug },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        createdAt: true,
-      },
-    });
+    if (!tenant) {
+      tenant = await this.prisma.tenant.findUnique({
+        where: { slug: resolvedTenantSlug },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          createdAt: true,
+        },
+      });
+    }
 
     if (!tenant) {
       throw new NotFoundException(
@@ -66,18 +117,20 @@ export class ActorContextService {
       );
     }
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        tenantId: tenant.id,
-        email: userEmail,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-      },
-    });
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          email: userEmail,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+        },
+      });
+    }
 
     if (!user) {
       throw new NotFoundException(
@@ -150,6 +203,7 @@ export class ActorContextService {
         workspaceSlug: workspaceSlug ?? domainResolution?.workspace?.slug ?? null,
         hostname: domainResolution?.hostname ?? input.hostname?.trim().toLowerCase() ?? null,
         usedHostnameResolution: Boolean(domainResolution),
+        usedAuthIdentityResolution,
         usedDefaultWorkspace: Boolean(
           !workspaceSlug &&
             !domainResolution?.workspace &&

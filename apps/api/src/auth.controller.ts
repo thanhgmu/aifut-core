@@ -1,7 +1,21 @@
-import { Controller, Get, Headers, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Headers,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AccessPolicyService } from './access-policy.service';
 import { ActorContextService } from './actor-context.service';
 import { AUTH_FOUNDATION_ROADMAP } from './auth.constants';
+import { verifyAuthToken } from './auth/jwt.util';
+
+function extractBearerToken(authHeader?: string) {
+  if (!authHeader) return null;
+  const [type, token] = authHeader.split(' ');
+  if (type !== 'Bearer' || !token) return null;
+  return token;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -27,6 +41,7 @@ export class AuthController {
 
   @Get('context')
   async context(
+    @Headers('authorization') authorizationHeader?: string,
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
@@ -37,6 +52,9 @@ export class AuthController {
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
   ) {
+    const token = extractBearerToken(authorizationHeader);
+    const authUserId = token ? this.verifyTokenUserId(token) : undefined;
+
     return {
       capability: 'auth',
       status: 'resolved',
@@ -45,6 +63,7 @@ export class AuthController {
         userEmail: userEmailHeader ?? userEmailQuery,
         workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
         hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+        authUserId,
       }),
       next: ['session-issuance-and-rotation', 'request-guard-enforcement'],
     };
@@ -52,6 +71,7 @@ export class AuthController {
 
   @Get('me')
   async me(
+    @Headers('authorization') authorizationHeader?: string,
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
@@ -62,11 +82,15 @@ export class AuthController {
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
   ) {
+    const token = extractBearerToken(authorizationHeader);
+    const authUserId = token ? this.verifyTokenUserId(token) : undefined;
+
     const resolved = await this.accessPolicy.resolve({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
       hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authUserId,
     });
 
     return {
@@ -89,5 +113,13 @@ export class AuthController {
       capability: 'auth',
       roadmap: AUTH_FOUNDATION_ROADMAP,
     };
+  }
+
+  private verifyTokenUserId(token: string) {
+    try {
+      return verifyAuthToken(token).sub;
+    } catch {
+      throw new UnauthorizedException('Invalid bearer token');
+    }
   }
 }
