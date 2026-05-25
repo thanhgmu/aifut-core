@@ -862,6 +862,58 @@ export class OrchestrationController {
     };
   }
 
+  @Get('plans/:planId/execution-runtime/diagnostics')
+  async getExecutionRuntimeDiagnostics(
+    @Param('planId') planId: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('snapshotTake') snapshotTakeQuery?: string,
+    @Query('eventTake') eventTakeQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
+  ) {
+    const context = await this.resolveActorContext({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
+    });
+
+    const parseOptionalPositiveInt = (value?: string) => {
+      if (!value) {
+        return undefined;
+      }
+
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    };
+
+    return {
+      capability: 'orchestration',
+      status: 'execution-runtime-diagnostics-fetched',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      runtimeDiagnostics: await this.orchestration.getExecutionRuntimeDiagnostics({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        snapshotTake: parseOptionalPositiveInt(snapshotTakeQuery),
+        eventTake: parseOptionalPositiveInt(eventTakeQuery),
+      }),
+      next: ['approval-decision', 'runner-execution', 'verification-history'],
+    };
+  }
+
   @Get('roadmap')
   roadmap() {
     return {

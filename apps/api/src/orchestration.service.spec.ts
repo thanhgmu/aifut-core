@@ -3120,4 +3120,80 @@ describe('OrchestrationService', () => {
       workspaceSlug: 'ops',
     });
   });
+
+  it('should derive lightweight runtime diagnostics from persisted execution history', async () => {
+    const runtimeHistory = {
+      readRuntimeHistory: jest.fn().mockResolvedValue({
+        latestSnapshot: {
+          snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+          snapshotType: 'run-dispatch',
+          runtimeStatus: 'dispatch-applied',
+          recordedAt: '2026-05-07T00:46:00.000Z',
+        },
+        latestMutationByTarget: {
+          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
+            mutationKey:
+              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+            targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+            targetType: 'execution-run',
+            fromStatus: 'queued-for-dispatch',
+            toStatus: 'dispatched',
+            mutationStatus: 'applied',
+          },
+        },
+        snapshots: [
+          {
+            snapshotKey:
+              'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+            snapshotType: 'run-dispatch',
+          },
+        ],
+        events: [
+          {
+            eventKey:
+              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
+            eventType: 'execution-run-dispatched',
+            runtimeStatus: 'dispatch-applied',
+            recordedAt: '2026-05-07T00:46:05.000Z',
+          },
+        ],
+      }),
+    };
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
+
+    const result = await serviceWithHistory.getExecutionRuntimeDiagnostics({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:progression-runtime',
+      snapshotTake: 3,
+      eventTake: 5,
+    });
+
+    expect(result).toMatchObject({
+      planId: 'plan:acme:ops:progression-runtime',
+      historyStatus: 'available',
+      diagnosticsSummary: {
+        snapshotCount: 1,
+        eventCount: 1,
+        latestSnapshotType: 'run-dispatch',
+        latestEventType: 'execution-run-dispatched',
+        mutatedTargetCount: 1,
+      },
+      latestSnapshot: {
+        snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+        snapshotType: 'run-dispatch',
+      },
+      latestEvent: {
+        eventKey:
+          'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
+        eventType: 'execution-run-dispatched',
+      },
+    });
+    expect(result.contextScope).toEqual({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+    });
+  });
 });

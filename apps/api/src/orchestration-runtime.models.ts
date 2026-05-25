@@ -484,6 +484,25 @@ export interface OrchestrationRuntimeHistoryResponse {
   events: OrchestrationPersistedRuntimeEventRecord[];
 }
 
+export interface OrchestrationRuntimeDiagnosticsResponse {
+  planId: string;
+  contextScope: OrchestrationRuntimeScope;
+  historyStatus: 'unavailable' | 'empty' | 'available';
+  diagnosticsSummary: OrchestrationRuntimeDiagnosticsSummary;
+  latestSnapshot: {
+    snapshotKey: string;
+    snapshotType: OrchestrationRuntimeSnapshotType;
+    runtimeStatus: string;
+    recordedAt: string | null;
+  } | null;
+  latestEvent: {
+    eventKey: string;
+    eventType: string;
+    runtimeStatus: string;
+    recordedAt: string | null;
+  } | null;
+}
+
 export interface OrchestrationApprovalDispatchIntegrationRecord {
   integrationKey: string;
   dispatchKey: string;

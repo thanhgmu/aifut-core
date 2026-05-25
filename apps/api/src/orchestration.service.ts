@@ -38,6 +38,7 @@ import {
   OrchestrationMaterializedRuntimeResponse,
   OrchestrationPersistedRuntimeSnapshotRecord,
   OrchestrationRuntimeContractSummary,
+  OrchestrationRuntimeDiagnosticsResponse,
   OrchestrationRuntimeHistoryQuery,
   OrchestrationRuntimeHistoryResponse,
   OrchestrationRuntimeMutationRecord,
@@ -2745,6 +2746,38 @@ export class OrchestrationService {
       latestMutationByTarget: history.latestMutationByTarget,
       snapshots: history.snapshots,
       events: history.events,
+    };
+  }
+
+  async getExecutionRuntimeDiagnostics(
+    input: OrchestrationRuntimeHistoryQuery,
+  ): Promise<OrchestrationRuntimeDiagnosticsResponse> {
+    const history = await this.getExecutionRuntimeHistory(input);
+
+    return {
+      planId: history.planId,
+      contextScope: history.contextScope,
+      historyStatus: history.historyStatus,
+      diagnosticsSummary: history.diagnosticsSummary,
+      latestSnapshot: history.latestSnapshot
+        ? {
+            snapshotKey: history.latestSnapshot.snapshotKey,
+            snapshotType: history.latestSnapshot.snapshotType,
+            runtimeStatus: history.latestSnapshot.runtimeStatus,
+            recordedAt:
+              history.latestSnapshot.recordedAt ??
+              history.latestSnapshot.createdAt ??
+              null,
+          }
+        : null,
+      latestEvent: history.events[0]
+        ? {
+            eventKey: history.events[0].eventKey,
+            eventType: history.events[0].eventType,
+            runtimeStatus: history.events[0].runtimeStatus,
+            recordedAt: history.events[0].recordedAt ?? null,
+          }
+        : null,
     };
   }
 }

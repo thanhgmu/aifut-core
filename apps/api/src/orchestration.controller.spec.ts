@@ -22,6 +22,7 @@ describe('OrchestrationController', () => {
     applyApprovalDecision: jest.Mock;
     dispatchExecutionRun: jest.Mock;
     getExecutionRuntimeHistory: jest.Mock;
+    getExecutionRuntimeDiagnostics: jest.Mock;
   };
   let aiTokenGovernance: {
     previewRouting: jest.Mock;
@@ -47,6 +48,7 @@ describe('OrchestrationController', () => {
       applyApprovalDecision: jest.fn(),
       dispatchExecutionRun: jest.fn(),
       getExecutionRuntimeHistory: jest.fn(),
+      getExecutionRuntimeDiagnostics: jest.fn(),
     };
 
     aiTokenGovernance = {
@@ -3136,6 +3138,7 @@ describe('OrchestrationController', () => {
       userEmail: 'ops@acme.test',
       workspaceSlug: 'ops',
       hostname: 'ops.acme.test',
+      authorizationHeader: undefined,
     });
     expect(orchestration.getExecutionRuntimeHistory).toHaveBeenCalledWith({
       tenantSlug: 'acme',
@@ -3160,6 +3163,87 @@ describe('OrchestrationController', () => {
         },
         latestSnapshot: {
           snapshotKey: 'plan:acme:ops:runtime:run-dispatch:snapshot',
+        },
+      },
+    });
+  });
+
+  it('should fetch execution runtime diagnostics in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.getExecutionRuntimeDiagnostics.mockResolvedValue({
+      planId: 'plan:acme:ops:runtime',
+      historyStatus: 'available',
+      diagnosticsSummary: {
+        snapshotCount: 2,
+        eventCount: 3,
+        latestSnapshotType: 'run-dispatch',
+        latestRuntimeStatus: 'dispatch-applied',
+        latestRecordedAt: '2026-05-07T00:46:00.000Z',
+        latestEventType: 'execution-run-dispatched',
+        latestEventRecordedAt: '2026-05-07T00:46:05.000Z',
+        mutatedTargetCount: 1,
+      },
+      latestSnapshot: {
+        snapshotKey: 'plan:acme:ops:runtime:run-dispatch:snapshot',
+        snapshotType: 'run-dispatch',
+        runtimeStatus: 'dispatch-applied',
+        recordedAt: '2026-05-07T00:46:00.000Z',
+      },
+      latestEvent: {
+        eventKey: 'plan:acme:ops:runtime:child:1:runner:run:dispatch',
+        eventType: 'execution-run-dispatched',
+        runtimeStatus: 'dispatch-applied',
+        recordedAt: '2026-05-07T00:46:05.000Z',
+      },
+    });
+
+    const result = await controller.getExecutionRuntimeDiagnostics(
+      'plan:acme:ops:runtime',
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '5',
+      '7',
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+      authorizationHeader: undefined,
+    });
+    expect(orchestration.getExecutionRuntimeDiagnostics).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      snapshotTake: 5,
+      eventTake: 7,
+    });
+    expect(result).toMatchObject({
+      status: 'execution-runtime-diagnostics-fetched',
+      runtimeDiagnostics: {
+        historyStatus: 'available',
+        diagnosticsSummary: {
+          snapshotCount: 2,
+          eventCount: 3,
+          latestSnapshotType: 'run-dispatch',
+        },
+        latestSnapshot: {
+          snapshotKey: 'plan:acme:ops:runtime:run-dispatch:snapshot',
+        },
+        latestEvent: {
+          eventKey: 'plan:acme:ops:runtime:child:1:runner:run:dispatch',
         },
       },
     });
