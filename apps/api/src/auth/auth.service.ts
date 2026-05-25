@@ -3,9 +3,13 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { MembershipRole } from '@prisma/client';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
+import { promisify } from 'util';
 import { PrismaService } from '../prisma.service';
 import { signAuthToken } from './jwt.util';
+
+const scrypt = promisify(scryptCallback);
 
 function slugify(value: string) {
   return value
@@ -19,6 +23,29 @@ function slugify(value: string) {
 @Injectable()
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async hashPassword(password: string) {
+    const salt = randomBytes(16).toString('hex');
+    const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
+    return `${salt}:${derivedKey.toString('hex')}`;
+  }
+
+  private async verifyPassword(password: string, storedHash: string) {
+    const [salt, hashedValue] = storedHash.split(':');
+
+    if (!salt || !hashedValue) {
+      return false;
+    }
+
+    const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
+    const storedKey = Buffer.from(hashedValue, 'hex');
+
+    if (derivedKey.length !== storedKey.length) {
+      return false;
+    }
+
+    return timingSafeEqual(derivedKey, storedKey);
+  }
 
   private async buildAuthResponse(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -70,7 +97,7 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await this.hashPassword(input.password);
     const baseName =
       input.name?.trim() || email.split('@')[0] || 'workspace-owner';
     const tenantName = baseName;
@@ -113,18 +140,8 @@ export class AuthService {
         userId: user.id,
         tenantId: tenant.id,
         workspaceId: workspace.id,
-        role: 'OWNER',
+        role: MembershipRole.OWNER,
         isDefault: true,
-      },
-    });
-
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId: tenant.id,
-        actorUserId: user.id,
-        action: 'auth.register',
-        entityType: 'User',
-        entityId: user.id,
       },
     });
 
@@ -142,7 +159,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const ok = await bcrypt.compare(input.password, user.passwordHash);
+    const ok = await this.verifyPassword(input.password, user.passwordHash);
 
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');

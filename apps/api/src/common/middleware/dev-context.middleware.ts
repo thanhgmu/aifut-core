@@ -37,13 +37,12 @@ export class DevContextMiddleware implements NestMiddleware {
       return next();
     }
 
-    const membership = await this.prisma.membership.findUnique({
+    const membership = await this.prisma.membership.findFirst({
       where: {
-        userId_tenantId: {
-          userId: user.id,
-          tenantId: tenant.id,
-        },
+        userId: user.id,
+        tenantId: tenant.id,
       },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
 
     req.context = {
