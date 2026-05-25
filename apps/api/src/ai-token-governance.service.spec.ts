@@ -303,4 +303,43 @@ describe('AiTokenGovernanceService', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('should reject routing preview when package policy is missing', () => {
+    expect(() =>
+      service.previewRouting({
+        tenantSlug: 'acme',
+        packagePolicy: undefined as never,
+        modelPolicies: [
+          {
+            providerKey: 'openai',
+            modelKey: 'gpt-mini',
+          },
+        ],
+      }),
+    ).toThrow('AI package policy is required.');
+  });
+
+  it('should reject routing preview when model policies are missing', () => {
+    expect(() =>
+      service.previewRouting({
+        tenantSlug: 'acme',
+        packagePolicy: {
+          packageKey: 'starter',
+        },
+        modelPolicies: undefined as never,
+      }),
+    ).toThrow('At least one AI model policy is required.');
+  });
+
+  it('should reject usage estimate when model policy is missing', () => {
+    expect(() =>
+      service.estimateUsage({
+        tenantSlug: 'acme',
+        packagePolicy: {
+          packageKey: 'starter',
+        },
+        modelPolicy: undefined as never,
+      }),
+    ).toThrow('AI model policy is required.');
+  });
 });

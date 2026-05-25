@@ -118,6 +118,14 @@ export class AiTokenGovernanceService {
   }
 
   estimateUsage(input: AiUsageEstimateInput) {
+    if (!input.packagePolicy) {
+      throw new BadRequestException('AI package policy is required.');
+    }
+
+    if (!input.modelPolicy) {
+      throw new BadRequestException('AI model policy is required.');
+    }
+
     const packagePolicy = this.buildPackagePolicy(input.packagePolicy);
     const modelPolicy = this.buildModelPolicy(input.modelPolicy);
     const credentialMode = input.credentialMode ?? 'aifut-managed';
@@ -218,10 +226,19 @@ export class AiTokenGovernanceService {
   }
 
   previewRouting(input: AiRoutingPreviewInput) {
+    if (!input.packagePolicy) {
+      throw new BadRequestException('AI package policy is required.');
+    }
+
+    if (!Array.isArray(input.modelPolicies) || input.modelPolicies.length === 0) {
+      throw new BadRequestException('At least one AI model policy is required.');
+    }
+
     const packagePolicy = this.buildPackagePolicy(input.packagePolicy);
     const normalizedModels = input.modelPolicies.map((modelPolicy) =>
       this.buildModelPolicy(modelPolicy),
     );
+
 
     if (normalizedModels.length === 0) {
       throw new BadRequestException('At least one AI model policy is required.');
