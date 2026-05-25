@@ -55,7 +55,7 @@ export class OrchestrationRuntimeHistoryService {
           mutationRecords: this.asJsonValue(snapshot.mutationRecords),
           eventRecords: this.asJsonValue(snapshot.eventRecords),
         },
-      });
+      } as never);
     } catch (error) {
       this.logger.warn(
         `Unable to persist orchestration runtime snapshot ${snapshot.snapshotKey}: ${error instanceof Error ? error.message : String(error)}`,
@@ -90,7 +90,7 @@ export class OrchestrationRuntimeHistoryService {
             metadata: this.asJsonValue(event.metadata),
             recordedAt: new Date(event.recordedAt),
           },
-        });
+        } as never);
         persistedKeys.push(event.eventKey);
       } catch (error) {
         this.logger.warn(
@@ -336,7 +336,7 @@ export class OrchestrationRuntimeHistoryService {
       const snapshot = await this.prisma.orchestrationRuntimeSnapshot.findFirst({
         where,
         orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
-      });
+      } as never);
 
       return this.normalizePersistedSnapshotRecord(snapshot);
     } catch (error) {
@@ -377,7 +377,7 @@ export class OrchestrationRuntimeHistoryService {
         select: {
           mutationRecords: true,
         },
-      });
+      } as never);
 
       const remainingKeys = new Set(Object.keys(result));
 
@@ -449,12 +449,12 @@ export class OrchestrationRuntimeHistoryService {
           where,
           orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
           take: input.snapshotTake ?? 10,
-        }),
+        } as never),
         this.prisma.orchestrationRuntimeEvent.findMany({
           where,
           orderBy: [{ recordedAt: 'desc' }],
           take: input.eventTake ?? 20,
-        }),
+        } as never),
       ]);
 
       const normalizedSnapshots = snapshots

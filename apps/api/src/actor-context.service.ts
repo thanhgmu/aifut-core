@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
 
@@ -11,6 +12,53 @@ export type ActorContextInput = {
   enforceWorkspaceDomainMatch?: boolean;
 };
 
+export type ActorContextTenant = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: Date;
+};
+
+export type ActorContextUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: Date;
+};
+
+export type ActorContextWorkspace = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type ActorContextMembership = {
+  id: string;
+  role: MembershipRole;
+  isDefault: boolean;
+};
+
+export type ActorContextMembershipRecord = ActorContextMembership & {
+  workspace: ActorContextWorkspace | null;
+};
+
+export type ActorContextResolution = {
+  tenant: ActorContextTenant;
+  user: ActorContextUser;
+  activeWorkspace: ActorContextWorkspace | null;
+  activeMembership: ActorContextMembership | null;
+  memberships: ActorContextMembershipRecord[];
+  resolution: {
+    tenantSlug: string;
+    userEmail: string | undefined;
+    workspaceSlug: string | null;
+    hostname: string | null;
+    usedHostnameResolution: boolean;
+    usedAuthIdentityResolution: boolean;
+    usedDefaultWorkspace: boolean;
+  };
+};
+
 @Injectable()
 export class ActorContextService {
   constructor(
@@ -18,7 +66,7 @@ export class ActorContextService {
     private readonly tenantDomainResolution: TenantDomainResolutionService,
   ) {}
 
-  async resolve(input: ActorContextInput) {
+  async resolve(input: ActorContextInput): Promise<ActorContextResolution> {
     const tenantSlug = input.tenantSlug?.trim().toLowerCase();
     const userEmail = input.userEmail?.trim().toLowerCase();
     const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
@@ -44,12 +92,12 @@ export class ActorContextService {
           enforceWorkspaceMatch: input.enforceWorkspaceDomainMatch,
         });
 
-    let tenant = null;
-    let user = null;
+    let tenant: ActorContextTenant | null = null;
+    let user: ActorContextUser | null = null;
     let usedAuthIdentityResolution = false;
 
     if (authUserId) {
-      user = await this.prisma.user.findFirst({
+      const authResolvedUser = await this.prisma.user.findFirst({
         where: {
           id: authUserId,
         },
@@ -69,25 +117,31 @@ export class ActorContextService {
         },
       });
 
-      if (!user?.tenant) {
+      if (!authResolvedUser?.tenant) {
         throw new NotFoundException(
           `User not found for auth identity: ${authUserId}`,
         );
       }
 
-      if (userEmail && user.email !== userEmail) {
+      if (userEmail && authResolvedUser.email !== userEmail) {
         throw new NotFoundException(
-          `User ${userEmail} does not match the provided auth identity in tenant ${user.tenant.slug}`,
+          `User ${userEmail} does not match the provided auth identity in tenant ${authResolvedUser.tenant.slug}`,
         );
       }
 
-      if (tenantSlug && user.tenant.slug !== tenantSlug) {
+      if (tenantSlug && authResolvedUser.tenant.slug !== tenantSlug) {
         throw new NotFoundException(
-          `Auth identity tenant ${user.tenant.slug} does not match requested tenant ${tenantSlug}`,
+          `Auth identity tenant ${authResolvedUser.tenant.slug} does not match requested tenant ${tenantSlug}`,
         );
       }
 
-      tenant = user.tenant;
+      user = {
+        id: authResolvedUser.id,
+        email: authResolvedUser.email,
+        name: authResolvedUser.name,
+        createdAt: authResolvedUser.createdAt,
+      };
+      tenant = authResolvedUser.tenant;
       usedAuthIdentityResolution = true;
     }
 
