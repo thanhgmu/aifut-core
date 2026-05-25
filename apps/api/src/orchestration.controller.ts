@@ -870,6 +870,87 @@ export class OrchestrationController {
     };
   }
 
+  @Post('ai/routing-preview')
+  async previewAiRouting(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      packagePolicy: {
+        packageKey?: string;
+        includedMonthlyTokens?: number;
+        allowByoKeys?: boolean;
+        platformFeePercentForByo?: number;
+        hardMonthlyTokenLimit?: number;
+        allowedModelKeys?: string[];
+      };
+      modelPolicies: Array<{
+        providerKey?: string;
+        modelKey?: string;
+        inputTokenCost?: number;
+        outputTokenCost?: number;
+        markupPercent?: number;
+        currency?: string;
+        allowedCredentialModes?: Array<'aifut-managed' | 'byo'>;
+      }>;
+      taskType?: string;
+      riskLevel?: 'low' | 'medium' | 'high';
+      qualityRequirement?: 'economy' | 'balanced' | 'premium';
+      latencyBudget?: 'interactive' | 'background';
+      costBudgetClass?: 'strict-economy' | 'balanced' | 'premium-controlled';
+      preferCredentialMode?: 'aifut-managed' | 'byo';
+      deterministicEligible?: boolean;
+      cacheHitAvailable?: boolean;
+      quotaPressure?: 'normal' | 'near-limit' | 'hard-limit';
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
+  ) {
+    const context = await this.resolveActorContext({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'ai-routing-previewed',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      aiRoutingPreview: this.aiTokenGovernance.previewRouting({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        packagePolicy: body.packagePolicy,
+        modelPolicies: body.modelPolicies,
+        taskType: body.taskType,
+        riskLevel: body.riskLevel,
+        qualityRequirement: body.qualityRequirement,
+        latencyBudget: body.latencyBudget,
+        costBudgetClass: body.costBudgetClass,
+        preferCredentialMode: body.preferCredentialMode,
+        deterministicEligible: body.deterministicEligible,
+        cacheHitAvailable: body.cacheHitAvailable,
+        quotaPressure: body.quotaPressure,
+      }),
+      next: ['model-routing', 'package-quota-enforcement', 'usage-estimation'],
+    };
+  }
+
   @Post('ai/usage-estimate')
   async estimateAiUsage(
     @Body()

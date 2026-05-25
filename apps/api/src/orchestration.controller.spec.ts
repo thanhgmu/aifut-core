@@ -24,6 +24,7 @@ describe('OrchestrationController', () => {
     getExecutionRuntimeHistory: jest.Mock;
   };
   let aiTokenGovernance: {
+    previewRouting: jest.Mock;
     estimateUsage: jest.Mock;
   };
 
@@ -49,6 +50,7 @@ describe('OrchestrationController', () => {
     };
 
     aiTokenGovernance = {
+      previewRouting: jest.fn(),
       estimateUsage: jest.fn(),
     };
 
@@ -119,6 +121,118 @@ describe('OrchestrationController', () => {
       workspaceSlug: undefined,
       hostname: undefined,
       authUserId: 'user_1',
+    });
+  });
+
+  it('should preview AI routing in resolved tenant/workspace context', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    aiTokenGovernance.previewRouting.mockReturnValue({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      packageKey: 'operator-pro',
+      routingDecision: 'model-inference-lane',
+      recommendedTier: 'tier-2',
+      selectedModel: {
+        providerKey: 'openai',
+        modelKey: 'gpt-balanced',
+      },
+    });
+
+    const result = await controller.previewAiRouting(
+      {
+        packagePolicy: {
+          packageKey: 'operator-pro',
+          allowByoKeys: true,
+          allowedModelKeys: ['gpt-balanced', 'gpt-mini'],
+        },
+        modelPolicies: [
+          {
+            providerKey: 'openai',
+            modelKey: 'gpt-balanced',
+            inputTokenCost: 0.000002,
+            outputTokenCost: 0.000006,
+            allowedCredentialModes: ['aifut-managed', 'byo'],
+          },
+          {
+            providerKey: 'openai',
+            modelKey: 'gpt-mini',
+            inputTokenCost: 0.000001,
+            outputTokenCost: 0.000002,
+            allowedCredentialModes: ['aifut-managed'],
+          },
+        ],
+        taskType: 'workflow-draft-generation',
+        riskLevel: 'medium',
+        qualityRequirement: 'balanced',
+        latencyBudget: 'interactive',
+        costBudgetClass: 'balanced',
+        preferCredentialMode: 'byo',
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+    });
+    expect(aiTokenGovernance.previewRouting).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      packagePolicy: {
+        packageKey: 'operator-pro',
+        allowByoKeys: true,
+        allowedModelKeys: ['gpt-balanced', 'gpt-mini'],
+      },
+      modelPolicies: [
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-balanced',
+          inputTokenCost: 0.000002,
+          outputTokenCost: 0.000006,
+          allowedCredentialModes: ['aifut-managed', 'byo'],
+        },
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-mini',
+          inputTokenCost: 0.000001,
+          outputTokenCost: 0.000002,
+          allowedCredentialModes: ['aifut-managed'],
+        },
+      ],
+      taskType: 'workflow-draft-generation',
+      riskLevel: 'medium',
+      qualityRequirement: 'balanced',
+      latencyBudget: 'interactive',
+      costBudgetClass: 'balanced',
+      preferCredentialMode: 'byo',
+      deterministicEligible: undefined,
+      cacheHitAvailable: undefined,
+      quotaPressure: undefined,
+    });
+    expect(result).toMatchObject({
+      status: 'ai-routing-previewed',
+      aiRoutingPreview: {
+        packageKey: 'operator-pro',
+        recommendedTier: 'tier-2',
+        selectedModel: {
+          modelKey: 'gpt-balanced',
+        },
+      },
+      next: ['model-routing', 'package-quota-enforcement', 'usage-estimation'],
     });
   });
 

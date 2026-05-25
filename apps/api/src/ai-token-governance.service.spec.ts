@@ -172,6 +172,91 @@ describe('AiTokenGovernanceService', () => {
     expect(result.estimatedCharge).toBeCloseTo(0.0036);
   });
 
+  it('should preview deterministic routing when a task can avoid model usage', () => {
+    const result = service.previewRouting({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      packagePolicy: {
+        packageKey: 'operator-pro',
+        allowByoKeys: true,
+      },
+      modelPolicies: [
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-mini',
+          inputTokenCost: 0.000001,
+          outputTokenCost: 0.000002,
+          allowedCredentialModes: ['aifut-managed', 'byo'],
+        },
+      ],
+      taskType: 'intent-classification',
+      riskLevel: 'low',
+      qualityRequirement: 'economy',
+      deterministicEligible: true,
+    });
+
+    expect(result).toMatchObject({
+      routingDecision: 'deterministic-lane',
+      recommendedTier: 'tier-0',
+      executionMode: 'no-model',
+      selectedModel: null,
+    });
+  });
+
+  it('should preview a cheapest sufficient routed model under quota pressure', () => {
+    const result = service.previewRouting({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      packagePolicy: {
+        packageKey: 'operator-pro',
+        allowByoKeys: true,
+        allowedModelKeys: ['gpt-mini', 'gpt-balanced', 'gpt-5-reasoner'],
+      },
+      modelPolicies: [
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-5-reasoner',
+          inputTokenCost: 0.00001,
+          outputTokenCost: 0.00002,
+          allowedCredentialModes: ['aifut-managed'],
+        },
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-balanced',
+          inputTokenCost: 0.000002,
+          outputTokenCost: 0.000006,
+          allowedCredentialModes: ['aifut-managed', 'byo'],
+        },
+        {
+          providerKey: 'openai',
+          modelKey: 'gpt-mini',
+          inputTokenCost: 0.000001,
+          outputTokenCost: 0.000002,
+          allowedCredentialModes: ['aifut-managed', 'byo'],
+        },
+      ],
+      taskType: 'workflow-draft-generation',
+      riskLevel: 'medium',
+      qualityRequirement: 'balanced',
+      costBudgetClass: 'balanced',
+      quotaPressure: 'near-limit',
+      preferCredentialMode: 'byo',
+    });
+
+    expect(result).toMatchObject({
+      routingDecision: 'model-inference-lane',
+      recommendedTier: 'tier-1',
+      recommendedCredentialMode: 'byo',
+      selectedModel: {
+        modelKey: 'gpt-mini',
+        heuristicTier: 1,
+      },
+    });
+    expect(result.reasoning).toContain(
+      'Cost posture is balanced with near-limit quota pressure.',
+    );
+  });
+
   it('should reject BYO usage when the package does not allow user-managed AI keys', () => {
     expect(() =>
       service.estimateUsage({
