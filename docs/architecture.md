@@ -58,3 +58,7 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 3. Auth skeleton
 4. Better error handling and validation
 5. Additional tenant-admin endpoints as needed
+
+## Architecture North Star
+- See `docs/architecture/north-star-architecture-statement.md` for the frozen long-term architectural target and core design principles that should constrain future modules, integrations, and UX decisions.
+- See `docs/architecture/decisions/0006-architecture-decision-set-v1.md` for the first explicit decision set covering canonical object design, process/workflow modeling, integration/data-sync rules, and natural-language-to-execution constraints.
