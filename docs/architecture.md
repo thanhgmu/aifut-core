@@ -65,3 +65,5 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 - See `docs/architecture/resource-integration-strategy-v1.md` for the current recommended role/scope boundaries for n8n, OpenClaw, Perfex/NexovaFlow, aff.nexovaflow.com, MagiCA, and future user-supplied systems.
 - See `docs/architecture/application-integration-intake-template.md` for the structured template to assess each application before integration work starts.
 - See `docs/architecture/canonical-object-starter-set-v1.md` for the first explicit object-ownership split between AIFUT core, reference/summary objects, and external/domain-owned objects.
+- See `docs/roadmap/fastest-safe-operational-path-v1.md` for the recommended immediate path to get AIFUT operating as fast as possible without breaking the architecture.
+- See `docs/architecture/canonical-object-starter-schema-v1.md` for the first execution-ready schema baseline covering core fields, ownership, source-of-truth, sync direction, and build phase for starter objects.
