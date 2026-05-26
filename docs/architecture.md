@@ -62,3 +62,5 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 ## Architecture North Star
 - See `docs/architecture/north-star-architecture-statement.md` for the frozen long-term architectural target and core design principles that should constrain future modules, integrations, and UX decisions.
 - See `docs/architecture/decisions/0006-architecture-decision-set-v1.md` for the first explicit decision set covering canonical object design, process/workflow modeling, integration/data-sync rules, and natural-language-to-execution constraints.
+- See `docs/architecture/resource-integration-strategy-v1.md` for the current recommended role/scope boundaries for n8n, OpenClaw, Perfex/NexovaFlow, aff.nexovaflow.com, MagiCA, and future user-supplied systems.
+- See `docs/architecture/application-integration-intake-template.md` for the structured template to assess each application before integration work starts.
