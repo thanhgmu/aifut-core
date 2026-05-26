@@ -67,3 +67,4 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 - See `docs/architecture/canonical-object-starter-set-v1.md` for the first explicit object-ownership split between AIFUT core, reference/summary objects, and external/domain-owned objects.
 - See `docs/roadmap/fastest-safe-operational-path-v1.md` for the recommended immediate path to get AIFUT operating as fast as possible without breaking the architecture.
 - See `docs/architecture/canonical-object-starter-schema-v1.md` for the first execution-ready schema baseline covering core fields, ownership, source-of-truth, sync direction, and build phase for starter objects.
+- See `docs/architecture/adapter-plan-v1.md` for the first practical adapter slicing plan across OpenClaw, n8n, MagiCA, aff.nexovaflow.com, and Perfex/NexovaFlow.
