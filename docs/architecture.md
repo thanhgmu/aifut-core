@@ -64,3 +64,4 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 - See `docs/architecture/decisions/0006-architecture-decision-set-v1.md` for the first explicit decision set covering canonical object design, process/workflow modeling, integration/data-sync rules, and natural-language-to-execution constraints.
 - See `docs/architecture/resource-integration-strategy-v1.md` for the current recommended role/scope boundaries for n8n, OpenClaw, Perfex/NexovaFlow, aff.nexovaflow.com, MagiCA, and future user-supplied systems.
 - See `docs/architecture/application-integration-intake-template.md` for the structured template to assess each application before integration work starts.
+- See `docs/architecture/canonical-object-starter-set-v1.md` for the first explicit object-ownership split between AIFUT core, reference/summary objects, and external/domain-owned objects.
