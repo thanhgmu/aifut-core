@@ -188,6 +188,8 @@ export class IntegrationsController {
     @Headers('x-forwarded-host') forwardedHostHeader?: string,
     @Headers('host') hostHeader?: string,
     @Query('connectorKey') connectorKey?: string,
+    @Query('appDefinitionKey') appDefinitionKey?: string,
+    @Query('adapterContractKey') adapterContractKey?: string,
     @Query('tenantSlug') tenantSlugQuery?: string,
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('userEmail') userEmailQuery?: string,
@@ -196,6 +198,8 @@ export class IntegrationsController {
   ) {
     return this.integrationSetup.buildSetupSession({
       connectorKey,
+      appDefinitionKey,
+      adapterContractKey,
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,

@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ADAPTER_CONTRACT_FOUNDATION } from './adapter-contracts.constants';
+import { APP_DEFINITION_FOUNDATION } from './app-definitions.constants';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
@@ -16,6 +18,8 @@ export class IntegrationSetupService {
 
   async buildSetupSession(input: {
     connectorKey?: string;
+    appDefinitionKey?: string;
+    adapterContractKey?: string;
     tenantSlug?: string;
     workspaceSlug?: string;
     userEmail?: string;
@@ -23,17 +27,54 @@ export class IntegrationSetupService {
     storagePolicyKey?: string;
   }) {
     const connectorKey = input.connectorKey?.trim().toLowerCase();
+    const appDefinitionKey = input.appDefinitionKey?.trim().toLowerCase();
+    const adapterContractKey = input.adapterContractKey?.trim().toLowerCase();
 
-    if (!connectorKey) {
-      throw new BadRequestException('Missing connectorKey.');
+    const adapterContract = adapterContractKey
+      ? ADAPTER_CONTRACT_FOUNDATION.find(
+          (candidate) => candidate.key === adapterContractKey,
+        ) ?? null
+      : null;
+
+    if (adapterContractKey && !adapterContract) {
+      throw new NotFoundException(
+        `Adapter contract not found for key: ${adapterContractKey}`,
+      );
+    }
+
+    const appDefinition = appDefinitionKey
+      ? APP_DEFINITION_FOUNDATION.find(
+          (candidate) => candidate.key === appDefinitionKey,
+        ) ?? null
+      : adapterContract
+        ? APP_DEFINITION_FOUNDATION.find(
+            (candidate) => candidate.key === adapterContract.appDefinitionKey,
+          ) ?? null
+        : null;
+
+    if (appDefinitionKey && !appDefinition) {
+      throw new NotFoundException(
+        `App definition not found for key: ${appDefinitionKey}`,
+      );
+    }
+
+    const resolvedConnectorKey =
+      connectorKey ?? adapterContract?.connectorKey ?? appDefinition?.connectorKey ?? null;
+
+    if (!resolvedConnectorKey) {
+      throw new BadRequestException(
+        'Missing connectorKey, appDefinitionKey, or adapterContractKey.',
+      );
     }
 
     const connector = CONNECTOR_REGISTRY_FOUNDATION.find(
-      (candidate) => candidate.key === connectorKey,
+      (candidate) => candidate.key === resolvedConnectorKey,
     );
 
     if (!connector) {
-      throw new NotFoundException(`Connector not found for key: ${connectorKey}`);
+      throw new NotFoundException(
+        `Connector not found for key: ${resolvedConnectorKey}`,
+      );
     }
 
     const infrastructureProfile = input.tenantSlug
@@ -69,6 +110,26 @@ export class IntegrationSetupService {
         capabilities: connector.capabilities,
         audience: connector.audience,
       },
+      appDefinition: appDefinition
+        ? {
+            key: appDefinition.key,
+            name: appDefinition.name,
+            role: appDefinition.role,
+            status: appDefinition.status,
+            capabilityContractKeys: appDefinition.capabilityContractKeys,
+          }
+        : null,
+      adapterContract: adapterContract
+        ? {
+            key: adapterContract.key,
+            status: adapterContract.status,
+            operationMode: adapterContract.operationMode,
+            capabilities: adapterContract.capabilities,
+            requiredInputs: adapterContract.requiredInputs,
+            outputArtifacts: adapterContract.outputArtifacts,
+            safetyBoundaries: adapterContract.safetyBoundaries,
+          }
+        : null,
       context: {
         tenantSlug: input.tenantSlug?.trim().toLowerCase() ?? null,
         workspaceSlug: input.workspaceSlug?.trim().toLowerCase() ?? null,
@@ -105,9 +166,11 @@ export class IntegrationSetupService {
           key: 'choose-connection-template',
           title: 'Choose provider template',
           goal: 'Start from a known connector contract instead of building from scratch.',
-          inputs: ['connectorKey'],
+          inputs: ['connectorKey', 'appDefinitionKey', 'adapterContractKey'],
           defaults: {
             connectorKey: connector.key,
+            appDefinitionKey: appDefinition?.key ?? null,
+            adapterContractKey: adapterContract?.key ?? null,
           },
           validations: ['connector-supported'],
         },
@@ -133,7 +196,10 @@ export class IntegrationSetupService {
           outputs: ['connection-record', 'recommended-next-actions'],
         },
       ],
-      generatedQuestions: this.buildGeneratedQuestions(connector.category),
+      generatedQuestions: this.buildGeneratedQuestions(
+        connector.category,
+        appDefinition?.role ?? null,
+      ),
       recommendedDiagnostics: [
         'auth-check',
         'endpoint-reachability',
@@ -185,7 +251,7 @@ export class IntegrationSetupService {
     };
   }
 
-  private buildGeneratedQuestions(category: string) {
+  private buildGeneratedQuestions(category: string, appRole?: string | null) {
     const shared = [
       'What domain or base URL should the core connect to?',
       'Which authentication method do you want to use?',
@@ -216,7 +282,31 @@ export class IntegrationSetupService {
       ],
     };
 
-    return [...shared, ...(categorySpecific[category] ?? categorySpecific.custom)];
+    const roleSpecific: Record<string, string[]> = {
+      'agent-runtime': [
+        'What should users be able to create or ask in natural language first?',
+        'Which actions must stay approval-gated before autonomous execution?',
+      ],
+      'workflow-runtime': [
+        'Which child workflows should be generated from natural language first?',
+        'Which runtime events must come back into AIFUT as canonical summaries?',
+      ],
+      'generation-engine': [
+        'Which content or asset types should users be able to generate first?',
+      ],
+      'affiliate-engine': [
+        'Which campaign or referral summaries should be surfaced first?',
+      ],
+      'crm-domain': [
+        'Which CRM summaries and safe actions should natural-language users get first?',
+      ],
+    };
+
+    return [
+      ...shared,
+      ...(categorySpecific[category] ?? categorySpecific.custom),
+      ...((appRole && roleSpecific[appRole]) ?? []),
+    ];
   }
 
   private getRequiredFieldsForAuthMode(mode: string) {
