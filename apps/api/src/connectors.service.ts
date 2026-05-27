@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
+  APP_DEFINITION_FOUNDATION,
+  APP_DEFINITION_ROADMAP,
+  APP_DEFINITION_ROLES,
+  APP_DEFINITION_STATUS,
+} from './app-definitions.constants';
+import {
   CONNECTOR_AUTH_MODES,
   CONNECTOR_CATEGORIES,
   CONNECTOR_REGISTRY_FOUNDATION,
@@ -16,6 +22,15 @@ export class ConnectorsService {
       syncDirections: CONNECTOR_SYNC_DIRECTIONS,
       connectors: CONNECTOR_REGISTRY_FOUNDATION,
       next: CONNECTOR_REGISTRY_ROADMAP,
+    };
+  }
+
+  listAppDefinitions() {
+    return {
+      roles: APP_DEFINITION_ROLES,
+      statuses: APP_DEFINITION_STATUS,
+      appDefinitions: APP_DEFINITION_FOUNDATION,
+      next: APP_DEFINITION_ROADMAP,
     };
   }
 

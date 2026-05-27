@@ -14,6 +14,15 @@ export class ConnectorsController {
     };
   }
 
+  @Get('app-definitions')
+  appDefinitions() {
+    return {
+      capability: 'connectors',
+      status: 'foundation',
+      appDefinitions: this.connectorsService.listAppDefinitions(),
+    };
+  }
+
   @Get('templates')
   templates() {
     return {
