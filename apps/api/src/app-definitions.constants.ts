@@ -27,6 +27,7 @@ export const APP_DEFINITION_FOUNDATION = [
       'generate-recommendation',
       'explain-remediation',
     ],
+    capabilityContractKeys: ['openclaw-intent-drafting'],
     minimumSlice: [
       'structured-prompt-ingestion',
       'normalized-json-draft-output',
@@ -53,6 +54,7 @@ export const APP_DEFINITION_FOUNDATION = [
       'fetch-runtime-status',
       'fetch-run-summary',
     ],
+    capabilityContractKeys: ['n8n-runtime-handoff'],
     minimumSlice: [
       'compile-child-workflow-artifact',
       'deploy-runtime-artifact',
@@ -78,6 +80,7 @@ export const APP_DEFINITION_FOUNDATION = [
       'fetch-generation-outputs',
       'fetch-template-refs',
     ],
+    capabilityContractKeys: ['magica-generation-job'],
     minimumSlice: [
       'submit-generation-job',
       'store-external-job-ref',
@@ -103,6 +106,7 @@ export const APP_DEFINITION_FOUNDATION = [
       'fetch-payout-summary',
       'fetch-referral-tree-summary',
     ],
+    capabilityContractKeys: ['affiliate-summary-ingest'],
     minimumSlice: [
       'create-or-sync-affiliate-link-context',
       'ingest-commission-summary',
@@ -130,6 +134,7 @@ export const APP_DEFINITION_FOUNDATION = [
       'append-note',
       'update-deal-stage',
     ],
+    capabilityContractKeys: ['perfex-summary-and-task-bridge'],
     minimumSlice: [
       'connect-crm-instance',
       'fetch-lightweight-crm-summaries',

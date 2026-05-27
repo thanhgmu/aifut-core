@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ADAPTER_CONTRACT_FOUNDATION,
+  ADAPTER_CONTRACT_ROADMAP,
+  ADAPTER_CONTRACT_STATUSES,
+  ADAPTER_OPERATION_MODES,
+} from './adapter-contracts.constants';
+import {
   APP_DEFINITION_FOUNDATION,
   APP_DEFINITION_ROADMAP,
   APP_DEFINITION_ROLES,
@@ -31,6 +37,15 @@ export class ConnectorsService {
       statuses: APP_DEFINITION_STATUS,
       appDefinitions: APP_DEFINITION_FOUNDATION,
       next: APP_DEFINITION_ROADMAP,
+    };
+  }
+
+  listAdapterContracts() {
+    return {
+      statuses: ADAPTER_CONTRACT_STATUSES,
+      operationModes: ADAPTER_OPERATION_MODES,
+      adapterContracts: ADAPTER_CONTRACT_FOUNDATION,
+      next: ADAPTER_CONTRACT_ROADMAP,
     };
   }
 

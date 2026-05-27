@@ -23,6 +23,15 @@ export class ConnectorsController {
     };
   }
 
+  @Get('adapter-contracts')
+  adapterContracts() {
+    return {
+      capability: 'connectors',
+      status: 'foundation',
+      adapterContracts: this.connectorsService.listAdapterContracts(),
+    };
+  }
+
   @Get('templates')
   templates() {
     return {
