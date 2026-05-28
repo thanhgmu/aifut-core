@@ -1,4 +1,4 @@
-export const API_BASE = "https://api.aifut.net";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3002";
 export const TOKEN_KEY = "aifut_token";
 
 export type AuthSession = {

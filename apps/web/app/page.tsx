@@ -1,9 +1,4 @@
-type HealthResponse = {
-  status?: string;
-  service?: string;
-  database?: string;
-  timestamp?: string;
-};
+import { getJson, type HealthResponse } from "../lib/runtime-data";
 
 const valuePillars = [
   {
@@ -41,23 +36,7 @@ const capabilityCards = [
 ];
 
 async function getPlatformHealth(): Promise<HealthResponse | null> {
-  try {
-    const res = await fetch("https://api.aifut.net/health", {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return {
-        status: "error",
-        service: "api",
-        database: "unknown",
-      };
-    }
-
-    return res.json();
-  } catch {
-    return null;
-  }
+  return getJson<HealthResponse>("/health");
 }
 
 function StatusCard({
@@ -161,7 +140,7 @@ export default async function HomePage() {
               </a>
 
               <a
-                href="https://api.aifut.net"
+                href="http://localhost:3002"
                 style={{
                   border: "1px solid rgba(255,255,255,0.2)",
                   color: "#f5f7ff",
@@ -171,11 +150,11 @@ export default async function HomePage() {
                   fontWeight: 700,
                 }}
               >
-                View API
+                View Local API
               </a>
 
               <a
-                href="/foundation/demo"
+                href="/dashboard"
                 style={{
                   border: "1px solid rgba(255,255,255,0.2)",
                   color: "#f5f7ff",
@@ -185,7 +164,7 @@ export default async function HomePage() {
                   fontWeight: 700,
                 }}
               >
-                Open Demo
+                Open Dashboard
               </a>
             </div>
           </div>
@@ -221,7 +200,7 @@ export default async function HomePage() {
               <StatusCard label="API" value={apiStatus} />
               <StatusCard label="Database" value={dbStatus} />
               <StatusCard label="Service" value={health?.service ?? "unknown"} />
-              <StatusCard label="Endpoint" value="api.aifut.net" />
+              <StatusCard label="Endpoint" value="localhost:3002" />
             </div>
 
             <div style={{ marginTop: 14, fontSize: 13, color: "#9fb0ff" }}>

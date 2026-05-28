@@ -112,7 +112,7 @@ export default function FoundationPage() {
           </a>
 
           <a
-            href="/foundation/demo"
+            href="/foundation/demo-live"
             style={{
               padding: "10px 14px",
               borderRadius: 12,
@@ -122,7 +122,7 @@ export default function FoundationPage() {
               fontWeight: 700,
             }}
           >
-            Open Demo Route
+            Open Live Demo
           </a>
         </div>
 
