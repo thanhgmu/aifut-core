@@ -178,11 +178,17 @@ describe('IntegrationsController', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
+      undefined,
       'assets',
     );
 
     expect(integrationSetup.buildSetupSession).toHaveBeenCalledWith({
       connectorKey: 'nexovaflow',
+      appDefinitionKey: undefined,
+      adapterContractKey: undefined,
+      adapterInterfaceKey: undefined,
       tenantSlug: 'acme',
       workspaceSlug: 'ops',
       userEmail: 'ops@acme.test',

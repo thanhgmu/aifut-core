@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ADAPTER_CONTRACT_FOUNDATION } from './adapter-contracts.constants';
+import { ADAPTER_INTERFACE_FOUNDATION } from './adapter-interface-definitions.constants';
 import { APP_DEFINITION_FOUNDATION } from './app-definitions.constants';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 import { InfrastructureProfileService } from './infrastructure-profile.service';
@@ -20,6 +21,7 @@ export class IntegrationSetupService {
     connectorKey?: string;
     appDefinitionKey?: string;
     adapterContractKey?: string;
+    adapterInterfaceKey?: string;
     tenantSlug?: string;
     workspaceSlug?: string;
     userEmail?: string;
@@ -29,6 +31,7 @@ export class IntegrationSetupService {
     const connectorKey = input.connectorKey?.trim().toLowerCase();
     const appDefinitionKey = input.appDefinitionKey?.trim().toLowerCase();
     const adapterContractKey = input.adapterContractKey?.trim().toLowerCase();
+    const adapterInterfaceKey = input.adapterInterfaceKey?.trim().toLowerCase();
 
     const adapterContract = adapterContractKey
       ? ADAPTER_CONTRACT_FOUNDATION.find(
@@ -58,12 +61,56 @@ export class IntegrationSetupService {
       );
     }
 
+    const adapterInterface = adapterInterfaceKey
+      ? ADAPTER_INTERFACE_FOUNDATION.find(
+          (candidate) => candidate.key === adapterInterfaceKey,
+        ) ?? null
+      : adapterContract
+        ? ADAPTER_INTERFACE_FOUNDATION.find(
+            (candidate) => candidate.adapterContractKey === adapterContract.key,
+          ) ?? null
+        : appDefinition
+          ? ADAPTER_INTERFACE_FOUNDATION.find(
+              (candidate) => candidate.appDefinitionKey === appDefinition.key,
+            ) ?? null
+          : null;
+
+    if (adapterInterfaceKey && !adapterInterface) {
+      throw new NotFoundException(
+        `Adapter interface not found for key: ${adapterInterfaceKey}`,
+      );
+    }
+
+    if (
+      adapterInterface &&
+      adapterContract &&
+      adapterInterface.adapterContractKey !== adapterContract.key
+    ) {
+      throw new BadRequestException(
+        'adapterInterfaceKey does not match adapterContractKey.',
+      );
+    }
+
+    if (
+      adapterInterface &&
+      appDefinition &&
+      adapterInterface.appDefinitionKey !== appDefinition.key
+    ) {
+      throw new BadRequestException(
+        'adapterInterfaceKey does not match appDefinitionKey.',
+      );
+    }
+
     const resolvedConnectorKey =
-      connectorKey ?? adapterContract?.connectorKey ?? appDefinition?.connectorKey ?? null;
+      connectorKey ??
+      adapterInterface?.connectorKey ??
+      adapterContract?.connectorKey ??
+      appDefinition?.connectorKey ??
+      null;
 
     if (!resolvedConnectorKey) {
       throw new BadRequestException(
-        'Missing connectorKey, appDefinitionKey, or adapterContractKey.',
+        'Missing connectorKey, appDefinitionKey, adapterContractKey, or adapterInterfaceKey.',
       );
     }
 
@@ -130,6 +177,18 @@ export class IntegrationSetupService {
             safetyBoundaries: adapterContract.safetyBoundaries,
           }
         : null,
+      adapterInterface: adapterInterface
+        ? {
+            key: adapterInterface.key,
+            status: adapterInterface.status,
+            requestShape: adapterInterface.requestShape,
+            responseShape: adapterInterface.responseShape,
+            normalizedInputs: adapterInterface.normalizedInputs,
+            normalizedOutputs: adapterInterface.normalizedOutputs,
+            activationPolicy: adapterInterface.activationPolicy,
+            runtimeBinding: adapterInterface.runtimeBinding,
+          }
+        : null,
       context: {
         tenantSlug: input.tenantSlug?.trim().toLowerCase() ?? null,
         workspaceSlug: input.workspaceSlug?.trim().toLowerCase() ?? null,
@@ -166,11 +225,17 @@ export class IntegrationSetupService {
           key: 'choose-connection-template',
           title: 'Choose provider template',
           goal: 'Start from a known connector contract instead of building from scratch.',
-          inputs: ['connectorKey', 'appDefinitionKey', 'adapterContractKey'],
+          inputs: [
+            'connectorKey',
+            'appDefinitionKey',
+            'adapterContractKey',
+            'adapterInterfaceKey',
+          ],
           defaults: {
             connectorKey: connector.key,
             appDefinitionKey: appDefinition?.key ?? null,
             adapterContractKey: adapterContract?.key ?? null,
+            adapterInterfaceKey: adapterInterface?.key ?? null,
           },
           validations: ['connector-supported'],
         },
@@ -199,6 +264,7 @@ export class IntegrationSetupService {
       generatedQuestions: this.buildGeneratedQuestions(
         connector.category,
         appDefinition?.role ?? null,
+        adapterInterface?.requestShape ?? null,
       ),
       recommendedDiagnostics: [
         'auth-check',
@@ -251,7 +317,11 @@ export class IntegrationSetupService {
     };
   }
 
-  private buildGeneratedQuestions(category: string, appRole?: string | null) {
+  private buildGeneratedQuestions(
+    category: string,
+    appRole?: string | null,
+    requestShape?: string | null,
+  ) {
     const shared = [
       'What domain or base URL should the core connect to?',
       'Which authentication method do you want to use?',
@@ -302,10 +372,15 @@ export class IntegrationSetupService {
       ],
     };
 
+    const interfaceSpecific = requestShape
+      ? [`Which request shape should this setup prepare for (${requestShape})?`]
+      : [];
+
     return [
       ...shared,
       ...(categorySpecific[category] ?? categorySpecific.custom),
       ...((appRole && roleSpecific[appRole]) ?? []),
+      ...interfaceSpecific,
     ];
   }
 

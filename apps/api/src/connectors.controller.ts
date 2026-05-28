@@ -32,6 +32,15 @@ export class ConnectorsController {
     };
   }
 
+  @Get('adapter-interfaces')
+  adapterInterfaces() {
+    return {
+      capability: 'connectors',
+      status: 'foundation',
+      adapterInterfaces: this.connectorsService.listAdapterInterfaces(),
+    };
+  }
+
   @Get('templates')
   templates() {
     return {

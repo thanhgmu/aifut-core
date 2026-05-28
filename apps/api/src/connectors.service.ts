@@ -6,6 +6,11 @@ import {
   ADAPTER_OPERATION_MODES,
 } from './adapter-contracts.constants';
 import {
+  ADAPTER_INTERFACE_FOUNDATION,
+  ADAPTER_INTERFACE_ROADMAP,
+  ADAPTER_INTERFACE_STATUSES,
+} from './adapter-interface-definitions.constants';
+import {
   APP_DEFINITION_FOUNDATION,
   APP_DEFINITION_ROADMAP,
   APP_DEFINITION_ROLES,
@@ -46,6 +51,14 @@ export class ConnectorsService {
       operationModes: ADAPTER_OPERATION_MODES,
       adapterContracts: ADAPTER_CONTRACT_FOUNDATION,
       next: ADAPTER_CONTRACT_ROADMAP,
+    };
+  }
+
+  listAdapterInterfaces() {
+    return {
+      statuses: ADAPTER_INTERFACE_STATUSES,
+      adapterInterfaces: ADAPTER_INTERFACE_FOUNDATION,
+      next: ADAPTER_INTERFACE_ROADMAP,
     };
   }
 
