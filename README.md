@@ -34,6 +34,21 @@ See:
 npm install
 ```
 
+### Environment
+Create local env files from the examples before starting the apps:
+
+```bash
+copy .env.example .env
+copy apps\api\.env.example apps\api\.env
+```
+
+Recommended local defaults:
+- web: `http://localhost:3000`
+- docs: `http://localhost:3001`
+- api: `http://127.0.0.1:3002`
+
+Using `127.0.0.1` for the API base is the safest local default here because it avoids the localhost/port drift that caused recent dev-runtime confusion.
+
 ### Run web
 ```bash
 npm run dev
@@ -47,6 +62,12 @@ npm --prefix apps/api run start:dev
 ### Infra
 ```bash
 docker compose -f infra/docker/docker-compose.yml up -d
+```
+
+### Useful local checks
+```bash
+curl http://127.0.0.1:3002/health
+curl http://127.0.0.1:3002/connectors/adapter-interfaces
 ```
 
 ## Near-term execution priorities
