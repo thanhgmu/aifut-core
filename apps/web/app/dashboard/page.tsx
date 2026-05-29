@@ -113,6 +113,7 @@ export default async function DashboardPage() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "start" }}>
             <LinkButton href="/">Home</LinkButton>
             <LinkButton href="/foundation/demo-live">Visible demo</LinkButton>
+            <LinkButton href="/foundation/operator-preview">Operator preview</LinkButton>
             <LinkButton href={`${API_BASE}/`}>API root</LinkButton>
             <LinkButton href={`${API_BASE}/health`}>Health</LinkButton>
             <LinkButton href={`${API_BASE}/connectors/adapter-interfaces`}>Adapter interfaces API</LinkButton>

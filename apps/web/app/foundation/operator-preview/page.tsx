@@ -1,0 +1,423 @@
+import { API_BASE, getJson, type HealthResponse } from "../../../lib/runtime-data";
+
+type ConnectionHealthResponse = {
+  capability?: string;
+  surface?: string;
+  status?: string;
+  connection?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+    provider?: string;
+    status?: string;
+    lastVerifiedAt?: string | null;
+    workspace?: {
+      id?: string;
+      name?: string;
+      slug?: string;
+    } | null;
+  };
+  latestVerification?: {
+    verificationMode?: string;
+    verifiedAt?: string;
+    verificationNotes?: string;
+    resultingStatus?: string;
+  } | null;
+  healthSummary?: {
+    latestStatus?: string | null;
+    repeatFailureCount?: number;
+    recoveryStreak?: number;
+    alertThresholds?: {
+      immediateFailures?: number;
+      repeatedFailures?: number;
+      cooldownMinutes?: number;
+    };
+    cooldown?: {
+      active?: boolean;
+      remainingMinutes?: number;
+      endsAt?: string | null;
+    };
+    suppression?: {
+      active?: boolean;
+      note?: string | null;
+      until?: string | null;
+    };
+    recoveryNote?: {
+      note?: string | null;
+      recordedAt?: string | null;
+      recordedBy?: string | null;
+    };
+    followUpAssignment?: {
+      assigneeEmail?: string | null;
+      assignedAt?: string | null;
+      assignedBy?: string | null;
+      note?: string | null;
+    };
+    followUpNotification?: {
+      channel?: string | null;
+      recipient?: string | null;
+      recordedAt?: string | null;
+      recordedBy?: string | null;
+      note?: string | null;
+    };
+    followUpState?: {
+      state?: string | null;
+      updatedAt?: string | null;
+      updatedBy?: string | null;
+      note?: string | null;
+    };
+    shouldAlertOperator?: boolean;
+    shouldEscalateOperator?: boolean;
+  };
+  healthTimeline?: Array<{
+    type?: string;
+    status?: string;
+    at?: string;
+    actor?: string;
+    note?: string;
+    detail?: Record<string, unknown>;
+  }>;
+  next?: string[];
+};
+
+type RuntimeDiagnosticsResponse = {
+  capability?: string;
+  status?: string;
+  runtimeDiagnostics?: {
+    historyStatus?: string;
+    diagnosticsSummary?: {
+      snapshotCount?: number;
+      eventCount?: number;
+      latestSnapshotType?: string | null;
+      latestRuntimeStatus?: string | null;
+      latestRecordedAt?: string | null;
+      latestEventType?: string | null;
+      latestEventRecordedAt?: string | null;
+      mutatedTargetCount?: number;
+    };
+    latestSnapshot?: {
+      snapshotKey?: string;
+      snapshotType?: string;
+      runtimeStatus?: string;
+      recordedAt?: string | null;
+    } | null;
+    latestEvent?: {
+      eventKey?: string;
+      eventType?: string;
+      runtimeStatus?: string;
+      recordedAt?: string | null;
+    } | null;
+  };
+  next?: string[];
+};
+
+const SAMPLE_OPERATOR_CONTEXT = {
+  tenantSlug: "acme",
+  workspaceSlug: "ops",
+  userEmail: "operator@acme.test",
+  connectionSlug: "n8n-main",
+  planId: "plan_ops_runtime_v1",
+};
+
+async function getOperatorPreviewData() {
+  const params = new URLSearchParams({
+    tenantSlug: SAMPLE_OPERATOR_CONTEXT.tenantSlug,
+    workspaceSlug: SAMPLE_OPERATOR_CONTEXT.workspaceSlug,
+    userEmail: SAMPLE_OPERATOR_CONTEXT.userEmail,
+  });
+
+  const [health, connectionHealth, runtimeDiagnostics] = await Promise.all([
+    getJson<HealthResponse>("/health"),
+    getJson<ConnectionHealthResponse>(
+      `/integrations/connections/health-timeline?${new URLSearchParams({
+        ...Object.fromEntries(params.entries()),
+        connectionSlug: SAMPLE_OPERATOR_CONTEXT.connectionSlug,
+      }).toString()}`,
+    ),
+    getJson<RuntimeDiagnosticsResponse>(
+      `/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?${params.toString()}`,
+    ),
+  ]);
+
+  return { health, connectionHealth, runtimeDiagnostics };
+}
+
+export default async function OperatorPreviewPage() {
+  const { health, connectionHealth, runtimeDiagnostics } = await getOperatorPreviewData();
+  const healthSummary = connectionHealth?.healthSummary;
+  const timeline = Array.isArray(connectionHealth?.healthTimeline)
+    ? connectionHealth.healthTimeline.slice(-4).reverse()
+    : [];
+  const runtimeSummary = runtimeDiagnostics?.runtimeDiagnostics?.diagnosticsSummary;
+
+  return (
+    <main style={pageStyle}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        <a href="/foundation" style={backLinkStyle}>← Back to foundation</a>
+
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginTop: 18 }}>
+          <div>
+            <div style={eyebrowStyle}>Operator control-plane preview</div>
+            <h1 style={{ fontSize: 42, margin: "10px 0 12px" }}>Live operator truth from current APIs</h1>
+            <p style={{ color: "#c8d2ff", fontSize: 18, lineHeight: 1.7, maxWidth: 860 }}>
+              Smallest meaningful preview of what an operator can actually monitor today: connection health follow-up and orchestration runtime diagnostics, using only existing API behavior.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "start" }}>
+            <LinkButton href="/dashboard">Dashboard</LinkButton>
+            <LinkButton href={`${API_BASE}/integrations/connections/health-timeline?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&connectionSlug=${SAMPLE_OPERATOR_CONTEXT.connectionSlug}`}>Health timeline API</LinkButton>
+            <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}`}>Runtime diagnostics API</LinkButton>
+          </div>
+        </div>
+
+        <section style={metricGridStyle}>
+          <MetricCard title="API" value={health?.status ?? "unknown"} note={`db: ${health?.database ?? "unknown"}`} />
+          <MetricCard title="Connection status" value={connectionHealth?.connection?.status ?? "unavailable"} note={connectionHealth?.connection?.provider ?? "No provider surfaced"} />
+          <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
+          <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
+        </section>
+
+        <section style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
+          <Panel title="Connection health command center">
+            {connectionHealth ? (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={infoCardStyle}>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>{connectionHealth.connection?.name ?? SAMPLE_OPERATOR_CONTEXT.connectionSlug}</div>
+                  <div style={{ marginTop: 6, color: "#9fb0ff", fontSize: 13 }}>
+                    {connectionHealth.connection?.slug ?? SAMPLE_OPERATOR_CONTEXT.connectionSlug} • workspace {connectionHealth.connection?.workspace?.slug ?? SAMPLE_OPERATOR_CONTEXT.workspaceSlug}
+                  </div>
+                  <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                    <DataPoint label="Latest status" value={healthSummary?.latestStatus ?? "N/A"} />
+                    <DataPoint label="Recovery streak" value={String(healthSummary?.recoveryStreak ?? 0)} />
+                    <DataPoint label="Escalate operator" value={healthSummary?.shouldEscalateOperator ? "Yes" : "No"} />
+                    <DataPoint label="Last verified" value={formatDate(connectionHealth.connection?.lastVerifiedAt)} />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                  <MiniPanel title="Follow-up owner">
+                    <StrongLine>{healthSummary?.followUpAssignment?.assigneeEmail ?? "Unassigned"}</StrongLine>
+                    <MutedLine>{formatDate(healthSummary?.followUpAssignment?.assignedAt)}</MutedLine>
+                    <MutedLine>{healthSummary?.followUpAssignment?.note ?? "No operator note"}</MutedLine>
+                  </MiniPanel>
+                  <MiniPanel title="Follow-up state">
+                    <StrongLine>{healthSummary?.followUpState?.state ?? "No active state"}</StrongLine>
+                    <MutedLine>{formatDate(healthSummary?.followUpState?.updatedAt)}</MutedLine>
+                    <MutedLine>{healthSummary?.followUpState?.note ?? "No workflow note"}</MutedLine>
+                  </MiniPanel>
+                  <MiniPanel title="Alert controls">
+                    <StrongLine>{healthSummary?.suppression?.active ? "Suppressed" : "Live"}</StrongLine>
+                    <MutedLine>
+                      Thresholds: {healthSummary?.alertThresholds?.immediateFailures ?? "-"}/{healthSummary?.alertThresholds?.repeatedFailures ?? "-"}
+                    </MutedLine>
+                    <MutedLine>
+                      Cooldown: {healthSummary?.cooldown?.active ? `${healthSummary?.cooldown?.remainingMinutes ?? 0} min left` : `${healthSummary?.alertThresholds?.cooldownMinutes ?? 0} min default`}
+                    </MutedLine>
+                  </MiniPanel>
+                </div>
+
+                <div>
+                  <div style={sectionLabelStyle}>Recent health timeline</div>
+                  {timeline.length > 0 ? (
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {timeline.map((entry, index) => (
+                        <div key={`${entry.at ?? "time"}-${index}`} style={timelineRowStyle}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{entry.status ?? entry.type ?? "event"}</div>
+                            <div style={{ color: "#9fb0ff", fontSize: 13 }}>{entry.type ?? "timeline"} • {formatDate(entry.at)}</div>
+                          </div>
+                          <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 520, textAlign: "right" }}>
+                            {entry.note ?? formatDetail(entry.detail)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState message="No connection health timeline returned for the sample operator context." />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <EmptyState message="Connection health preview is unavailable right now. This route stays honest and shows the gap instead of inventing state." />
+            )}
+          </Panel>
+
+          <Panel title="Execution runtime diagnostics">
+            {runtimeDiagnostics?.runtimeDiagnostics ? (
+              <div style={{ display: "grid", gap: 14 }}>
+                <DataPoint label="Plan" value={SAMPLE_OPERATOR_CONTEXT.planId} />
+                <DataPoint label="Latest runtime status" value={runtimeSummary?.latestRuntimeStatus ?? "N/A"} />
+                <DataPoint label="Latest snapshot type" value={runtimeSummary?.latestSnapshotType ?? "N/A"} />
+                <DataPoint label="Latest event type" value={runtimeSummary?.latestEventType ?? "N/A"} />
+                <DataPoint label="Mutated targets" value={String(runtimeSummary?.mutatedTargetCount ?? 0)} />
+                <DataPoint label="Last recorded" value={formatDate(runtimeSummary?.latestRecordedAt)} />
+
+                <div style={infoCardStyle}>
+                  <div style={sectionLabelStyle}>Operator readout</div>
+                  <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.7 }}>
+                    <div>• Runtime history is {runtimeDiagnostics.runtimeDiagnostics.historyStatus ?? "unknown"} for this sample plan.</div>
+                    <div>• Latest snapshot: {runtimeDiagnostics.runtimeDiagnostics.latestSnapshot?.snapshotType ?? "none"} / {runtimeDiagnostics.runtimeDiagnostics.latestSnapshot?.runtimeStatus ?? "N/A"}.</div>
+                    <div>• Latest event: {runtimeDiagnostics.runtimeDiagnostics.latestEvent?.eventType ?? "none"}.</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={sectionLabelStyle}>What this proves</div>
+                  <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.7 }}>
+                    <div>• The operator surface can read persisted runtime truth without redefining orchestration semantics.</div>
+                    <div>• The health lane and runtime lane can sit side by side in one control-plane preview.</div>
+                    <div>• Missing data remains visible as a product gap, not a fake success state.</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyState message="Runtime diagnostics are unavailable for the sample plan context." />
+            )}
+          </Panel>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function MetricCard({ title, value, note }: { title: string; value: string; note: string }) {
+  return (
+    <div style={cardStyle}>
+      <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 28, fontWeight: 800 }}>{value}</div>
+      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>{note}</div>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={cardStyle}>
+      <div style={sectionLabelStyle}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function MiniPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={infoCardStyle}>
+      <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 10 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function DataPoint({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, wordBreak: "break-word" }}>{value}</div>
+    </div>
+  );
+}
+
+function StrongLine({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontWeight: 700, wordBreak: "break-word" }}>{children}</div>;
+}
+
+function MutedLine({ children }: { children: React.ReactNode }) {
+  return <div style={{ color: "#c8d2ff", fontSize: 13, lineHeight: 1.6 }}>{children}</div>;
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <div style={{ color: "#c8d2ff", lineHeight: 1.7 }}>{message}</div>;
+}
+
+function LinkButton({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} style={{ padding: "10px 14px", borderRadius: 12, textDecoration: "none", background: "rgba(255,255,255,0.06)", color: "white", fontWeight: 700, border: "1px solid rgba(255,255,255,0.08)" }}>
+      {children}
+    </a>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDetail(detail?: Record<string, unknown>) {
+  if (!detail || Object.keys(detail).length === 0) {
+    return "No extra detail";
+  }
+
+  const firstPair = Object.entries(detail)[0];
+  if (!firstPair) return "No extra detail";
+  return `${firstPair[0]}: ${String(firstPair[1])}`;
+}
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "linear-gradient(180deg, #08101d 0%, #0d1730 100%)",
+  color: "#f5f7ff",
+  fontFamily: "Arial, sans-serif",
+  padding: "40px 24px 80px",
+};
+
+const metricGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 16,
+  marginTop: 28,
+};
+
+const cardStyle: React.CSSProperties = {
+  padding: 20,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const infoCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const timelineRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  alignItems: "center",
+  padding: 14,
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.06)",
+};
+
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: "#9fb0ff",
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  marginBottom: 14,
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#9fb0ff",
+  textTransform: "uppercase",
+  letterSpacing: 1,
+};
+
+const backLinkStyle: React.CSSProperties = {
+  color: "#9fb0ff",
+  textDecoration: "none",
+  fontSize: 14,
+};

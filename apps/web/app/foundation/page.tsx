@@ -124,6 +124,20 @@ export default function FoundationPage() {
           >
             Open Live Demo
           </a>
+
+          <a
+            href="/foundation/operator-preview"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 12,
+              textDecoration: "none",
+              background: "rgba(255,255,255,0.06)",
+              color: "white",
+              fontWeight: 700,
+            }}
+          >
+            Operator Preview
+          </a>
         </div>
 
         <div
