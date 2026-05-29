@@ -23,21 +23,24 @@ Last updated: 2026-05-29
   - `docs/roadmap/wave-1-lane-board-v1.md`
 
 ## What is verified vs blocked
-### Verified structurally
+### Verified on canonical `main`
 - Wave 1 checkpoints were split into separate lanes/worktrees and merged in safe order.
+- `npm run check-types` passes from canonical `main`.
+- `npm --prefix apps/api run local:verify-runtime` passes from canonical `main`.
+- Local API `/health` returns HTTP 200 on `127.0.0.1:3002`.
+- Web routes `/dashboard` and `/foundation/operator-preview` return HTTP 200 on `localhost:3000`.
 - Local runtime verification helper exists at `apps/api/scripts/verify-local-runtime.js`.
 - Operator preview route exists at `apps/web/app/foundation/operator-preview/page.tsx`.
 - Bearer auth resolution is centralized in `apps/api/src/auth/jwt.util.ts`.
+- Next.js workspace-root ambiguity warning was removed by pinning `turbopack.root` in both `apps/web/next.config.js` and `apps/docs/next.config.js`.
 
-### Still blocked by local worktree/tooling state
-- Some lane-local verification attempts failed because dependencies/tools were missing in those worktrees (`turbo`, `next`, `jest`, `@prisma/client`).
-- Full post-merge verification should be rerun from a fully installed workspace state.
+### Still blocked or incomplete
+- Some lane-local verification attempts failed earlier because dependencies/tools were missing in those worktrees (`turbo`, `next`, `jest`, `@prisma/client`).
+- Lane-worktree dependency/bootstrap expectations are still not standardized yet.
+- Targeted automated tests for the new kernel/UI slices were not expanded beyond the current minimal gates.
 
 ## Next actions
-1. Restore/confirm installed dependencies in the canonical workspace.
-2. Run minimal post-merge verification gates from canonical `main`:
-   - `npm run check-types`
-   - API/local runtime verification
-   - route-level verification for dashboard/foundation/operator-preview
-3. If verification passes, open the next checkpoint set.
-4. If verification remains blocked, standardize dependency/tooling expectations for lane worktrees before opening the next heavy lane.
+1. Standardize dependency/bootstrap expectations for lane worktrees so future lane verification does not depend on manual install state.
+2. Add one small reusable verification entrypoint/runbook that bundles the canonical Wave 1 gates.
+3. Open the next checkpoint set, most likely around integration-setup experience, only after lane bootstrap friction is reduced.
+4. Keep committing/pushing each safe slice and verify on local canonical `main` before treating it as real.
