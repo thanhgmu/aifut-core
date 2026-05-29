@@ -8,6 +8,7 @@ Last updated: 2026-05-29
 - Parallel-lane planning/execution artifacts now live under `docs/roadmap/`.
 
 ## Landed recently
+- `a047f01` fix(dev): pin turbopack root for local workspaces
 - `a8e6cc8` Add operator control-plane preview route
 - `7fe388f` kernel: centralize bearer auth resolution
 - `a7340d9` Add local runtime verification helper
