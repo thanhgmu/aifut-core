@@ -1,18 +1,24 @@
 import { API_BASE, getJson, type AdapterInterfaceRegistryResponse, type HealthResponse } from "../../../lib/runtime-data";
 
 async function getLiveDemoData() {
-  const [health, interfaces, contracts, templates] = await Promise.all([
+  const [health, interfacesResponse, contractsResponse, templatesResponse] = await Promise.all([
     getJson<HealthResponse>("/health"),
-    getJson<AdapterInterfaceRegistryResponse>("/connectors/adapter-interfaces"),
+    getJson<any>("/connectors/adapter-interfaces"),
     getJson<any>("/connectors/adapter-contracts"),
     getJson<any>("/connectors/templates"),
   ]);
 
-  return { health, interfaces, contracts, templates };
+  return {
+    health,
+    interfaces: interfacesResponse?.adapterInterfaces,
+    contracts: contractsResponse?.adapterContracts,
+    contractsNext: contractsResponse?.next,
+    templates: templatesResponse?.templates,
+  };
 }
 
 export default async function DemoLivePage() {
-  const { health, interfaces, contracts, templates } = await getLiveDemoData();
+  const { health, interfaces, contracts, contractsNext, templates } = await getLiveDemoData();
   const records = interfaces?.adapterInterfaces ?? [];
 
   return (
@@ -36,8 +42,10 @@ export default async function DemoLivePage() {
         </p>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 18 }}>
+          <LinkButton href={`${API_BASE}/`}>/</LinkButton>
           <LinkButton href={`${API_BASE}/health`}>/health</LinkButton>
           <LinkButton href={`${API_BASE}/connectors/adapter-interfaces`}>/connectors/adapter-interfaces</LinkButton>
+          <LinkButton href={`${API_BASE}/connectors/adapter-contracts`}>/connectors/adapter-contracts</LinkButton>
           <LinkButton href={`${API_BASE}/connectors/templates`}>/connectors/templates</LinkButton>
         </div>
 
@@ -52,7 +60,7 @@ export default async function DemoLivePage() {
           <MetricCard title="API status" value={health?.status ?? "unknown"} />
           <MetricCard title="Database" value={health?.database ?? "unknown"} />
           <MetricCard title="Adapter interfaces" value={String(records.length)} />
-          <MetricCard title="Templates" value={String(templates?.templates?.length ?? 0)} />
+          <MetricCard title="Templates" value={String(templates?.length ?? 0)} />
         </section>
 
         <section style={{ marginTop: 28 }}>
@@ -68,7 +76,7 @@ export default async function DemoLivePage() {
             Live interface cards
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
-            {records.map((item) => (
+            {records.map((item: { key: string; appDefinitionKey: string; connectorKey: string; adapterContractKey: string; requestShape: string; responseShape: string; activationPolicy: string; runtimeBinding: string; normalizedInputs: string[]; normalizedOutputs: string[] }) => (
               <div key={item.key} style={cardStyle}>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>{item.key}</div>
                 <div style={{ marginTop: 6, color: "#9fb0ff", fontSize: 13 }}>
@@ -107,10 +115,10 @@ export default async function DemoLivePage() {
         <section style={{ marginTop: 28 }}>
           <Panel title="Roadmap hooks already exposed in API">
             <div style={{ display: "grid", gap: 8 }}>
-              {(interfaces?.next ?? []).map((item) => (
+              {(interfaces?.next ?? []).map((item: string) => (
                 <div key={item} style={{ color: "#dfe6ff" }}>• {item}</div>
               ))}
-              {(contracts?.next ?? []).slice(0, 3).map((item: string) => (
+              {(contractsNext ?? []).slice(0, 3).map((item: string) => (
                 <div key={item} style={{ color: "#dfe6ff" }}>• {item}</div>
               ))}
             </div>

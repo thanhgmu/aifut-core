@@ -70,11 +70,13 @@ const lanes: LaneCard[] = [
 ];
 
 async function getDashboardData() {
-  const [health, adapterInterfaces, root] = await Promise.all([
+  const [health, adapterInterfacesResponse, root] = await Promise.all([
     getJson<HealthResponse>("/health"),
-    getJson<AdapterInterfaceRegistryResponse>("/connectors/adapter-interfaces"),
+    getJson<any>("/connectors/adapter-interfaces"),
     getJson<any>("/"),
   ]);
+
+  const adapterInterfaces = adapterInterfacesResponse?.adapterInterfaces;
 
   return { health, adapterInterfaces, root };
 }
@@ -82,7 +84,9 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const { health, adapterInterfaces, root } = await getDashboardData();
   const interfaceCount = adapterInterfaces?.adapterInterfaces?.length ?? 0;
-  const topInterfaces = adapterInterfaces?.adapterInterfaces?.slice(0, 3) ?? [];
+  const topInterfaces = Array.isArray(adapterInterfaces?.adapterInterfaces)
+    ? adapterInterfaces.adapterInterfaces.slice(0, 3)
+    : [];
 
   return (
     <main
@@ -109,7 +113,11 @@ export default async function DashboardPage() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "start" }}>
             <LinkButton href="/">Home</LinkButton>
             <LinkButton href="/foundation/demo-live">Visible demo</LinkButton>
+            <LinkButton href={`${API_BASE}/`}>API root</LinkButton>
+            <LinkButton href={`${API_BASE}/health`}>Health</LinkButton>
             <LinkButton href={`${API_BASE}/connectors/adapter-interfaces`}>Adapter interfaces API</LinkButton>
+            <LinkButton href={`${API_BASE}/connectors/adapter-contracts`}>Adapter contracts API</LinkButton>
+            <LinkButton href={`${API_BASE}/connectors/templates`}>Templates API</LinkButton>
           </div>
         </div>
 
@@ -153,10 +161,40 @@ export default async function DashboardPage() {
         </section>
 
         <section style={{ marginTop: 28 }}>
+          <Panel title="Live local endpoints">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+              {[
+                `${API_BASE}/`,
+                `${API_BASE}/health`,
+                `${API_BASE}/connectors/adapter-interfaces`,
+                `${API_BASE}/connectors/adapter-contracts`,
+                `${API_BASE}/connectors/templates`,
+              ].map((href) => (
+                <a
+                  key={href}
+                  href={href}
+                  style={{
+                    color: "#c8d2ff",
+                    textDecoration: "none",
+                    padding: 14,
+                    borderRadius: 14,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {href}
+                </a>
+              ))}
+            </div>
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
           <Panel title="Yesterday's visible proof slice">
             {topInterfaces.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-                {topInterfaces.map((item) => (
+                {topInterfaces.map((item: { key: string; appDefinitionKey: string; connectorKey: string; requestShape: string; responseShape: string; activationPolicy: string; runtimeBinding: string }) => (
                   <div key={item.key} style={cardStyle}>
                     <div style={{ fontSize: 18, fontWeight: 700 }}>{item.key}</div>
                     <div style={{ marginTop: 6, color: "#9fb0ff", fontSize: 13 }}>{item.appDefinitionKey} • {item.connectorKey}</div>
