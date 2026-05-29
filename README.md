@@ -68,7 +68,10 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ```bash
 curl http://127.0.0.1:3002/health
 curl http://127.0.0.1:3002/connectors/adapter-interfaces
+npm --prefix apps/api run local:verify-runtime
 ```
+
+`npm --prefix apps/api run local:verify-runtime` checks that your local database is reachable and tells you right away if the default tenant/user/workspace context still needs to be seeded. If dependencies are not installed yet, run `npm install` first.
 
 ## Near-term execution priorities
 1. Align the authoritative codebase and runtime/deploy target.
