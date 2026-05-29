@@ -7,14 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { verifyAuthToken } from './jwt.util';
-
-function extractBearerToken(authHeader?: string) {
-  if (!authHeader) return null;
-  const [type, token] = authHeader.split(' ');
-  if (type !== 'Bearer' || !token) return null;
-  return token;
-}
+import { extractBearerToken, verifyAuthToken } from './jwt.util';
 
 @Controller('auth')
 export class AuthController {

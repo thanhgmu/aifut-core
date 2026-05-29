@@ -115,4 +115,53 @@ describe('AccessPolicyGuard', () => {
     );
     expect(accessPolicy.resolveAndRequire).not.toHaveBeenCalled();
   });
+
+  it('should ignore bearer tokens with blank subject claims', async () => {
+    reflector.getAllAndOverride.mockReturnValue({
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
+
+    jest.spyOn(jwtUtil, 'verifyAuthToken').mockReturnValue({
+      sub: '   ',
+      email: 'owner@acme.test',
+    });
+
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { slug: 'acme' },
+        user: { email: 'owner@acme.test' },
+      },
+      boundary: { role: MembershipRole.OWNER },
+    });
+
+    const request: any = {
+      headers: {
+        authorization: 'Bearer token-blank-sub',
+        'x-tenant-slug': 'acme',
+        'x-user-email': 'owner@acme.test',
+      },
+      query: {},
+      body: {},
+    };
+
+    const executionContext: any = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({
+        getRequest: () => request,
+      }),
+    };
+
+    await guard.canActivate(executionContext);
+
+    expect(accessPolicy.resolveAndRequire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authUserId: undefined,
+        tenantSlug: 'acme',
+        userEmail: 'owner@acme.test',
+      }),
+      expect.any(Object),
+    );
+  });
 });
