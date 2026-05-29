@@ -35,10 +35,7 @@ describe('AccessPolicyGuard', () => {
       scope: 'tenant-admin',
     });
 
-    jest.spyOn(jwtUtil, 'verifyAuthToken').mockReturnValue({
-      sub: 'user_1',
-      email: 'owner@acme.test',
-    });
+    jest.spyOn(jwtUtil, 'resolveAuthUserId').mockReturnValue('user_1');
 
     accessPolicy.resolveAndRequire.mockResolvedValue({
       context: {
@@ -92,8 +89,8 @@ describe('AccessPolicyGuard', () => {
       scope: 'tenant-admin',
     });
 
-    jest.spyOn(jwtUtil, 'verifyAuthToken').mockImplementation(() => {
-      throw new Error('bad token');
+    jest.spyOn(jwtUtil, 'resolveAuthUserId').mockImplementation(() => {
+      throw new UnauthorizedException('Invalid bearer token');
     });
 
     const executionContext: any = {
@@ -122,10 +119,7 @@ describe('AccessPolicyGuard', () => {
       scope: 'tenant-admin',
     });
 
-    jest.spyOn(jwtUtil, 'verifyAuthToken').mockReturnValue({
-      sub: '   ',
-      email: 'owner@acme.test',
-    });
+    jest.spyOn(jwtUtil, 'resolveAuthUserId').mockReturnValue(undefined);
 
     accessPolicy.resolveAndRequire.mockResolvedValue({
       context: {

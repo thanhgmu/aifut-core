@@ -124,7 +124,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'seed:acme:tenant:default',
         scopeAligned: true,
-        freshness: 'aging',
+        freshness: 'stale',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -132,7 +132,7 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'seed:acme:tenant:default',
           scopeAligned: true,
-          freshness: 'aging',
+          freshness: 'stale',
         }),
       ]),
     });
@@ -212,7 +212,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'admin-ui:acme:tenant:default',
         scopeAligned: true,
-        freshness: 'aging',
+        freshness: 'stale',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -220,7 +220,7 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'admin-ui:acme:tenant:default',
           scopeAligned: true,
-          freshness: 'aging',
+          freshness: 'stale',
         }),
       ]),
     });
@@ -301,7 +301,7 @@ describe('EntitlementsService', () => {
         value: 'core.growth',
         source: 'admin-ui:acme:workspace:ops',
         scopeAligned: true,
-        freshness: 'aging',
+        freshness: 'stale',
       },
       optionAudit: expect.arrayContaining([
         expect.objectContaining({
@@ -309,7 +309,7 @@ describe('EntitlementsService', () => {
           value: 'enabled',
           source: 'admin-ui:acme:tenant:default',
           scopeAligned: false,
-          freshness: 'aging',
+          freshness: 'stale',
         }),
       ]),
     });

@@ -207,7 +207,7 @@ describe('IntegrationDiagnosticsService', () => {
             },
             provisioningState: 'active',
             provisioningUpdatedAt: new Date('2026-04-24T19:10:00.000Z'),
-            provisioningRecency: 'aging',
+            provisioningRecency: 'stale',
             latestProvisioningEvent: {
               type: 'package-provisioning-state',
               state: 'active',
@@ -329,7 +329,7 @@ describe('IntegrationDiagnosticsService', () => {
             },
             provisioningState: 'pending',
             provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
-            provisioningRecency: 'aging',
+            provisioningRecency: 'stale',
             latestProvisioningEvent: {
               type: 'package-provisioning-state',
               state: 'pending',

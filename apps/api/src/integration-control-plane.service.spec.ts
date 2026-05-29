@@ -259,7 +259,7 @@ describe('IntegrationControlPlaneService', () => {
           activePackageAssignment: {
             provisioningState: 'pending',
             provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
-            provisioningRecency: 'aging',
+            provisioningRecency: 'stale',
             latestProvisioningEvent: {
               type: 'package-provisioning-state',
               state: 'pending',
@@ -285,7 +285,7 @@ describe('IntegrationControlPlaneService', () => {
             packageSelected: true,
             provisioningState: 'pending',
             provisioningUpdatedAt: new Date('2026-04-24T20:06:00.000Z'),
-            provisioningRecency: 'aging',
+            provisioningRecency: 'stale',
             latestProvisioningEvent: {
               type: 'package-provisioning-state',
               state: 'pending',
