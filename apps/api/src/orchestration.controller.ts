@@ -14,6 +14,7 @@ import { RequireAccessPolicy } from './access-policy.decorator';
 import { ActorContextService } from './actor-context.service';
 import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
+import { AuditEventsService } from './audit-events.service';
 import { ORCHESTRATION_FOUNDATION_ROADMAP } from './orchestration.constants';
 import {
   OrchestrationApprovalContractInput,
@@ -32,6 +33,7 @@ export class OrchestrationController {
     private readonly orchestration: OrchestrationService,
     private readonly aiTokenGovernance: AiTokenGovernanceService,
     private readonly aiGovernancePersistence: AiGovernancePersistenceService,
+    private readonly auditEvents: AuditEventsService,
   ) {}
 
   private resolveActorContext(input: {
@@ -927,6 +929,31 @@ export class OrchestrationController {
         : 'orchestration-dispatch-run',
       status: 'success',
     });
+    const aiGovernanceApprovalAudit = aiGovernanceApproval
+      ? await this.auditEvents.write({
+          tenantSlug: context.tenant.slug,
+          userEmail: actorKey,
+          workspaceSlug: context.activeWorkspace?.slug,
+          hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+          action: 'ai-governance.approval-dispatch-resumed',
+          targetType: 'orchestration-execution-run',
+          targetId: body.runKey,
+          metadata: {
+            planId,
+            runKey: body.runKey,
+            approval: aiGovernanceApproval,
+            governanceDecision: {
+              featureKey: aiGovernanceDecision.featureKey,
+              taskType: aiGovernanceDecision.taskType,
+              selectedLane: aiGovernanceDecision.selectedLane,
+              credentialMode: aiGovernanceDecision.credentialMode,
+              approvalReason: aiGovernanceDecision.approvalReason,
+              outcome: aiGovernanceDecision.outcome,
+            },
+            usageEventKey: aiUsageEvent.eventKey,
+          },
+        })
+      : null;
 
     return {
       capability: 'orchestration',
@@ -940,6 +967,7 @@ export class OrchestrationController {
       },
       aiGovernanceDecision,
       aiGovernanceApproval,
+      aiGovernanceApprovalAudit,
       aiUsageEvent,
       executionDispatch,
       next: ['verification-history', 'dispatch-outcome-tracking', 'ai-usage-ledger'],

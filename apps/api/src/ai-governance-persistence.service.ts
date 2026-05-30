@@ -100,7 +100,7 @@ type AiGovernancePrismaClient = {
     findFirst(input: unknown): Promise<Record<string, unknown> | null>;
   };
   aiUsageEvent: {
-    create(input: unknown): Promise<unknown>;
+    create(input: unknown): Promise<Record<string, unknown>>;
     findMany(input: unknown): Promise<Array<Record<string, unknown>>>;
     aggregate(input: unknown): Promise<{
       _sum?: {

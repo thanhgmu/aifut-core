@@ -1,5 +1,10 @@
 # AIFUT Status
 
+## 2026-05-31 Wave 2 approval audit checkpoint
+- Approved AI-governance replay dispatches now persist a first-class `ai-governance.approval-dispatch-resumed` audit event after dispatch and usage-ledger recording succeed.
+- The audit record stores tenant/workspace actor context plus plan/run, approval attribution, policy outcome, selected lane, credential mode, approval reason, and linked usage-event key.
+- Verification is green: targeted orchestration controller tests `29/29`, API build, full API Jest `23/23` suites and `314/314` tests, and local runtime verification against `http://127.0.0.1:3002`.
+
 ## 2026-05-31 Wave 2 approval-resume checkpoint
 - The current orchestration runtime working tree adds the first small replay path for AI-governance-held execution runs.
 - `POST /orchestration/plans/:planId/execution-runtime/dispatch-run` now re-checks the live AI gateway decision on every attempt and only resumes an approval-required run when `aiGovernance.approval.decision = approve` is supplied.

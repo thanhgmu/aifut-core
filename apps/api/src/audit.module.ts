@@ -7,5 +7,6 @@ import { TenancyModule } from './tenancy.module';
   imports: [TenancyModule],
   controllers: [AuditController],
   providers: [AuditEventsService],
+  exports: [AuditEventsService],
 })
 export class AuditModule {}

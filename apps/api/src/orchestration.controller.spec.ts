@@ -4,6 +4,7 @@ import { OrchestrationController } from './orchestration.controller';
 import { ActorContextService } from './actor-context.service';
 import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
+import { AuditEventsService } from './audit-events.service';
 import { OrchestrationService } from './orchestration.service';
 import * as orchestrationAuthContext from './orchestration-auth-context.util';
 
@@ -33,6 +34,9 @@ describe('OrchestrationController', () => {
   let aiGovernancePersistence: {
     buildGatewayDecision: jest.Mock;
     persistUsageEventRecord: jest.Mock;
+  };
+  let auditEvents: {
+    write: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -65,6 +69,9 @@ describe('OrchestrationController', () => {
       buildGatewayDecision: jest.fn(),
       persistUsageEventRecord: jest.fn(),
     };
+    auditEvents = {
+      write: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrchestrationController],
@@ -88,6 +95,10 @@ describe('OrchestrationController', () => {
         {
           provide: AiGovernancePersistenceService,
           useValue: aiGovernancePersistence,
+        },
+        {
+          provide: AuditEventsService,
+          useValue: auditEvents,
         },
       ],
     }).compile();
@@ -3069,7 +3080,6 @@ describe('OrchestrationController', () => {
       executionLane: 'cheap-model',
       status: 'success',
     });
-
     const result = await controller.dispatchExecutionRuntimeRun(
       'plan:acme:ops:runtime',
       {
@@ -3342,6 +3352,14 @@ describe('OrchestrationController', () => {
       source: 'orchestration-dispatch-run-approved',
       status: 'success',
     });
+    auditEvents.write.mockResolvedValue({
+      capability: 'audit',
+      status: 'recorded',
+      event: {
+        id: 'audit_1',
+        action: 'ai-governance.approval-dispatch-resumed',
+      },
+    });
 
     const result = await controller.dispatchExecutionRuntimeRun(
       'plan:acme:ops:runtime',
@@ -3385,6 +3403,38 @@ describe('OrchestrationController', () => {
         status: 'success',
       }),
     );
+    expect(auditEvents.write).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'acme.test',
+      action: 'ai-governance.approval-dispatch-resumed',
+      targetType: 'orchestration-execution-run',
+      targetId: 'plan:acme:ops:runtime:child:1:runner:run',
+      metadata: {
+        planId: 'plan:acme:ops:runtime',
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        approval: {
+          status: 'approved-for-dispatch',
+          decision: 'approve',
+          approvedBy: 'ops@acme.test',
+          note: 'approved for customer deadline',
+        },
+        governanceDecision: {
+          featureKey: 'orchestration-runtime',
+          taskType: 'dispatch-run',
+          selectedLane: 'premium-model',
+          credentialMode: 'aifut-managed',
+          approvalReason:
+            'Selected lane premium-model requires approval above balanced-model.',
+          outcome: {
+            status: 'approval-required',
+          },
+        },
+        usageEventKey:
+          'ai-usage:acme:workspace:ops:orchestration-runtime:dispatch-run:ops@acme.test:2026-05-31T00:00:00.000Z',
+      },
+    });
     expect(result).toMatchObject({
       status: 'execution-run-dispatched-after-ai-governance-approval',
       aiGovernanceApproval: {
@@ -3396,6 +3446,14 @@ describe('OrchestrationController', () => {
       aiGovernanceDecision: {
         outcome: {
           status: 'approval-required',
+        },
+      },
+      aiGovernanceApprovalAudit: {
+        capability: 'audit',
+        status: 'recorded',
+        event: {
+          id: 'audit_1',
+          action: 'ai-governance.approval-dispatch-resumed',
         },
       },
       executionDispatch: {
