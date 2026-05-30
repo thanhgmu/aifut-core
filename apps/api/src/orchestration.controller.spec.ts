@@ -3174,6 +3174,9 @@ describe('OrchestrationController', () => {
         executionLane: 'cheap-model',
         status: 'success',
       },
+      aiGovernanceDispatchOutcome: {
+        outcome: 'auto-dispatched',
+      },
       executionDispatch: {
         runnerDispatchStatus: 'applied',
         executionDispatch: {
@@ -3249,6 +3252,9 @@ describe('OrchestrationController', () => {
         quotaPressure: 'hard-limit',
         blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
       },
+      aiGovernanceDispatchOutcome: {
+        outcome: 'blocked',
+      },
       next: ['review-ai-budget-policy', 'reduce-projected-usage'],
     });
   });
@@ -3319,6 +3325,9 @@ describe('OrchestrationController', () => {
           canAutoDispatch: false,
           requiresHumanApproval: true,
         },
+      },
+      aiGovernanceDispatchOutcome: {
+        outcome: 'held',
       },
       next: ['approve-ai-governance-decision', 'adjust-ai-routing-policy'],
     });
@@ -3474,6 +3483,9 @@ describe('OrchestrationController', () => {
           id: 'audit_1',
           action: 'ai-governance.approval-dispatch-resumed',
         },
+      },
+      aiGovernanceDispatchOutcome: {
+        outcome: 'approved-resumed',
       },
       executionDispatch: {
         runnerDispatchStatus: 'applied',

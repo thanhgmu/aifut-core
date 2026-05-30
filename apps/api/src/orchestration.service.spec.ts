@@ -3190,6 +3190,14 @@ describe('OrchestrationService', () => {
           'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch',
         eventType: 'execution-run-dispatched',
       },
+      recentAiGovernanceOutcomes: {
+        recentOutcomeCount: 0,
+        heldCount: 0,
+        approvedResumedCount: 0,
+        blockedCount: 0,
+        autoDispatchedCount: 0,
+        latestOutcome: null,
+      },
     });
     expect(result.contextScope).toEqual({
       tenantSlug: 'acme',
@@ -3261,10 +3269,24 @@ describe('OrchestrationService', () => {
             recordedAt: '2026-05-31T00:00:01.000Z',
           },
           {
+            eventKey: 'event:approved-resumed',
+            eventType: 'ai-governance-dispatch-approved-resumed',
+            runtimeStatus: 'dispatch-applied',
+            relatedKeys: { runKey: 'run:0' },
+            recordedAt: '2026-05-31T00:00:00.500Z',
+          },
+          {
+            eventKey: 'event:auto-dispatched',
+            eventType: 'ai-governance-dispatch-auto-dispatched',
+            runtimeStatus: 'dispatch-applied',
+            relatedKeys: { runKey: 'run:-1' },
+            recordedAt: '2026-05-31T00:00:00.250Z',
+          },
+          {
             eventKey: 'event:ordinary',
             eventType: 'execution-run-dispatched',
             runtimeStatus: 'dispatch-applied',
-            relatedKeys: { runKey: 'run:0' },
+            relatedKeys: { runKey: 'run:-2' },
             recordedAt: '2026-05-31T00:00:00.000Z',
           },
         ],
@@ -3278,11 +3300,11 @@ describe('OrchestrationService', () => {
     });
 
     expect(result.recentAiGovernanceOutcomes).toEqual({
-      recentOutcomeCount: 2,
+      recentOutcomeCount: 4,
       heldCount: 1,
-      approvedResumedCount: 0,
+      approvedResumedCount: 1,
       blockedCount: 1,
-      autoDispatchedCount: 0,
+      autoDispatchedCount: 1,
       latestOutcome: {
         eventKey: 'event:blocked',
         outcome: 'blocked',
