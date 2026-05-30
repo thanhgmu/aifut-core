@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrchestrationController } from './orchestration.controller';
 import { ActorContextService } from './actor-context.service';
+import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { OrchestrationService } from './orchestration.service';
 import * as orchestrationAuthContext from './orchestration-auth-context.util';
@@ -27,6 +28,10 @@ describe('OrchestrationController', () => {
   let aiTokenGovernance: {
     previewRouting: jest.Mock;
     estimateUsage: jest.Mock;
+  };
+  let aiGovernancePersistence: {
+    buildGatewayDecision: jest.Mock;
+    persistUsageEventRecord: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -55,6 +60,10 @@ describe('OrchestrationController', () => {
       previewRouting: jest.fn(),
       estimateUsage: jest.fn(),
     };
+    aiGovernancePersistence = {
+      buildGatewayDecision: jest.fn(),
+      persistUsageEventRecord: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrchestrationController],
@@ -70,6 +79,10 @@ describe('OrchestrationController', () => {
         {
           provide: AiTokenGovernanceService,
           useValue: aiTokenGovernance,
+        },
+        {
+          provide: AiGovernancePersistenceService,
+          useValue: aiGovernancePersistence,
         },
       ],
     }).compile();
@@ -3030,6 +3043,20 @@ describe('OrchestrationController', () => {
         dispatchedRunCount: 1,
       },
     });
+    aiGovernancePersistence.buildGatewayDecision.mockResolvedValue({
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      selectedLane: 'cheap-model',
+      credentialMode: 'aifut-managed',
+      quotaPressure: 'normal',
+      blockReason: null,
+    });
+    aiGovernancePersistence.persistUsageEventRecord.mockResolvedValue({
+      eventKey:
+        'ai-usage:acme:workspace:ops:orchestration-runtime:dispatch-run:ops@acme.test:2026-05-30T00:00:00.000Z',
+      executionLane: 'cheap-model',
+      status: 'success',
+    });
 
     const result = await controller.dispatchExecutionRuntimeRun(
       'plan:acme:ops:runtime',
@@ -3055,6 +3082,18 @@ describe('OrchestrationController', () => {
       undefined,
     );
 
+    expect(aiGovernancePersistence.buildGatewayDecision).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      requestedLane: undefined,
+      preferredCredentialMode: undefined,
+      projectedTokens: undefined,
+      projectedCost: undefined,
+      deterministicEligible: undefined,
+      cacheHitAvailable: undefined,
+    });
     expect(orchestration.dispatchExecutionRun).toHaveBeenCalledWith({
       tenantSlug: 'acme',
       workspaceSlug: 'ops',
@@ -3078,14 +3117,101 @@ describe('OrchestrationController', () => {
       runKey: 'plan:acme:ops:runtime:child:1:runner:run',
       dispatchedBy: 'ops@acme.test',
     });
+    expect(aiGovernancePersistence.persistUsageEventRecord).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      actorKey: 'ops@acme.test',
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      providerKey: 'orchestration-runtime',
+      modelKey: 'cheap-model',
+      credentialMode: 'aifut-managed',
+      executionLane: 'cheap-model',
+      inputTokens: undefined,
+      outputTokens: undefined,
+      estimatedCost: undefined,
+      actualCost: undefined,
+      cacheHit: undefined,
+      source: 'orchestration-dispatch-run',
+      status: 'success',
+    });
     expect(result).toMatchObject({
       status: 'execution-run-dispatched',
+      aiGovernanceDecision: {
+        selectedLane: 'cheap-model',
+        blockReason: null,
+      },
+      aiUsageEvent: {
+        executionLane: 'cheap-model',
+        status: 'success',
+      },
       executionDispatch: {
         runnerDispatchStatus: 'applied',
         executionDispatch: {
           runKey: 'plan:acme:ops:runtime:child:1:runner:run',
         },
       },
+    });
+  });
+
+  it('should block execution runtime dispatch when AI governance hard limit is reached', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      user: { email: 'ops@acme.test' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    aiGovernancePersistence.buildGatewayDecision.mockResolvedValue({
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      selectedLane: null,
+      credentialMode: 'aifut-managed',
+      quotaPressure: 'hard-limit',
+      blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
+    });
+
+    const result = await controller.dispatchExecutionRuntimeRun(
+      'plan:acme:ops:runtime',
+      {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        aiGovernance: {
+          projectedTokens: 1200,
+          projectedCost: 0.45,
+          requestedLane: 'balanced-model',
+        },
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(aiGovernancePersistence.buildGatewayDecision).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      requestedLane: 'balanced-model',
+      preferredCredentialMode: undefined,
+      projectedTokens: 1200,
+      projectedCost: 0.45,
+      deterministicEligible: undefined,
+      cacheHitAvailable: undefined,
+    });
+    expect(orchestration.dispatchExecutionRun).not.toHaveBeenCalled();
+    expect(aiGovernancePersistence.persistUsageEventRecord).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: 'execution-run-blocked-by-ai-governance',
+      aiGovernanceDecision: {
+        quotaPressure: 'hard-limit',
+        blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
+      },
+      next: ['review-ai-budget-policy', 'reduce-projected-usage'],
     });
   });
 

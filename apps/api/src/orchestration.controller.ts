@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { ActorContextService } from './actor-context.service';
+import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { ORCHESTRATION_FOUNDATION_ROADMAP } from './orchestration.constants';
 import {
@@ -18,6 +19,7 @@ export class OrchestrationController {
     private readonly actorContext: ActorContextService,
     private readonly orchestration: OrchestrationService,
     private readonly aiTokenGovernance: AiTokenGovernanceService,
+    private readonly aiGovernancePersistence: AiGovernancePersistenceService,
   ) {}
 
   private resolveActorContext(input: {
@@ -760,6 +762,29 @@ export class OrchestrationController {
       rollbackContracts?: OrchestrationRollbackContractInput[];
       submissionNotes?: string;
       runKey: string;
+      aiGovernance?: {
+        featureKey?: string;
+        taskType?: string;
+        requestedLane?:
+          | 'deterministic'
+          | 'artifact-cache'
+          | 'cheap-model'
+          | 'balanced-model'
+          | 'premium-model'
+          | 'background-batch';
+        preferredCredentialMode?: 'aifut-managed' | 'byo';
+        projectedTokens?: number;
+        projectedCost?: number;
+        deterministicEligible?: boolean;
+        cacheHitAvailable?: boolean;
+        providerKey?: string;
+        modelKey?: string;
+        inputTokens?: number;
+        outputTokens?: number;
+        estimatedCost?: number;
+        actualCost?: number;
+        cacheHit?: boolean;
+      };
     },
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-user-email') userEmailHeader?: string,
@@ -782,6 +807,72 @@ export class OrchestrationController {
       authorizationHeader,
     });
 
+    const actorKey =
+      userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email;
+    const governanceInput = body.aiGovernance ?? {};
+    const aiGovernanceDecision =
+      await this.aiGovernancePersistence.buildGatewayDecision({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        featureKey: governanceInput.featureKey ?? 'orchestration-runtime',
+        taskType: governanceInput.taskType ?? 'dispatch-run',
+        requestedLane: governanceInput.requestedLane,
+        preferredCredentialMode: governanceInput.preferredCredentialMode,
+        projectedTokens: governanceInput.projectedTokens,
+        projectedCost: governanceInput.projectedCost,
+        deterministicEligible: governanceInput.deterministicEligible,
+        cacheHitAvailable: governanceInput.cacheHitAvailable,
+      });
+
+    if (aiGovernanceDecision.blockReason) {
+      return {
+        capability: 'orchestration',
+        status: 'execution-run-blocked-by-ai-governance',
+        context: {
+          tenant: context.tenant,
+          activeWorkspace: context.activeWorkspace,
+          activeMembership: context.activeMembership,
+        },
+        aiGovernanceDecision,
+        next: ['review-ai-budget-policy', 'reduce-projected-usage'],
+      };
+    }
+
+    const executionDispatch = await this.orchestration.dispatchExecutionRun({
+      tenantSlug: context.tenant.slug,
+      workspaceSlug: context.activeWorkspace?.slug,
+      planId,
+      objective: body.objective,
+      executionModes: body.executionModes,
+      runtimeBindings: body.runtimeBindings,
+      childWorkflowContracts: body.childWorkflowContracts,
+      approvalContracts: body.approvalContracts,
+      escalationContracts: body.escalationContracts,
+      rollbackContracts: body.rollbackContracts,
+      submittedBy: actorKey,
+      submissionNotes: body.submissionNotes,
+      runKey: body.runKey,
+      dispatchedBy: actorKey,
+    });
+    const aiUsageEvent = await this.aiGovernancePersistence.persistUsageEventRecord({
+      tenantSlug: context.tenant.slug,
+      workspaceSlug: context.activeWorkspace?.slug,
+      actorKey,
+      featureKey: aiGovernanceDecision.featureKey,
+      taskType: aiGovernanceDecision.taskType,
+      providerKey: governanceInput.providerKey ?? 'orchestration-runtime',
+      modelKey: governanceInput.modelKey ?? aiGovernanceDecision.selectedLane ?? 'blocked',
+      credentialMode: aiGovernanceDecision.credentialMode,
+      executionLane: aiGovernanceDecision.selectedLane ?? undefined,
+      inputTokens: governanceInput.inputTokens ?? governanceInput.projectedTokens,
+      outputTokens: governanceInput.outputTokens,
+      estimatedCost: governanceInput.estimatedCost ?? governanceInput.projectedCost,
+      actualCost: governanceInput.actualCost,
+      cacheHit: governanceInput.cacheHit ?? governanceInput.cacheHitAvailable,
+      source: 'orchestration-dispatch-run',
+      status: 'success',
+    });
+
     return {
       capability: 'orchestration',
       status: 'execution-run-dispatched',
@@ -790,23 +881,10 @@ export class OrchestrationController {
         activeWorkspace: context.activeWorkspace,
         activeMembership: context.activeMembership,
       },
-      executionDispatch: await this.orchestration.dispatchExecutionRun({
-        tenantSlug: context.tenant.slug,
-        workspaceSlug: context.activeWorkspace?.slug,
-        planId,
-        objective: body.objective,
-        executionModes: body.executionModes,
-        runtimeBindings: body.runtimeBindings,
-        childWorkflowContracts: body.childWorkflowContracts,
-        approvalContracts: body.approvalContracts,
-        escalationContracts: body.escalationContracts,
-        rollbackContracts: body.rollbackContracts,
-        submittedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
-        submissionNotes: body.submissionNotes,
-        runKey: body.runKey,
-        dispatchedBy: userEmailHeader ?? userEmailQuery ?? body.userEmail ?? context.user.email,
-      }),
-      next: ['verification-history', 'dispatch-outcome-tracking'],
+      aiGovernanceDecision,
+      aiUsageEvent,
+      executionDispatch,
+      next: ['verification-history', 'dispatch-outcome-tracking', 'ai-usage-ledger'],
     };
   }
 
