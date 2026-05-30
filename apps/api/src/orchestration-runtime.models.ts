@@ -374,6 +374,29 @@ export interface OrchestrationRuntimeEventRecord {
   metadata: Record<string, unknown>;
 }
 
+export type OrchestrationAiGovernanceDispatchOutcome =
+  | 'held'
+  | 'approved-resumed'
+  | 'blocked'
+  | 'auto-dispatched';
+
+export interface OrchestrationAiGovernanceOutcomeDiagnosticRecord {
+  eventKey: string;
+  outcome: OrchestrationAiGovernanceDispatchOutcome;
+  runKey: string | null;
+  runtimeStatus: string;
+  recordedAt: string;
+}
+
+export interface OrchestrationAiGovernanceOutcomeDiagnosticsSummary {
+  recentOutcomeCount: number;
+  heldCount: number;
+  approvedResumedCount: number;
+  blockedCount: number;
+  autoDispatchedCount: number;
+  latestOutcome: OrchestrationAiGovernanceOutcomeDiagnosticRecord | null;
+}
+
 export type OrchestrationRuntimeSnapshotType =
   | 'materialized-runtime'
   | 'approval-decision'
@@ -501,6 +524,7 @@ export interface OrchestrationRuntimeDiagnosticsResponse {
     runtimeStatus: string;
     recordedAt: string | null;
   } | null;
+  recentAiGovernanceOutcomes: OrchestrationAiGovernanceOutcomeDiagnosticsSummary;
 }
 
 export interface OrchestrationApprovalDispatchIntegrationRecord {

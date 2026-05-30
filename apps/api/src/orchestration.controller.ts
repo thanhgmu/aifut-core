@@ -22,6 +22,7 @@ import {
   OrchestrationEscalationContractInput,
   OrchestrationRollbackContractInput,
   OrchestrationRuntimeBindingInput,
+  OrchestrationAiGovernanceDispatchOutcome,
 } from './orchestration-runtime.models';
 import { OrchestrationService } from './orchestration.service';
 import { resolveAuthUserId } from './orchestration-auth-context.util';
@@ -846,11 +847,38 @@ export class OrchestrationController {
         deterministicEligible: governanceInput.deterministicEligible,
         cacheHitAvailable: governanceInput.cacheHitAvailable,
       });
+    const recordAiGovernanceDispatchOutcome = (
+      outcome: OrchestrationAiGovernanceDispatchOutcome,
+      runtimeStatus: string,
+      extra?: { usageEventKey?: string | null; approvalAuditEventId?: string | null },
+    ) =>
+      this.orchestration.recordAiGovernanceDispatchOutcome({
+        tenantSlug: context.tenant.slug,
+        workspaceSlug: context.activeWorkspace?.slug,
+        planId,
+        runKey: body.runKey,
+        actorKey,
+        runtimeStatus,
+        outcome,
+        featureKey: aiGovernanceDecision.featureKey,
+        taskType: aiGovernanceDecision.taskType,
+        requestedLane: aiGovernanceDecision.requestedLane,
+        selectedLane: aiGovernanceDecision.selectedLane,
+        credentialMode: aiGovernanceDecision.credentialMode,
+        quotaPressure: aiGovernanceDecision.quotaPressure,
+        approvalReason: aiGovernanceDecision.approvalReason,
+        blockReason: aiGovernanceDecision.blockReason,
+        downgradeReason: aiGovernanceDecision.downgradeReason,
+        policyKeys: aiGovernanceDecision.policyKeys,
+        ...extra,
+      });
 
     if (
       aiGovernanceDecision.blockReason ||
       aiGovernanceDecision.executionPolicy?.canDispatch === false
     ) {
+      const aiGovernanceDispatchOutcome =
+        await recordAiGovernanceDispatchOutcome('blocked', 'blocked');
       return {
         capability: 'orchestration',
         status: 'execution-run-blocked-by-ai-governance',
@@ -860,6 +888,7 @@ export class OrchestrationController {
           activeMembership: context.activeMembership,
         },
         aiGovernanceDecision,
+        aiGovernanceDispatchOutcome,
         next: ['review-ai-budget-policy', 'reduce-projected-usage'],
       };
     }
@@ -880,6 +909,8 @@ export class OrchestrationController {
         : null;
 
     if (requiresAiGovernanceApproval && !aiGovernanceApproval) {
+      const aiGovernanceDispatchOutcome =
+        await recordAiGovernanceDispatchOutcome('held', 'approval-required');
       return {
         capability: 'orchestration',
         status: 'execution-run-awaiting-ai-governance-approval',
@@ -889,6 +920,7 @@ export class OrchestrationController {
           activeMembership: context.activeMembership,
         },
         aiGovernanceDecision,
+        aiGovernanceDispatchOutcome,
         next: ['approve-ai-governance-decision', 'adjust-ai-routing-policy'],
       };
     }
@@ -929,6 +961,8 @@ export class OrchestrationController {
         : 'orchestration-dispatch-run',
       status: 'success',
     });
+    const aiUsageEventKey =
+      typeof aiUsageEvent.eventKey === 'string' ? aiUsageEvent.eventKey : null;
     const aiGovernanceApprovalAudit = aiGovernanceApproval
       ? await this.auditEvents.write({
           tenantSlug: context.tenant.slug,
@@ -950,10 +984,18 @@ export class OrchestrationController {
               approvalReason: aiGovernanceDecision.approvalReason,
               outcome: aiGovernanceDecision.outcome,
             },
-            usageEventKey: aiUsageEvent.eventKey,
+            usageEventKey: aiUsageEventKey,
           },
         })
       : null;
+    const aiGovernanceDispatchOutcome = await recordAiGovernanceDispatchOutcome(
+      aiGovernanceApproval ? 'approved-resumed' : 'auto-dispatched',
+      'dispatch-applied',
+      {
+        usageEventKey: aiUsageEventKey,
+        approvalAuditEventId: aiGovernanceApprovalAudit?.event.id,
+      },
+    );
 
     return {
       capability: 'orchestration',
@@ -968,6 +1010,7 @@ export class OrchestrationController {
       aiGovernanceDecision,
       aiGovernanceApproval,
       aiGovernanceApprovalAudit,
+      aiGovernanceDispatchOutcome,
       aiUsageEvent,
       executionDispatch,
       next: ['verification-history', 'dispatch-outcome-tracking', 'ai-usage-ledger'],

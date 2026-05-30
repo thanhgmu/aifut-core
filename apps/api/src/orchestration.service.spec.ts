@@ -3196,4 +3196,100 @@ describe('OrchestrationService', () => {
       workspaceSlug: 'ops',
     });
   });
+
+  it('should persist a compact AI-governance dispatch outcome event', async () => {
+    const runtimeHistory = {
+      persistEvents: jest.fn().mockImplementation(async ([event]) => [event.eventKey]),
+    };
+    const serviceWithHistory = new OrchestrationService(runtimeHistory as never);
+
+    const result = await serviceWithHistory.recordAiGovernanceDispatchOutcome({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:runtime',
+      runKey: 'run:1',
+      actorKey: 'ops@acme.test',
+      runtimeStatus: 'approval-required',
+      outcome: 'held',
+      approvalReason: 'Premium lane requires approval.',
+    });
+
+    expect(runtimeHistory.persistEvents).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventType: 'ai-governance-dispatch-held',
+        relatedKeys: { runKey: 'run:1' },
+        metadata: expect.objectContaining({ outcome: 'held' }),
+      }),
+    ]);
+    expect(result.persistedEventKey).toContain(':ai-governance:held:');
+  });
+
+  it('should degrade AI-governance outcome recording when runtime history is unavailable', async () => {
+    await expect(
+      service.recordAiGovernanceDispatchOutcome({
+        tenantSlug: 'acme',
+        planId: 'plan:acme:tenant:runtime',
+        runKey: 'run:1',
+        runtimeStatus: 'blocked',
+        outcome: 'blocked',
+      }),
+    ).resolves.toMatchObject({
+      outcome: 'blocked',
+      persistedEventKey: null,
+    });
+  });
+
+  it('should summarize recent AI-governance outcomes in runtime diagnostics', async () => {
+    const runtimeHistory = {
+      readRuntimeHistory: jest.fn().mockResolvedValue({
+        latestSnapshot: null,
+        latestMutationByTarget: {},
+        snapshots: [],
+        events: [
+          {
+            eventKey: 'event:blocked',
+            eventType: 'ai-governance-dispatch-blocked',
+            runtimeStatus: 'blocked',
+            relatedKeys: { runKey: 'run:2' },
+            recordedAt: '2026-05-31T00:00:02.000Z',
+          },
+          {
+            eventKey: 'event:held',
+            eventType: 'ai-governance-dispatch-held',
+            runtimeStatus: 'approval-required',
+            relatedKeys: { runKey: 'run:1' },
+            recordedAt: '2026-05-31T00:00:01.000Z',
+          },
+          {
+            eventKey: 'event:ordinary',
+            eventType: 'execution-run-dispatched',
+            runtimeStatus: 'dispatch-applied',
+            relatedKeys: { runKey: 'run:0' },
+            recordedAt: '2026-05-31T00:00:00.000Z',
+          },
+        ],
+      }),
+    };
+    const serviceWithHistory = new OrchestrationService(runtimeHistory as never);
+
+    const result = await serviceWithHistory.getExecutionRuntimeDiagnostics({
+      tenantSlug: 'acme',
+      planId: 'plan:acme:tenant:runtime',
+    });
+
+    expect(result.recentAiGovernanceOutcomes).toEqual({
+      recentOutcomeCount: 2,
+      heldCount: 1,
+      approvedResumedCount: 0,
+      blockedCount: 1,
+      autoDispatchedCount: 0,
+      latestOutcome: {
+        eventKey: 'event:blocked',
+        outcome: 'blocked',
+        runKey: 'run:2',
+        runtimeStatus: 'blocked',
+        recordedAt: '2026-05-31T00:00:02.000Z',
+      },
+    });
+  });
 });

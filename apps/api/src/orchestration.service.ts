@@ -49,6 +49,8 @@ import {
   OrchestrationRunTransitionPolicy,
   OrchestrationApprovalTaskTransitionPolicy,
   OrchestrationTransitionPolicyBatch,
+  OrchestrationAiGovernanceDispatchOutcome,
+  OrchestrationAiGovernanceOutcomeDiagnosticRecord,
 } from './orchestration-runtime.models';
 import { OrchestrationRuntimeHistoryService } from './orchestration-runtime-history.service';
 
@@ -81,6 +83,67 @@ export class OrchestrationService {
     return {
       tenantSlug: input.tenantSlug,
       workspaceSlug: input.workspaceSlug ?? null,
+    };
+  }
+
+  async recordAiGovernanceDispatchOutcome(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+    runKey: string;
+    actorKey?: string;
+    runtimeStatus: string;
+    outcome: OrchestrationAiGovernanceDispatchOutcome;
+    featureKey?: string;
+    taskType?: string;
+    requestedLane?: string | null;
+    selectedLane?: string | null;
+    credentialMode?: string | null;
+    quotaPressure?: string | null;
+    approvalReason?: string | null;
+    blockReason?: string | null;
+    downgradeReason?: string | null;
+    policyKeys?: Record<string, string>;
+    usageEventKey?: string | null;
+    approvalAuditEventId?: string | null;
+  }) {
+    const recordedAt = this.buildRuntimeRecordedAt();
+    const runtimeEvent: OrchestrationRuntimeEventRecord = {
+      eventKey: `${input.planId}:${input.runKey}:ai-governance:${input.outcome}:${recordedAt}`,
+      eventType: `ai-governance-dispatch-${input.outcome}`,
+      planId: input.planId,
+      runtimeStatus: input.runtimeStatus,
+      actorKey: input.actorKey?.trim() || 'system',
+      recordedAt,
+      scope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+      relatedKeys: { runKey: input.runKey },
+      metadata: {
+        outcome: input.outcome,
+        featureKey: input.featureKey,
+        taskType: input.taskType,
+        requestedLane: input.requestedLane,
+        selectedLane: input.selectedLane,
+        credentialMode: input.credentialMode,
+        quotaPressure: input.quotaPressure,
+        approvalReason: input.approvalReason,
+        blockReason: input.blockReason,
+        downgradeReason: input.downgradeReason,
+        policyKeys: input.policyKeys ?? {},
+        usageEventKey: input.usageEventKey,
+        approvalAuditEventId: input.approvalAuditEventId,
+      },
+    };
+    const persistedEventKeys = this.runtimeHistory
+      ? await this.runtimeHistory.persistEvents([runtimeEvent])
+      : [];
+
+    return {
+      outcome: input.outcome,
+      runtimeEvent,
+      persistedEventKey: persistedEventKeys[0] ?? null,
     };
   }
 
@@ -2753,6 +2816,28 @@ export class OrchestrationService {
     input: OrchestrationRuntimeHistoryQuery,
   ): Promise<OrchestrationRuntimeDiagnosticsResponse> {
     const history = await this.getExecutionRuntimeHistory(input);
+    const governanceOutcomes = history.events.flatMap((event) => {
+      const outcome = event.eventType.replace(
+        'ai-governance-dispatch-',
+        '',
+      ) as OrchestrationAiGovernanceDispatchOutcome;
+      if (
+        !event.eventType.startsWith('ai-governance-dispatch-') ||
+        !['held', 'approved-resumed', 'blocked', 'auto-dispatched'].includes(
+          outcome,
+        )
+      ) {
+        return [];
+      }
+
+      return [{
+        eventKey: event.eventKey,
+        outcome,
+        runKey: event.relatedKeys.runKey ?? null,
+        runtimeStatus: event.runtimeStatus,
+        recordedAt: event.recordedAt,
+      } satisfies OrchestrationAiGovernanceOutcomeDiagnosticRecord];
+    });
 
     return {
       planId: history.planId,
@@ -2778,6 +2863,18 @@ export class OrchestrationService {
             recordedAt: history.events[0].recordedAt ?? null,
           }
         : null,
+      recentAiGovernanceOutcomes: {
+        recentOutcomeCount: governanceOutcomes.length,
+        heldCount: governanceOutcomes.filter((event) => event.outcome === 'held').length,
+        approvedResumedCount: governanceOutcomes.filter(
+          (event) => event.outcome === 'approved-resumed',
+        ).length,
+        blockedCount: governanceOutcomes.filter((event) => event.outcome === 'blocked').length,
+        autoDispatchedCount: governanceOutcomes.filter(
+          (event) => event.outcome === 'auto-dispatched',
+        ).length,
+        latestOutcome: governanceOutcomes[0] ?? null,
+      },
     };
   }
 }

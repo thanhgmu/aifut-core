@@ -24,6 +24,7 @@ describe('OrchestrationController', () => {
     materializeExecutionRuntime: jest.Mock;
     applyApprovalDecision: jest.Mock;
     dispatchExecutionRun: jest.Mock;
+    recordAiGovernanceDispatchOutcome: jest.Mock;
     getExecutionRuntimeHistory: jest.Mock;
     getExecutionRuntimeDiagnostics: jest.Mock;
   };
@@ -57,6 +58,9 @@ describe('OrchestrationController', () => {
       materializeExecutionRuntime: jest.fn(),
       applyApprovalDecision: jest.fn(),
       dispatchExecutionRun: jest.fn(),
+      recordAiGovernanceDispatchOutcome: jest.fn().mockImplementation((input) => ({
+        outcome: input.outcome,
+      })),
       getExecutionRuntimeHistory: jest.fn(),
       getExecutionRuntimeDiagnostics: jest.fn(),
     };
@@ -3157,6 +3161,9 @@ describe('OrchestrationController', () => {
       source: 'orchestration-dispatch-run',
       status: 'success',
     });
+    expect(orchestration.recordAiGovernanceDispatchOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'auto-dispatched' }),
+    );
     expect(result).toMatchObject({
       status: 'execution-run-dispatched',
       aiGovernanceDecision: {
@@ -3233,6 +3240,9 @@ describe('OrchestrationController', () => {
     });
     expect(orchestration.dispatchExecutionRun).not.toHaveBeenCalled();
     expect(aiGovernancePersistence.persistUsageEventRecord).not.toHaveBeenCalled();
+    expect(orchestration.recordAiGovernanceDispatchOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'blocked' }),
+    );
     expect(result).toMatchObject({
       status: 'execution-run-blocked-by-ai-governance',
       aiGovernanceDecision: {
@@ -3294,6 +3304,9 @@ describe('OrchestrationController', () => {
 
     expect(orchestration.dispatchExecutionRun).not.toHaveBeenCalled();
     expect(aiGovernancePersistence.persistUsageEventRecord).not.toHaveBeenCalled();
+    expect(orchestration.recordAiGovernanceDispatchOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'held' }),
+    );
     expect(result).toMatchObject({
       status: 'execution-run-awaiting-ai-governance-approval',
       aiGovernanceDecision: {
@@ -3435,6 +3448,12 @@ describe('OrchestrationController', () => {
           'ai-usage:acme:workspace:ops:orchestration-runtime:dispatch-run:ops@acme.test:2026-05-31T00:00:00.000Z',
       },
     });
+    expect(orchestration.recordAiGovernanceDispatchOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: 'approved-resumed',
+        approvalAuditEventId: 'audit_1',
+      }),
+    );
     expect(result).toMatchObject({
       status: 'execution-run-dispatched-after-ai-governance-approval',
       aiGovernanceApproval: {
