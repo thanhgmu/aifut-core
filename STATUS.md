@@ -1,47 +1,34 @@
 # STATUS
 
-Last updated: 2026-05-29
+Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is clean and synced with `origin/main`.
-- Wave 1 lane execution has been activated and completed for its first checkpoint set.
-- Parallel-lane planning/execution artifacts now live under `docs/roadmap/`.
+- `main` was clean and synced with `origin/main` at `216c5b3` before the current checkpoint.
+- Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
+- The current working-tree checkpoint adds an operator-guarded approval-resume path for AI-governance-held orchestration dispatches.
 
 ## Landed recently
-- `a047f01` fix(dev): pin turbopack root for local workspaces
-- `a8e6cc8` Add operator control-plane preview route
-- `7fe388f` kernel: centralize bearer auth resolution
-- `a7340d9` Add local runtime verification helper
-- `8005e94` docs(roadmap): start wave 1 lane board
-- `a50ec7a` docs(roadmap): add lane execution kit
-- `3bc9dfa` docs(roadmap): add parallel lane execution plan
+- `216c5b3` feat(api): hold orchestration dispatch for ai approval
+- `5eb51a2` feat(api): expose ai governance decision outcomes
+- `b0496ef` feat(api): summarize ai governance usage ledger
+- `b6b06f4` feat(api): gate orchestration dispatch with ai governance
+- `8867415` feat(api): expose ai governance policy writes
+- `22a2ea5` feat(api): persist ai governance policy ledgers
+- `c1b5eb0` docs(roadmap): add wave 2 lane board
 
-## Current execution standard
-- `main` is canonical truth.
-- Active lane model is documented in:
-  - `docs/roadmap/parallel-lane-execution-plan-v1.md`
-  - `docs/roadmap/parallel-lane-execution-kit-v1.md`
-  - `docs/roadmap/wave-1-lane-board-v1.md`
+## Current working-tree checkpoint
+- `POST /orchestration/plans/:planId/execution-runtime/dispatch-run` remains policy-first: every retry resolves the current AI gateway decision before runner dispatch.
+- Approval-required decisions still hold when no approval is supplied.
+- An explicit `aiGovernance.approval.decision = approve` replay now resumes the held run, attributes approval to the resolved actor, records an approval-specific ledger source, and returns `execution-run-dispatched-after-ai-governance-approval`.
+- The runtime dispatch endpoint now requires the existing `operator-control` access-policy scope with at least `OPERATOR` role.
 
-## What is verified vs blocked
-### Verified on canonical `main`
-- Wave 1 checkpoints were split into separate lanes/worktrees and merged in safe order.
-- `npm run check-types` passes from canonical `main`.
-- `npm --prefix apps/api run local:verify-runtime` passes from canonical `main`.
-- Local API `/health` returns HTTP 200 on `127.0.0.1:3002`.
-- Web routes `/dashboard` and `/foundation/operator-preview` return HTTP 200 on `localhost:3000`.
-- Local runtime verification helper exists at `apps/api/scripts/verify-local-runtime.js`.
-- Operator preview route exists at `apps/web/app/foundation/operator-preview/page.tsx`.
-- Bearer auth resolution is centralized in `apps/api/src/auth/jwt.util.ts`.
-- Next.js workspace-root ambiguity warning was removed by pinning `turbopack.root` in both `apps/web/next.config.js` and `apps/docs/next.config.js`.
-
-### Still blocked or incomplete
-- Some lane-local verification attempts failed earlier because dependencies/tools were missing in those worktrees (`turbo`, `next`, `jest`, `@prisma/client`).
-- Lane-worktree dependency/bootstrap expectations are still not standardized yet.
-- Targeted automated tests for the new kernel/UI slices were not expanded beyond the current minimal gates.
+## Verification
+- Targeted controller verification: `npm test -- --runInBand orchestration.controller.spec.ts` passing (`29/29`).
+- API build: `npm run build` passing from `apps/api`.
+- Full API Jest: `npm test -- --runInBand` passing (`23/23` suites, `314/314` tests).
+- Local runtime verification: `npm run local:verify-runtime` passing against `http://127.0.0.1:3002`.
 
 ## Next actions
-1. Standardize dependency/bootstrap expectations for lane worktrees so future lane verification does not depend on manual install state.
-2. Add one small reusable verification entrypoint/runbook that bundles the canonical Wave 1 gates.
-3. Open the next checkpoint set, most likely around integration-setup experience, only after lane bootstrap friction is reduced.
-4. Keep committing/pushing each safe slice and verify on local canonical `main` before treating it as real.
+1. Persist a first-class AI-governance approval audit/history record instead of relying only on replay response plus approval-specific dispatch ledger source.
+2. Extend runtime diagnostics so operators can distinguish AI-held, AI-approved-resumed, blocked, and auto-dispatched outcomes quickly.
+3. Keep `lane/domain-governance-hardening` ready for the next low-collision verification/write-path slice.

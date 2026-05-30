@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AccessPolicyService } from './access-policy.service';
 import { OrchestrationController } from './orchestration.controller';
 import { ActorContextService } from './actor-context.service';
 import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
@@ -71,6 +72,10 @@ describe('OrchestrationController', () => {
         {
           provide: ActorContextService,
           useValue: actorContext,
+        },
+        {
+          provide: AccessPolicyService,
+          useValue: { resolveAndRequire: jest.fn() },
         },
         {
           provide: OrchestrationService,
@@ -3293,6 +3298,109 @@ describe('OrchestrationController', () => {
         },
       },
       next: ['approve-ai-governance-decision', 'adjust-ai-routing-policy'],
+    });
+  });
+
+  it('should resume an AI-governance-held dispatch after explicit actor approval', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      user: { email: 'ops@acme.test' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.dispatchExecutionRun.mockReturnValue({
+      planId: 'plan:acme:ops:runtime',
+      runnerDispatchStatus: 'applied',
+      executionDispatch: {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+      },
+    });
+    aiGovernancePersistence.buildGatewayDecision.mockResolvedValue({
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      selectedLane: 'premium-model',
+      credentialMode: 'aifut-managed',
+      quotaPressure: 'normal',
+      requiresApproval: true,
+      approvalReason:
+        'Selected lane premium-model requires approval above balanced-model.',
+      blockReason: null,
+      outcome: {
+        status: 'approval-required',
+      },
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: false,
+        requiresHumanApproval: true,
+        shouldRecordUsageEvent: true,
+      },
+    });
+    aiGovernancePersistence.persistUsageEventRecord.mockResolvedValue({
+      eventKey:
+        'ai-usage:acme:workspace:ops:orchestration-runtime:dispatch-run:ops@acme.test:2026-05-31T00:00:00.000Z',
+      executionLane: 'premium-model',
+      source: 'orchestration-dispatch-run-approved',
+      status: 'success',
+    });
+
+    const result = await controller.dispatchExecutionRuntimeRun(
+      'plan:acme:ops:runtime',
+      {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        aiGovernance: {
+          requestedLane: 'premium-model',
+          projectedTokens: 800,
+          projectedCost: 12,
+          approval: {
+            decision: 'approve',
+            note: '  approved for customer deadline  ',
+          },
+        },
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(orchestration.dispatchExecutionRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:runtime',
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        dispatchedBy: 'ops@acme.test',
+      }),
+    );
+    expect(aiGovernancePersistence.persistUsageEventRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorKey: 'ops@acme.test',
+        executionLane: 'premium-model',
+        source: 'orchestration-dispatch-run-approved',
+        status: 'success',
+      }),
+    );
+    expect(result).toMatchObject({
+      status: 'execution-run-dispatched-after-ai-governance-approval',
+      aiGovernanceApproval: {
+        status: 'approved-for-dispatch',
+        decision: 'approve',
+        approvedBy: 'ops@acme.test',
+        note: 'approved for customer deadline',
+      },
+      aiGovernanceDecision: {
+        outcome: {
+          status: 'approval-required',
+        },
+      },
+      executionDispatch: {
+        runnerDispatchStatus: 'applied',
+      },
     });
   });
 

@@ -1,5 +1,12 @@
 # AIFUT Status
 
+## 2026-05-31 Wave 2 approval-resume checkpoint
+- The current orchestration runtime working tree adds the first small replay path for AI-governance-held execution runs.
+- `POST /orchestration/plans/:planId/execution-runtime/dispatch-run` now re-checks the live AI gateway decision on every attempt and only resumes an approval-required run when `aiGovernance.approval.decision = approve` is supplied.
+- Resume attribution comes from the resolved actor context, successful approved replays use the ledger source `orchestration-dispatch-run-approved`, and the response status becomes `execution-run-dispatched-after-ai-governance-approval`.
+- The dispatch endpoint is now explicitly guarded by the existing `operator-control` policy at `OPERATOR` minimum role.
+- Verification is green: targeted orchestration controller tests `29/29`, API build, full API Jest `23/23` suites and `314/314` tests, and local runtime verification against `http://127.0.0.1:3002`.
+
 ## Current direction
 AIFUT is actively being built as a Model C SaaS/operator-stack platform kernel, not as a CRM or ecommerce monolith.
 

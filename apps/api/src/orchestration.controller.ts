@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
+import { AccessPolicyGuard } from './access-policy.guard';
+import { RequireAccessPolicy } from './access-policy.decorator';
 import { ActorContextService } from './actor-context.service';
 import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
@@ -746,6 +758,11 @@ export class OrchestrationController {
   }
 
   @Post('plans/:planId/execution-runtime/dispatch-run')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
   async dispatchExecutionRuntimeRun(
     @Param('planId') planId: string,
     @Body()
@@ -784,6 +801,10 @@ export class OrchestrationController {
         estimatedCost?: number;
         actualCost?: number;
         cacheHit?: boolean;
+        approval?: {
+          decision: 'approve';
+          note?: string;
+        };
       };
     },
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
@@ -841,11 +862,22 @@ export class OrchestrationController {
       };
     }
 
-    if (
+    const requiresAiGovernanceApproval =
       aiGovernanceDecision.requiresApproval ||
       aiGovernanceDecision.executionPolicy?.requiresHumanApproval ||
-      aiGovernanceDecision.executionPolicy?.canAutoDispatch === false
-    ) {
+      aiGovernanceDecision.executionPolicy?.canAutoDispatch === false;
+    const aiGovernanceApproval =
+      requiresAiGovernanceApproval &&
+      governanceInput.approval?.decision === 'approve'
+        ? {
+            status: 'approved-for-dispatch',
+            decision: governanceInput.approval.decision,
+            approvedBy: actorKey,
+            note: governanceInput.approval.note?.trim() || null,
+          }
+        : null;
+
+    if (requiresAiGovernanceApproval && !aiGovernanceApproval) {
       return {
         capability: 'orchestration',
         status: 'execution-run-awaiting-ai-governance-approval',
@@ -890,19 +922,24 @@ export class OrchestrationController {
       estimatedCost: governanceInput.estimatedCost ?? governanceInput.projectedCost,
       actualCost: governanceInput.actualCost,
       cacheHit: governanceInput.cacheHit ?? governanceInput.cacheHitAvailable,
-      source: 'orchestration-dispatch-run',
+      source: aiGovernanceApproval
+        ? 'orchestration-dispatch-run-approved'
+        : 'orchestration-dispatch-run',
       status: 'success',
     });
 
     return {
       capability: 'orchestration',
-      status: 'execution-run-dispatched',
+      status: aiGovernanceApproval
+        ? 'execution-run-dispatched-after-ai-governance-approval'
+        : 'execution-run-dispatched',
       context: {
         tenant: context.tenant,
         activeWorkspace: context.activeWorkspace,
         activeMembership: context.activeMembership,
       },
       aiGovernanceDecision,
+      aiGovernanceApproval,
       aiUsageEvent,
       executionDispatch,
       next: ['verification-history', 'dispatch-outcome-tracking', 'ai-usage-ledger'],
