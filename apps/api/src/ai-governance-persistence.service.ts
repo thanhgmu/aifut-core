@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
 
 type AiCredentialMode = 'aifut-managed' | 'byo';
 type AiPolicyScopeType = 'tenant' | 'workspace';
@@ -61,8 +62,22 @@ type BuildUsageEventInput = {
   occurredAt?: Date;
 };
 
+type AiGovernancePrismaClient = {
+  aiRoutingPolicy: {
+    upsert(input: unknown): Promise<unknown>;
+  };
+  aiBudgetPolicy: {
+    upsert(input: unknown): Promise<unknown>;
+  };
+  aiUsageEvent: {
+    create(input: unknown): Promise<unknown>;
+  };
+};
+
 @Injectable()
 export class AiGovernancePersistenceService {
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
   buildRoutingPolicyRecord(input: BuildRoutingPolicyInput) {
     const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
     const featureKey = this.normalizeKey(input.featureKey, 'general');
@@ -146,6 +161,7 @@ export class AiGovernancePersistenceService {
 
   buildUsageEventRecord(input: BuildUsageEventInput) {
     const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const occurredAt = input.occurredAt ?? new Date();
     const actorKey = this.normalizeKey(input.actorKey, 'system');
     const featureKey = this.normalizeKey(input.featureKey, 'general');
     const taskType = this.normalizeKey(input.taskType, 'general');
@@ -161,6 +177,7 @@ export class AiGovernancePersistenceService {
         featureKey,
         taskType,
         actorKey,
+        occurredAt,
       }),
       scope,
       actorKey,
@@ -182,8 +199,118 @@ export class AiGovernancePersistenceService {
       },
       status: input.status ?? 'success',
       source: this.normalizeKey(input.source, 'ai-gateway'),
-      occurredAt: input.occurredAt ?? new Date(),
+      occurredAt,
     };
+  }
+
+  async persistRoutingPolicyRecord(input: BuildRoutingPolicyInput) {
+    const record = this.buildRoutingPolicyRecord(input);
+    const prisma = this.requirePrisma();
+
+    return prisma.aiRoutingPolicy.upsert({
+      where: { policyKey: record.policyKey },
+      update: {
+        scopeType: record.scope.scopeType,
+        tenantSlug: record.scope.tenantSlug,
+        workspaceSlug: record.scope.workspaceSlug,
+        featureKey: record.featureKey,
+        taskType: record.taskType,
+        defaultLane: record.routing.defaultLane,
+        maxLane: record.routing.maxLane,
+        preferredCredentialMode: record.routing.preferredCredentialMode,
+        allowByoKeys: record.routing.allowByoKeys,
+        requireApprovalAboveLane: record.routing.requireApprovalAboveLane,
+        downgradeAtQuotaPressure: record.routing.downgradeAtQuotaPressure,
+        cacheEnabled: record.routing.cacheEnabled,
+        deterministicFirst: record.routing.deterministicFirst,
+        source: record.source,
+      },
+      create: {
+        policyKey: record.policyKey,
+        scopeType: record.scope.scopeType,
+        tenantSlug: record.scope.tenantSlug,
+        workspaceSlug: record.scope.workspaceSlug,
+        featureKey: record.featureKey,
+        taskType: record.taskType,
+        defaultLane: record.routing.defaultLane,
+        maxLane: record.routing.maxLane,
+        preferredCredentialMode: record.routing.preferredCredentialMode,
+        allowByoKeys: record.routing.allowByoKeys,
+        requireApprovalAboveLane: record.routing.requireApprovalAboveLane,
+        downgradeAtQuotaPressure: record.routing.downgradeAtQuotaPressure,
+        cacheEnabled: record.routing.cacheEnabled,
+        deterministicFirst: record.routing.deterministicFirst,
+        source: record.source,
+      },
+    });
+  }
+
+  async persistBudgetPolicyRecord(input: BuildBudgetPolicyInput) {
+    const record = this.buildBudgetPolicyRecord(input);
+    const prisma = this.requirePrisma();
+
+    return prisma.aiBudgetPolicy.upsert({
+      where: { policyKey: record.policyKey },
+      update: {
+        scopeType: record.scope.scopeType,
+        tenantSlug: record.scope.tenantSlug,
+        workspaceSlug: record.scope.workspaceSlug,
+        featureKey: record.featureKey,
+        monthlyTokenBudget: record.budget.monthlyTokenBudget,
+        hardMonthlyTokenLimit: record.budget.hardMonthlyTokenLimit,
+        premiumExecutionCap: record.budget.premiumExecutionCap,
+        blockOnHardLimit: record.budget.blockOnHardLimit,
+        requireApprovalAtProjectedCost:
+          record.budget.requireApprovalAtProjectedCost,
+        source: record.source,
+      },
+      create: {
+        policyKey: record.policyKey,
+        scopeType: record.scope.scopeType,
+        tenantSlug: record.scope.tenantSlug,
+        workspaceSlug: record.scope.workspaceSlug,
+        featureKey: record.featureKey,
+        monthlyTokenBudget: record.budget.monthlyTokenBudget,
+        hardMonthlyTokenLimit: record.budget.hardMonthlyTokenLimit,
+        premiumExecutionCap: record.budget.premiumExecutionCap,
+        blockOnHardLimit: record.budget.blockOnHardLimit,
+        requireApprovalAtProjectedCost:
+          record.budget.requireApprovalAtProjectedCost,
+        source: record.source,
+      },
+    });
+  }
+
+  async persistUsageEventRecord(input: BuildUsageEventInput) {
+    const record = this.buildUsageEventRecord(input);
+    const prisma = this.requirePrisma();
+
+    return prisma.aiUsageEvent.create({
+      data: {
+        eventKey: record.eventKey,
+        scopeType: record.scope.scopeType,
+        tenantSlug: record.scope.tenantSlug,
+        workspaceSlug: record.scope.workspaceSlug,
+        actorKey: record.actorKey,
+        featureKey: record.featureKey,
+        taskType: record.taskType,
+        providerKey: record.providerKey,
+        modelKey: record.modelKey,
+        credentialMode: record.credentialMode,
+        executionLane: record.executionLane,
+        inputTokens: record.usage.inputTokens,
+        outputTokens: record.usage.outputTokens,
+        totalTokens: record.usage.totalTokens,
+        estimatedCost: record.usage.estimatedCost,
+        actualCost: record.usage.actualCost,
+        cacheHit: record.usage.cacheHit,
+        retryCount: record.usage.retryCount,
+        escalationCount: record.usage.escalationCount,
+        status: record.status,
+        source: record.source,
+        occurredAt: record.occurredAt,
+      },
+    });
   }
 
   private resolveScope(tenantSlug?: string, workspaceSlug?: string | null) {
@@ -240,6 +367,7 @@ export class AiGovernancePersistenceService {
     featureKey: string;
     taskType: string;
     actorKey: string;
+    occurredAt: Date;
   }) {
     return [
       'ai-usage',
@@ -247,7 +375,18 @@ export class AiGovernancePersistenceService {
       input.featureKey,
       input.taskType,
       input.actorKey,
+      input.occurredAt.toISOString(),
     ].join(':');
+  }
+
+  private requirePrisma(): AiGovernancePrismaClient {
+    if (!this.prisma) {
+      throw new BadRequestException(
+        'AI governance persistence requires PrismaService.',
+      );
+    }
+
+    return this.prisma as unknown as AiGovernancePrismaClient;
   }
 
   private normalizeRequiredSlug(value: string | undefined, label: string) {

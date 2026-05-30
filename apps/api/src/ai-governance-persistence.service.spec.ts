@@ -121,7 +121,8 @@ describe('AiGovernancePersistenceService', () => {
     });
 
     expect(result).toEqual({
-      eventKey: 'ai-usage:acme:workspace:ops:workflowbuilder:draft-generation:user_1',
+      eventKey:
+        'ai-usage:acme:workspace:ops:workflowbuilder:draft-generation:user_1:2026-05-30T12:10:00.000Z',
       scope: {
         scopeKey: 'acme:workspace:ops',
         scopeType: 'workspace',
@@ -148,6 +149,115 @@ describe('AiGovernancePersistenceService', () => {
       status: 'success',
       source: 'ai-gateway',
       occurredAt,
+    });
+  });
+
+  it('should persist routing policies through an upsert-ready Prisma payload', async () => {
+    const prisma = {
+      aiRoutingPolicy: {
+        upsert: jest.fn().mockResolvedValue({ policyKey: 'policy_1' }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.persistRoutingPolicyRecord({
+        tenantSlug: 'Acme',
+        workspaceSlug: 'Ops',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        maxLane: 'premium-model',
+      }),
+    ).resolves.toEqual({ policyKey: 'policy_1' });
+
+    expect(prisma.aiRoutingPolicy.upsert).toHaveBeenCalledWith({
+      where: {
+        policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft',
+      },
+      update: expect.objectContaining({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        featureKey: 'workflowbuilder',
+        taskType: 'draft',
+        defaultLane: 'cheap-model',
+        maxLane: 'premium-model',
+      }),
+      create: expect.objectContaining({
+        policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft',
+        preferredCredentialMode: 'aifut-managed',
+      }),
+    });
+  });
+
+  it('should persist budget policies through an upsert-ready Prisma payload', async () => {
+    const prisma = {
+      aiBudgetPolicy: {
+        upsert: jest.fn().mockResolvedValue({ policyKey: 'budget_1' }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.persistBudgetPolicyRecord({
+        tenantSlug: 'Acme',
+        featureKey: 'WorkflowBuilder',
+        monthlyTokenBudget: 1500,
+        hardMonthlyTokenLimit: 2000,
+      }),
+    ).resolves.toEqual({ policyKey: 'budget_1' });
+
+    expect(prisma.aiBudgetPolicy.upsert).toHaveBeenCalledWith({
+      where: {
+        policyKey: 'acme:tenant:default:feature:workflowbuilder:budget',
+      },
+      update: expect.objectContaining({
+        tenantSlug: 'acme',
+        workspaceSlug: null,
+        featureKey: 'workflowbuilder',
+        monthlyTokenBudget: 1500,
+        hardMonthlyTokenLimit: 2000,
+      }),
+      create: expect.objectContaining({
+        policyKey: 'acme:tenant:default:feature:workflowbuilder:budget',
+        blockOnHardLimit: true,
+      }),
+    });
+  });
+
+  it('should persist usage events as append-only ledger create payloads', async () => {
+    const occurredAt = new Date('2026-05-30T12:30:00.000Z');
+    const prisma = {
+      aiUsageEvent: {
+        create: jest.fn().mockResolvedValue({ eventKey: 'event_1' }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.persistUsageEventRecord({
+        tenantSlug: 'Acme',
+        workspaceSlug: 'Ops',
+        actorKey: 'User_1',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        inputTokens: 10,
+        outputTokens: 5,
+        occurredAt,
+      }),
+    ).resolves.toEqual({ eventKey: 'event_1' });
+
+    expect(prisma.aiUsageEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventKey:
+          'ai-usage:acme:workspace:ops:workflowbuilder:draft:user_1:2026-05-30T12:30:00.000Z',
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        actorKey: 'user_1',
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+        occurredAt,
+      }),
     });
   });
 });

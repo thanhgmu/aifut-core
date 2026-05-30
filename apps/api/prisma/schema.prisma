@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum MembershipRole {
@@ -330,6 +329,84 @@ model OrchestrationRuntimeEvent {
   @@index([tenantSlug, planId])
   @@index([planId, eventType])
   @@index([recordedAt])
+}
+
+model AiRoutingPolicy {
+  id                         String   @id @default(cuid())
+  policyKey                  String   @unique
+  scopeType                  String
+  tenantSlug                 String
+  workspaceSlug              String?
+  featureKey                 String
+  taskType                   String
+  defaultLane                String
+  maxLane                    String
+  preferredCredentialMode    String
+  allowByoKeys               Boolean  @default(false)
+  requireApprovalAboveLane   String?
+  downgradeAtQuotaPressure   String
+  cacheEnabled               Boolean  @default(true)
+  deterministicFirst         Boolean  @default(true)
+  source                     String
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([tenantSlug, featureKey])
+  @@index([workspaceSlug])
+  @@index([defaultLane])
+}
+
+model AiBudgetPolicy {
+  id                             String   @id @default(cuid())
+  policyKey                      String   @unique
+  scopeType                      String
+  tenantSlug                     String
+  workspaceSlug                  String?
+  featureKey                     String
+  monthlyTokenBudget             Int      @default(0)
+  hardMonthlyTokenLimit          Int      @default(0)
+  premiumExecutionCap            Int      @default(0)
+  blockOnHardLimit               Boolean  @default(true)
+  requireApprovalAtProjectedCost Float    @default(0)
+  source                         String
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@index([tenantSlug, featureKey])
+  @@index([workspaceSlug])
+}
+
+model AiUsageEvent {
+  id                  String   @id @default(cuid())
+  eventKey            String   @unique
+  scopeType           String
+  tenantSlug          String
+  workspaceSlug       String?
+  actorKey            String
+  featureKey          String
+  taskType            String
+  providerKey         String
+  modelKey            String
+  credentialMode      String
+  executionLane       String
+  inputTokens         Int      @default(0)
+  outputTokens        Int      @default(0)
+  totalTokens         Int      @default(0)
+  estimatedCost       Float    @default(0)
+  actualCost          Float    @default(0)
+  cacheHit            Boolean  @default(false)
+  retryCount          Int      @default(0)
+  escalationCount     Int      @default(0)
+  status              String
+  source              String
+  occurredAt          DateTime
+  createdAt           DateTime @default(now())
+
+  @@index([tenantSlug, occurredAt])
+  @@index([workspaceSlug])
+  @@index([featureKey, taskType])
+  @@index([executionLane])
+  @@index([status])
 }
 
 model AuditLog {
