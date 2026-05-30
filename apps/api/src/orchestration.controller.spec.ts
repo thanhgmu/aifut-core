@@ -3050,6 +3050,13 @@ describe('OrchestrationController', () => {
       credentialMode: 'aifut-managed',
       quotaPressure: 'normal',
       blockReason: null,
+      requiresApproval: false,
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: true,
+        requiresHumanApproval: false,
+        shouldRecordUsageEvent: true,
+      },
     });
     aiGovernancePersistence.persistUsageEventRecord.mockResolvedValue({
       eventKey:
@@ -3168,6 +3175,12 @@ describe('OrchestrationController', () => {
       credentialMode: 'aifut-managed',
       quotaPressure: 'hard-limit',
       blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
+      executionPolicy: {
+        canDispatch: false,
+        canAutoDispatch: false,
+        requiresHumanApproval: false,
+        shouldRecordUsageEvent: false,
+      },
     });
 
     const result = await controller.dispatchExecutionRuntimeRun(
@@ -3212,6 +3225,74 @@ describe('OrchestrationController', () => {
         blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
       },
       next: ['review-ai-budget-policy', 'reduce-projected-usage'],
+    });
+  });
+
+  it('should hold execution runtime dispatch when AI governance requires approval', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      user: { email: 'ops@acme.test' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    aiGovernancePersistence.buildGatewayDecision.mockResolvedValue({
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      selectedLane: 'premium-model',
+      credentialMode: 'aifut-managed',
+      quotaPressure: 'normal',
+      requiresApproval: true,
+      approvalReason:
+        'Selected lane premium-model requires approval above balanced-model.',
+      blockReason: null,
+      outcome: {
+        status: 'approval-required',
+      },
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: false,
+        requiresHumanApproval: true,
+        shouldRecordUsageEvent: true,
+      },
+    });
+
+    const result = await controller.dispatchExecutionRuntimeRun(
+      'plan:acme:ops:runtime',
+      {
+        runKey: 'plan:acme:ops:runtime:child:1:runner:run',
+        aiGovernance: {
+          requestedLane: 'premium-model',
+          projectedTokens: 800,
+          projectedCost: 12,
+        },
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'acme.test',
+      'acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(orchestration.dispatchExecutionRun).not.toHaveBeenCalled();
+    expect(aiGovernancePersistence.persistUsageEventRecord).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: 'execution-run-awaiting-ai-governance-approval',
+      aiGovernanceDecision: {
+        selectedLane: 'premium-model',
+        requiresApproval: true,
+        outcome: {
+          status: 'approval-required',
+        },
+        executionPolicy: {
+          canAutoDispatch: false,
+          requiresHumanApproval: true,
+        },
+      },
+      next: ['approve-ai-governance-decision', 'adjust-ai-routing-policy'],
     });
   });
 

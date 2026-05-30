@@ -824,7 +824,10 @@ export class OrchestrationController {
         cacheHitAvailable: governanceInput.cacheHitAvailable,
       });
 
-    if (aiGovernanceDecision.blockReason) {
+    if (
+      aiGovernanceDecision.blockReason ||
+      aiGovernanceDecision.executionPolicy?.canDispatch === false
+    ) {
       return {
         capability: 'orchestration',
         status: 'execution-run-blocked-by-ai-governance',
@@ -835,6 +838,24 @@ export class OrchestrationController {
         },
         aiGovernanceDecision,
         next: ['review-ai-budget-policy', 'reduce-projected-usage'],
+      };
+    }
+
+    if (
+      aiGovernanceDecision.requiresApproval ||
+      aiGovernanceDecision.executionPolicy?.requiresHumanApproval ||
+      aiGovernanceDecision.executionPolicy?.canAutoDispatch === false
+    ) {
+      return {
+        capability: 'orchestration',
+        status: 'execution-run-awaiting-ai-governance-approval',
+        context: {
+          tenant: context.tenant,
+          activeWorkspace: context.activeWorkspace,
+          activeMembership: context.activeMembership,
+        },
+        aiGovernanceDecision,
+        next: ['approve-ai-governance-decision', 'adjust-ai-routing-policy'],
       };
     }
 
