@@ -62,15 +62,41 @@ type BuildUsageEventInput = {
   occurredAt?: Date;
 };
 
+type ResolveAiPolicyInput = {
+  tenantSlug?: string;
+  workspaceSlug?: string | null;
+  featureKey?: string;
+  taskType?: string;
+};
+
+type BuildGatewayDecisionInput = ResolveAiPolicyInput & {
+  requestedLane?: AiExecutionLane;
+  preferredCredentialMode?: AiCredentialMode;
+  projectedTokens?: number;
+  projectedCost?: number;
+  deterministicEligible?: boolean;
+  cacheHitAvailable?: boolean;
+  occurredAt?: Date;
+};
+
 type AiGovernancePrismaClient = {
   aiRoutingPolicy: {
     upsert(input: unknown): Promise<unknown>;
+    findFirst(input: unknown): Promise<Record<string, unknown> | null>;
   };
   aiBudgetPolicy: {
     upsert(input: unknown): Promise<unknown>;
+    findFirst(input: unknown): Promise<Record<string, unknown> | null>;
   };
   aiUsageEvent: {
     create(input: unknown): Promise<unknown>;
+    aggregate(input: unknown): Promise<{
+      _sum?: {
+        totalTokens?: number | null;
+        actualCost?: number | null;
+        estimatedCost?: number | null;
+      };
+    }>;
   };
 };
 
@@ -313,6 +339,174 @@ export class AiGovernancePersistenceService {
     });
   }
 
+  async resolveEffectiveRoutingPolicy(input: ResolveAiPolicyInput) {
+    const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const featureKey = this.normalizeKey(input.featureKey, 'general');
+    const taskType = this.normalizeKey(input.taskType, 'general');
+    const prisma = this.requirePrisma();
+    const persisted = await this.findScopedPolicy({
+      delegate: prisma.aiRoutingPolicy,
+      tenantSlug: scope.tenantSlug,
+      workspaceSlug: scope.workspaceSlug,
+      featureKey,
+      taskType,
+    });
+
+    return persisted
+      ? this.normalizePersistedRoutingPolicy(persisted)
+      : this.buildRoutingPolicyRecord({
+          tenantSlug: scope.tenantSlug,
+          workspaceSlug: scope.workspaceSlug,
+          featureKey,
+          taskType,
+        });
+  }
+
+  async resolveBudgetPressure(input: ResolveAiPolicyInput & {
+    projectedTokens?: number;
+    projectedCost?: number;
+    occurredAt?: Date;
+  }) {
+    const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const featureKey = this.normalizeKey(input.featureKey, 'general');
+    const prisma = this.requirePrisma();
+    const persistedBudgetPolicy = await this.findScopedPolicy({
+      delegate: prisma.aiBudgetPolicy,
+      tenantSlug: scope.tenantSlug,
+      workspaceSlug: scope.workspaceSlug,
+      featureKey,
+    });
+    const budgetPolicy = persistedBudgetPolicy
+      ? this.normalizePersistedBudgetPolicy(persistedBudgetPolicy)
+      : this.buildBudgetPolicyRecord({
+          tenantSlug: scope.tenantSlug,
+          workspaceSlug: scope.workspaceSlug,
+          featureKey,
+        });
+    const periodStart = this.startOfMonth(input.occurredAt ?? new Date());
+    const usage = await prisma.aiUsageEvent.aggregate({
+      where: {
+        tenantSlug: scope.tenantSlug,
+        ...(scope.workspaceSlug ? { workspaceSlug: scope.workspaceSlug } : {}),
+        featureKey,
+        status: 'success',
+        occurredAt: { gte: periodStart },
+      },
+      _sum: {
+        totalTokens: true,
+        actualCost: true,
+        estimatedCost: true,
+      },
+    });
+    const usedTokens = this.normalizeNonNegativeInteger(
+      usage._sum?.totalTokens ?? 0,
+    );
+    const usedCost = this.normalizeNonNegativeNumber(
+      usage._sum?.actualCost ?? usage._sum?.estimatedCost ?? 0,
+    );
+    const projectedTokens = this.normalizeNonNegativeInteger(
+      input.projectedTokens,
+    );
+    const projectedCost = this.normalizeNonNegativeNumber(input.projectedCost);
+    const projectedMonthlyTokens = usedTokens + projectedTokens;
+    const projectedMonthlyCost = usedCost + projectedCost;
+    const hardLimit = budgetPolicy.budget.hardMonthlyTokenLimit;
+    const monthlyBudget = budgetPolicy.budget.monthlyTokenBudget;
+    const pressure: AiQuotaPressure =
+      hardLimit > 0 && projectedMonthlyTokens >= hardLimit
+        ? 'hard-limit'
+        : monthlyBudget > 0 && projectedMonthlyTokens >= monthlyBudget * 0.85
+          ? 'near-limit'
+          : 'normal';
+
+    return {
+      scope,
+      featureKey,
+      budgetPolicy,
+      usageWindow: {
+        periodStart,
+        usedTokens,
+        usedCost,
+        projectedTokens,
+        projectedCost,
+        projectedMonthlyTokens,
+        projectedMonthlyCost,
+      },
+      pressure,
+      blockReason:
+        pressure === 'hard-limit' && budgetPolicy.budget.blockOnHardLimit
+          ? `Projected AI token usage reaches hard monthly limit of ${hardLimit}.`
+          : null,
+      approvalReason:
+        budgetPolicy.budget.requireApprovalAtProjectedCost > 0 &&
+        projectedCost >= budgetPolicy.budget.requireApprovalAtProjectedCost
+          ? `Projected AI cost requires approval at ${budgetPolicy.budget.requireApprovalAtProjectedCost}.`
+          : null,
+    };
+  }
+
+  async buildGatewayDecision(input: BuildGatewayDecisionInput) {
+    const routingPolicy = await this.resolveEffectiveRoutingPolicy(input);
+    const budgetPressure = await this.resolveBudgetPressure(input);
+    const requestedLane =
+      input.requestedLane ??
+      (input.deterministicEligible
+        ? 'deterministic'
+        : input.cacheHitAvailable
+          ? 'artifact-cache'
+          : routingPolicy.routing.defaultLane);
+    const cappedLane =
+      this.laneRank(requestedLane) > this.laneRank(routingPolicy.routing.maxLane)
+        ? routingPolicy.routing.maxLane
+        : requestedLane;
+    const pressureLane =
+      budgetPressure.pressure === routingPolicy.routing.downgradeAtQuotaPressure
+        ? this.lowerLane(cappedLane)
+        : cappedLane;
+    const selectedLane = budgetPressure.blockReason
+      ? null
+      : input.deterministicEligible && routingPolicy.routing.deterministicFirst
+        ? 'deterministic'
+        : input.cacheHitAvailable && routingPolicy.routing.cacheEnabled
+          ? 'artifact-cache'
+          : pressureLane;
+    const requestedCredentialMode =
+      input.preferredCredentialMode ?? routingPolicy.routing.preferredCredentialMode;
+    const credentialMode =
+      requestedCredentialMode === 'byo' && !routingPolicy.routing.allowByoKeys
+        ? 'aifut-managed'
+        : requestedCredentialMode;
+    const approvalLane = routingPolicy.routing.requireApprovalAboveLane;
+    const approvalReason =
+      selectedLane &&
+      approvalLane &&
+      this.laneRank(selectedLane) > this.laneRank(approvalLane)
+        ? `Selected lane ${selectedLane} requires approval above ${approvalLane}.`
+        : budgetPressure.approvalReason;
+
+    return {
+      scope: routingPolicy.scope,
+      featureKey: routingPolicy.featureKey,
+      taskType: routingPolicy.taskType,
+      requestedLane,
+      selectedLane,
+      credentialMode,
+      quotaPressure: budgetPressure.pressure,
+      requiresApproval: Boolean(approvalReason),
+      approvalReason,
+      blockReason: budgetPressure.blockReason,
+      downgradeReason:
+        selectedLane && selectedLane !== cappedLane
+          ? `Quota pressure ${budgetPressure.pressure} downgraded lane from ${cappedLane} to ${selectedLane}.`
+          : null,
+      policyKeys: {
+        routingPolicyKey: routingPolicy.policyKey,
+        budgetPolicyKey: budgetPressure.budgetPolicy.policyKey,
+      },
+      usageWindow: budgetPressure.usageWindow,
+    };
+  }
+
   private resolveScope(tenantSlug?: string, workspaceSlug?: string | null) {
     const normalizedTenantSlug = this.normalizeRequiredSlug(tenantSlug, 'tenant slug');
     const normalizedWorkspaceSlug = workspaceSlug?.trim().toLowerCase() || null;
@@ -345,6 +539,115 @@ export class AiGovernancePersistenceService {
     return preferred ?? 'aifut-managed';
   }
 
+  private async findScopedPolicy(input: {
+    delegate: {
+      findFirst(input: unknown): Promise<Record<string, unknown> | null>;
+    };
+    tenantSlug: string;
+    workspaceSlug: string | null;
+    featureKey: string;
+    taskType?: string;
+  }) {
+    const baseWhere = {
+      tenantSlug: input.tenantSlug,
+      featureKey: input.featureKey,
+      ...(input.taskType ? { taskType: input.taskType } : {}),
+    };
+
+    if (input.workspaceSlug) {
+      const workspacePolicy = await input.delegate.findFirst({
+        where: {
+          ...baseWhere,
+          workspaceSlug: input.workspaceSlug,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      });
+
+      if (workspacePolicy) {
+        return workspacePolicy;
+      }
+    }
+
+    return input.delegate.findFirst({
+      where: {
+        ...baseWhere,
+        workspaceSlug: null,
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  private normalizePersistedRoutingPolicy(record: Record<string, unknown>) {
+    return this.buildRoutingPolicyRecord({
+      tenantSlug: String(record.tenantSlug ?? ''),
+      workspaceSlug:
+        typeof record.workspaceSlug === 'string' ? record.workspaceSlug : null,
+      featureKey: String(record.featureKey ?? 'general'),
+      taskType: String(record.taskType ?? 'general'),
+      defaultLane: this.normalizeLane(record.defaultLane, 'cheap-model'),
+      maxLane: this.normalizeLane(record.maxLane, 'balanced-model'),
+      preferredCredentialMode: this.normalizeCredentialMode(
+        record.preferredCredentialMode,
+      ),
+      allowByoKeys: Boolean(record.allowByoKeys),
+      requireApprovalAboveLane:
+        typeof record.requireApprovalAboveLane === 'string'
+          ? this.normalizeLane(record.requireApprovalAboveLane, 'balanced-model')
+          : undefined,
+      downgradeAtQuotaPressure: this.normalizeQuotaPressure(
+        record.downgradeAtQuotaPressure,
+      ),
+      cacheEnabled:
+        typeof record.cacheEnabled === 'boolean' ? record.cacheEnabled : true,
+      deterministicFirst:
+        typeof record.deterministicFirst === 'boolean'
+          ? record.deterministicFirst
+          : true,
+      source: String(record.source ?? 'aifut-policy'),
+    });
+  }
+
+  private normalizePersistedBudgetPolicy(record: Record<string, unknown>) {
+    return this.buildBudgetPolicyRecord({
+      tenantSlug: String(record.tenantSlug ?? ''),
+      workspaceSlug:
+        typeof record.workspaceSlug === 'string' ? record.workspaceSlug : null,
+      featureKey: String(record.featureKey ?? 'general'),
+      monthlyTokenBudget: this.numberValue(record.monthlyTokenBudget),
+      hardMonthlyTokenLimit: this.numberValue(record.hardMonthlyTokenLimit),
+      premiumExecutionCap: this.numberValue(record.premiumExecutionCap),
+      blockOnHardLimit:
+        typeof record.blockOnHardLimit === 'boolean'
+          ? record.blockOnHardLimit
+          : true,
+      requireApprovalAtProjectedCost: this.numberValue(
+        record.requireApprovalAtProjectedCost,
+      ),
+      source: String(record.source ?? 'aifut-budget'),
+    });
+  }
+
+  private normalizeLane(value: unknown, fallback: AiExecutionLane): AiExecutionLane {
+    return value === 'deterministic' ||
+      value === 'artifact-cache' ||
+      value === 'cheap-model' ||
+      value === 'balanced-model' ||
+      value === 'premium-model' ||
+      value === 'background-batch'
+      ? value
+      : fallback;
+  }
+
+  private normalizeCredentialMode(value: unknown): AiCredentialMode | undefined {
+    return value === 'aifut-managed' || value === 'byo' ? value : undefined;
+  }
+
+  private normalizeQuotaPressure(value: unknown): AiQuotaPressure | undefined {
+    return value === 'normal' || value === 'near-limit' || value === 'hard-limit'
+      ? value
+      : undefined;
+  }
+
   private laneRank(lane: AiExecutionLane) {
     switch (lane) {
       case 'deterministic':
@@ -360,6 +663,25 @@ export class AiGovernancePersistenceService {
       default:
         return 0;
     }
+  }
+
+  private lowerLane(lane: AiExecutionLane): AiExecutionLane {
+    switch (lane) {
+      case 'premium-model':
+        return 'balanced-model';
+      case 'balanced-model':
+        return 'cheap-model';
+      default:
+        return lane;
+    }
+  }
+
+  private startOfMonth(date: Date) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  }
+
+  private numberValue(value: unknown) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   }
 
   private buildEventKey(input: {

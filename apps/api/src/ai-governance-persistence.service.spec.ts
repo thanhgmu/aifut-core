@@ -260,4 +260,171 @@ describe('AiGovernancePersistenceService', () => {
       }),
     });
   });
+
+  it('should resolve workspace routing policy before tenant fallback', async () => {
+    const prisma = {
+      aiRoutingPolicy: {
+        findFirst: jest.fn().mockResolvedValueOnce({
+          tenantSlug: 'acme',
+          workspaceSlug: 'ops',
+          featureKey: 'workflowbuilder',
+          taskType: 'draft',
+          defaultLane: 'balanced-model',
+          maxLane: 'premium-model',
+          preferredCredentialMode: 'byo',
+          allowByoKeys: true,
+          requireApprovalAboveLane: 'balanced-model',
+          downgradeAtQuotaPressure: 'near-limit',
+          cacheEnabled: true,
+          deterministicFirst: true,
+          source: 'workspace-policy',
+        }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.resolveEffectiveRoutingPolicy({
+        tenantSlug: 'Acme',
+        workspaceSlug: 'Ops',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+      }),
+    ).resolves.toMatchObject({
+      policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft',
+      routing: {
+        defaultLane: 'balanced-model',
+        maxLane: 'premium-model',
+        preferredCredentialMode: 'byo',
+      },
+      source: 'workspace-policy',
+    });
+
+    expect(prisma.aiRoutingPolicy.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.aiRoutingPolicy.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        featureKey: 'workflowbuilder',
+        taskType: 'draft',
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    });
+  });
+
+  it('should block gateway decisions that reach a hard monthly budget limit', async () => {
+    const occurredAt = new Date('2026-05-30T12:00:00.000Z');
+    const prisma = {
+      aiRoutingPolicy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      aiBudgetPolicy: {
+        findFirst: jest.fn().mockResolvedValueOnce({
+          tenantSlug: 'acme',
+          workspaceSlug: null,
+          featureKey: 'workflowbuilder',
+          monthlyTokenBudget: 800,
+          hardMonthlyTokenLimit: 1000,
+          premiumExecutionCap: 0,
+          blockOnHardLimit: true,
+          requireApprovalAtProjectedCost: 0,
+          source: 'tenant-budget',
+        }),
+      },
+      aiUsageEvent: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            totalTokens: 900,
+            actualCost: 0.1,
+            estimatedCost: 0.1,
+          },
+        }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.buildGatewayDecision({
+        tenantSlug: 'Acme',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        projectedTokens: 100,
+        occurredAt,
+      }),
+    ).resolves.toMatchObject({
+      selectedLane: null,
+      quotaPressure: 'hard-limit',
+      requiresApproval: false,
+      blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
+      usageWindow: {
+        usedTokens: 900,
+        projectedTokens: 100,
+        projectedMonthlyTokens: 1000,
+      },
+    });
+  });
+
+  it('should downgrade gateway lane under configured near-limit pressure', async () => {
+    const occurredAt = new Date('2026-05-30T12:00:00.000Z');
+    const prisma = {
+      aiRoutingPolicy: {
+        findFirst: jest.fn().mockResolvedValueOnce({
+          tenantSlug: 'acme',
+          workspaceSlug: null,
+          featureKey: 'workflowbuilder',
+          taskType: 'draft',
+          defaultLane: 'premium-model',
+          maxLane: 'premium-model',
+          preferredCredentialMode: 'aifut-managed',
+          allowByoKeys: false,
+          requireApprovalAboveLane: 'balanced-model',
+          downgradeAtQuotaPressure: 'near-limit',
+          cacheEnabled: true,
+          deterministicFirst: true,
+          source: 'tenant-policy',
+        }),
+      },
+      aiBudgetPolicy: {
+        findFirst: jest.fn().mockResolvedValueOnce({
+          tenantSlug: 'acme',
+          workspaceSlug: null,
+          featureKey: 'workflowbuilder',
+          monthlyTokenBudget: 1000,
+          hardMonthlyTokenLimit: 2000,
+          premiumExecutionCap: 0,
+          blockOnHardLimit: true,
+          requireApprovalAtProjectedCost: 0,
+          source: 'tenant-budget',
+        }),
+      },
+      aiUsageEvent: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            totalTokens: 800,
+            actualCost: 0.1,
+            estimatedCost: 0.1,
+          },
+        }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.buildGatewayDecision({
+        tenantSlug: 'Acme',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        requestedLane: 'premium-model',
+        projectedTokens: 50,
+        occurredAt,
+      }),
+    ).resolves.toMatchObject({
+      requestedLane: 'premium-model',
+      selectedLane: 'balanced-model',
+      quotaPressure: 'near-limit',
+      requiresApproval: false,
+      downgradeReason:
+        'Quota pressure near-limit downgraded lane from premium-model to balanced-model.',
+    });
+  });
 });
