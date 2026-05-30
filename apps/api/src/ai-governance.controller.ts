@@ -28,6 +28,34 @@ type GatewayDecisionBody = {
   occurredAt?: string | Date;
 };
 
+type RoutingPolicyBody = {
+  tenantSlug?: string;
+  workspaceSlug?: string | null;
+  featureKey?: string;
+  taskType?: string;
+  defaultLane?: AiExecutionLane;
+  maxLane?: AiExecutionLane;
+  preferredCredentialMode?: AiCredentialMode;
+  allowByoKeys?: boolean;
+  requireApprovalAboveLane?: AiExecutionLane;
+  downgradeAtQuotaPressure?: AiQuotaPressure;
+  cacheEnabled?: boolean;
+  deterministicFirst?: boolean;
+  source?: string;
+};
+
+type BudgetPolicyBody = {
+  tenantSlug?: string;
+  workspaceSlug?: string | null;
+  featureKey?: string;
+  monthlyTokenBudget?: number;
+  hardMonthlyTokenLimit?: number;
+  premiumExecutionCap?: number;
+  blockOnHardLimit?: boolean;
+  requireApprovalAtProjectedCost?: number;
+  source?: string;
+};
+
 type GatewayUsageBody = {
   tenantSlug?: string;
   workspaceSlug?: string | null;
@@ -62,6 +90,55 @@ export class AiGovernanceController {
   constructor(
     private readonly governancePersistence: AiGovernancePersistenceService,
   ) {}
+
+  @Post('routing-policies')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async upsertRoutingPolicy(
+    @Body() body: RoutingPolicyBody,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    const policy =
+      await this.governancePersistence.persistRoutingPolicyRecord({
+        ...body,
+        tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+        workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+      });
+
+    return {
+      capability: 'ai-governance',
+      status: 'routing-policy-upserted',
+      policy,
+    };
+  }
+
+  @Post('budget-policies')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.ADMIN,
+    scope: 'tenant-admin',
+  })
+  async upsertBudgetPolicy(
+    @Body() body: BudgetPolicyBody,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    const policy = await this.governancePersistence.persistBudgetPolicyRecord({
+      ...body,
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
+    });
+
+    return {
+      capability: 'ai-governance',
+      status: 'budget-policy-upserted',
+      policy,
+    };
+  }
 
   @Post('gateway-decision')
   @UseGuards(AccessPolicyGuard)

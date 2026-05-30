@@ -7,12 +7,16 @@ import { AccessPolicyService } from './access-policy.service';
 describe('AiGovernanceController', () => {
   let controller: AiGovernanceController;
   let governancePersistence: {
+    persistRoutingPolicyRecord: jest.Mock;
+    persistBudgetPolicyRecord: jest.Mock;
     buildGatewayDecision: jest.Mock;
     persistUsageEventRecord: jest.Mock;
   };
 
   beforeEach(async () => {
     governancePersistence = {
+      persistRoutingPolicyRecord: jest.fn(),
+      persistBudgetPolicyRecord: jest.fn(),
       buildGatewayDecision: jest.fn(),
       persistUsageEventRecord: jest.fn(),
     };
@@ -40,6 +44,79 @@ describe('AiGovernanceController', () => {
     }).compile();
 
     controller = module.get<AiGovernanceController>(AiGovernanceController);
+  });
+
+  it('should upsert admin-scoped routing policies with header scope precedence', async () => {
+    governancePersistence.persistRoutingPolicyRecord.mockResolvedValue({
+      policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft',
+    });
+
+    const result = await controller.upsertRoutingPolicy(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: 'body-workspace',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        defaultLane: 'cheap-model',
+        maxLane: 'balanced-model',
+        allowByoKeys: true,
+        preferredCredentialMode: 'byo',
+      },
+      'acme',
+      'ops',
+    );
+
+    expect(governancePersistence.persistRoutingPolicyRecord).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      featureKey: 'WorkflowBuilder',
+      taskType: 'Draft',
+      defaultLane: 'cheap-model',
+      maxLane: 'balanced-model',
+      allowByoKeys: true,
+      preferredCredentialMode: 'byo',
+    });
+    expect(result).toMatchObject({
+      capability: 'ai-governance',
+      status: 'routing-policy-upserted',
+      policy: {
+        policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft',
+      },
+    });
+  });
+
+  it('should upsert admin-scoped budget policies with header scope precedence', async () => {
+    governancePersistence.persistBudgetPolicyRecord.mockResolvedValue({
+      policyKey: 'acme:tenant:default:feature:workflowbuilder:budget',
+    });
+
+    const result = await controller.upsertBudgetPolicy(
+      {
+        tenantSlug: 'body-tenant',
+        workspaceSlug: null,
+        featureKey: 'WorkflowBuilder',
+        monthlyTokenBudget: 100000,
+        hardMonthlyTokenLimit: 120000,
+        requireApprovalAtProjectedCost: 25,
+      },
+      'acme',
+    );
+
+    expect(governancePersistence.persistBudgetPolicyRecord).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: null,
+      featureKey: 'WorkflowBuilder',
+      monthlyTokenBudget: 100000,
+      hardMonthlyTokenLimit: 120000,
+      requireApprovalAtProjectedCost: 25,
+    });
+    expect(result).toMatchObject({
+      capability: 'ai-governance',
+      status: 'budget-policy-upserted',
+      policy: {
+        policyKey: 'acme:tenant:default:feature:workflowbuilder:budget',
+      },
+    });
   });
 
   it('should expose guarded gateway decisions with header scope precedence', async () => {
