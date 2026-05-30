@@ -11,6 +11,7 @@ describe('AiGovernanceController', () => {
     persistBudgetPolicyRecord: jest.Mock;
     buildGatewayDecision: jest.Mock;
     persistUsageEventRecord: jest.Mock;
+    summarizeUsageLedger: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -19,6 +20,7 @@ describe('AiGovernanceController', () => {
       persistBudgetPolicyRecord: jest.fn(),
       buildGatewayDecision: jest.fn(),
       persistUsageEventRecord: jest.fn(),
+      summarizeUsageLedger: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -270,5 +272,65 @@ describe('AiGovernanceController', () => {
         source: 'worker-runtime',
       }),
     );
+  });
+
+  it('should expose operator usage summaries with header scope precedence', async () => {
+    governancePersistence.summarizeUsageLedger.mockResolvedValue({
+      scope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      totals: {
+        totalTokens: 2400,
+        effectiveCost: 0.24,
+      },
+      recentEvents: [
+        {
+          eventKey: 'event-1',
+          executionLane: 'cheap-model',
+          status: 'success',
+        },
+      ],
+    });
+
+    const result = await controller.usageSummary(
+      'body-tenant',
+      'body-workspace',
+      'orchestration-runtime',
+      'dispatch-run',
+      '2026-05-01T00:00:00.000Z',
+      '2026-05-31T23:59:59.000Z',
+      '5',
+      'acme',
+      'ops',
+    );
+
+    expect(governancePersistence.summarizeUsageLedger).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      occurredFrom: new Date('2026-05-01T00:00:00.000Z'),
+      occurredTo: new Date('2026-05-31T23:59:59.000Z'),
+      take: 5,
+    });
+    expect(result).toMatchObject({
+      capability: 'ai-governance',
+      status: 'usage-summary-fetched',
+      summary: {
+        totals: {
+          totalTokens: 2400,
+          effectiveCost: 0.24,
+        },
+        recentEvents: [
+          {
+            eventKey: 'event-1',
+            executionLane: 'cheap-model',
+          },
+        ],
+      },
+    });
   });
 });

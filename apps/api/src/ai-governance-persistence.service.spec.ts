@@ -427,4 +427,108 @@ describe('AiGovernancePersistenceService', () => {
         'Quota pressure near-limit downgraded lane from premium-model to balanced-model.',
     });
   });
+
+  it('should summarize usage ledger totals and recent events for operator visibility', async () => {
+    const occurredFrom = new Date('2026-05-01T00:00:00.000Z');
+    const occurredTo = new Date('2026-05-31T23:59:59.000Z');
+    const prisma = {
+      aiUsageEvent: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            totalTokens: 2400,
+            actualCost: 0.21,
+            estimatedCost: 0.24,
+          },
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            eventKey: 'event-1',
+            actorKey: 'ops@acme.test',
+            providerKey: 'openai',
+            modelKey: 'gpt-lean',
+            credentialMode: 'aifut-managed',
+            executionLane: 'cheap-model',
+            totalTokens: 1200,
+            actualCost: 0.1,
+            estimatedCost: 0.12,
+            status: 'success',
+            source: 'orchestration-dispatch-run',
+            occurredAt: new Date('2026-05-30T12:00:00.000Z'),
+          },
+        ]),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.summarizeUsageLedger({
+        tenantSlug: 'Acme',
+        workspaceSlug: 'Ops',
+        featureKey: 'Orchestration-Runtime',
+        taskType: 'Dispatch-Run',
+        occurredFrom,
+        occurredTo,
+        take: 5,
+      }),
+    ).resolves.toMatchObject({
+      scope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+      featureKey: 'orchestration-runtime',
+      taskType: 'dispatch-run',
+      totals: {
+        totalTokens: 2400,
+        actualCost: 0.21,
+        estimatedCost: 0.24,
+        effectiveCost: 0.21,
+      },
+      filters: {
+        occurredFrom,
+        occurredTo,
+        take: 5,
+      },
+      recentEvents: [
+        {
+          eventKey: 'event-1',
+          actorKey: 'ops@acme.test',
+          executionLane: 'cheap-model',
+          totalTokens: 1200,
+          status: 'success',
+          source: 'orchestration-dispatch-run',
+        },
+      ],
+    });
+    expect(prisma.aiUsageEvent.aggregate).toHaveBeenCalledWith({
+      where: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        featureKey: 'orchestration-runtime',
+        taskType: 'dispatch-run',
+        occurredAt: {
+          gte: occurredFrom,
+          lte: occurredTo,
+        },
+      },
+      _sum: {
+        totalTokens: true,
+        actualCost: true,
+        estimatedCost: true,
+      },
+    });
+    expect(prisma.aiUsageEvent.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        featureKey: 'orchestration-runtime',
+        taskType: 'dispatch-run',
+        occurredAt: {
+          gte: occurredFrom,
+          lte: occurredTo,
+        },
+      },
+      orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
+      take: 5,
+    });
+  });
 });

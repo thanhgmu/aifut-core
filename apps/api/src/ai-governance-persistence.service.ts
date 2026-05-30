@@ -79,6 +79,12 @@ type BuildGatewayDecisionInput = ResolveAiPolicyInput & {
   occurredAt?: Date;
 };
 
+type UsageLedgerSummaryInput = ResolveAiPolicyInput & {
+  occurredFrom?: Date;
+  occurredTo?: Date;
+  take?: number;
+};
+
 type AiGovernancePrismaClient = {
   aiRoutingPolicy: {
     upsert(input: unknown): Promise<unknown>;
@@ -90,6 +96,7 @@ type AiGovernancePrismaClient = {
   };
   aiUsageEvent: {
     create(input: unknown): Promise<unknown>;
+    findMany(input: unknown): Promise<Array<Record<string, unknown>>>;
     aggregate(input: unknown): Promise<{
       _sum?: {
         totalTokens?: number | null;
@@ -337,6 +344,92 @@ export class AiGovernancePersistenceService {
         occurredAt: record.occurredAt,
       },
     });
+  }
+
+  async summarizeUsageLedger(input: UsageLedgerSummaryInput) {
+    const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const featureKey = this.normalizeKey(input.featureKey, 'general');
+    const taskType = this.normalizeKey(input.taskType, 'general');
+    const prisma = this.requirePrisma();
+    const occurredAt =
+      input.occurredFrom || input.occurredTo
+        ? {
+            ...(input.occurredFrom ? { gte: input.occurredFrom } : {}),
+            ...(input.occurredTo ? { lte: input.occurredTo } : {}),
+          }
+        : undefined;
+    const where = {
+      tenantSlug: scope.tenantSlug,
+      ...(scope.workspaceSlug ? { workspaceSlug: scope.workspaceSlug } : {}),
+      featureKey,
+      taskType,
+      ...(occurredAt ? { occurredAt } : {}),
+    };
+    const take = this.normalizeTake(input.take);
+    const [usage, events] = await Promise.all([
+      prisma.aiUsageEvent.aggregate({
+        where,
+        _sum: {
+          totalTokens: true,
+          actualCost: true,
+          estimatedCost: true,
+        },
+      }),
+      prisma.aiUsageEvent.findMany({
+        where,
+        orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
+        take,
+      }),
+    ]);
+    const actualCost = this.normalizeNonNegativeNumber(
+      this.numberValue(usage._sum?.actualCost),
+    );
+    const estimatedCost = this.normalizeNonNegativeNumber(
+      this.numberValue(usage._sum?.estimatedCost),
+    );
+
+    return {
+      scope,
+      featureKey,
+      taskType,
+      totals: {
+        totalTokens: this.normalizeNonNegativeInteger(
+          this.numberValue(usage._sum?.totalTokens),
+        ),
+        actualCost,
+        estimatedCost,
+        effectiveCost: actualCost || estimatedCost,
+      },
+      filters: {
+        occurredFrom: input.occurredFrom ?? null,
+        occurredTo: input.occurredTo ?? null,
+        take,
+      },
+      recentEvents: events.map((event) => ({
+        eventKey: String(event.eventKey ?? ''),
+        actorKey: String(event.actorKey ?? 'system'),
+        providerKey: String(event.providerKey ?? 'unknown-provider'),
+        modelKey: String(event.modelKey ?? 'unknown-model'),
+        credentialMode:
+          this.normalizeCredentialMode(event.credentialMode) ?? 'aifut-managed',
+        executionLane: this.normalizeLane(event.executionLane, 'cheap-model'),
+        totalTokens: this.normalizeNonNegativeInteger(
+          this.numberValue(event.totalTokens),
+        ),
+        actualCost: this.normalizeNonNegativeNumber(
+          this.numberValue(event.actualCost),
+        ),
+        estimatedCost: this.normalizeNonNegativeNumber(
+          this.numberValue(event.estimatedCost),
+        ),
+        status:
+          event.status === 'failure' || event.status === 'cancelled'
+            ? event.status
+            : 'success',
+        source: String(event.source ?? 'ai-gateway'),
+        occurredAt: event.occurredAt ?? null,
+      })),
+    };
   }
 
   async resolveEffectiveRoutingPolicy(input: ResolveAiPolicyInput) {
@@ -681,7 +774,12 @@ export class AiGovernancePersistenceService {
   }
 
   private numberValue(value: unknown) {
-    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
   }
 
   private buildEventKey(input: {
@@ -735,5 +833,11 @@ export class AiGovernancePersistenceService {
     return typeof value === 'number' && Number.isFinite(value) && value > 0
       ? value
       : 0;
+  }
+
+  private normalizeTake(value?: number) {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? Math.min(Math.floor(value), 50)
+      : 10;
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, UseGuards } from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import { AccessPolicyGuard } from './access-policy.guard';
 import { RequireAccessPolicy } from './access-policy.decorator';
@@ -199,7 +199,50 @@ export class AiGovernanceController {
     };
   }
 
+  @Get('usage-summary')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  async usageSummary(
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('featureKey') featureKeyQuery?: string,
+    @Query('taskType') taskTypeQuery?: string,
+    @Query('occurredFrom') occurredFromQuery?: string,
+    @Query('occurredTo') occurredToQuery?: string,
+    @Query('take') takeQuery?: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    const summary = await this.governancePersistence.summarizeUsageLedger({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+      featureKey: featureKeyQuery,
+      taskType: taskTypeQuery,
+      occurredFrom: this.optionalDate(occurredFromQuery),
+      occurredTo: this.optionalDate(occurredToQuery),
+      take: this.optionalPositiveInteger(takeQuery),
+    });
+
+    return {
+      capability: 'ai-governance',
+      status: 'usage-summary-fetched',
+      summary,
+    };
+  }
+
   private optionalDate(value?: string | Date) {
     return value ? new Date(value) : undefined;
+  }
+
+  private optionalPositiveInteger(value?: string) {
+    if (!value) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
 }
