@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
 import { AuditModule } from './audit.module';
 import { AuthModule } from './auth.module';
@@ -13,6 +14,7 @@ import { TenancyModule } from './tenancy.module';
 @Module({
   imports: [
     TenancyModule,
+    AiGovernanceModule,
     GlobalizationModule,
     OrchestrationModule,
     AuthModule,

@@ -1,0 +1,153 @@
+import { BadRequestException } from '@nestjs/common';
+import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
+
+describe('AiGovernancePersistenceService', () => {
+  let service: AiGovernancePersistenceService;
+
+  beforeEach(() => {
+    service = new AiGovernancePersistenceService();
+  });
+
+  it('should build a workspace-scoped routing policy record with normalized defaults', () => {
+    const result = service.buildRoutingPolicyRecord({
+      tenantSlug: ' Acme ',
+      workspaceSlug: ' Ops ',
+      featureKey: ' WorkflowBuilder ',
+      taskType: ' Draft-Generation ',
+      defaultLane: 'cheap-model',
+      maxLane: 'premium-model',
+      allowByoKeys: true,
+      preferredCredentialMode: 'byo',
+      source: ' Admin-UI ',
+    });
+
+    expect(result).toEqual({
+      policyKey: 'acme:workspace:ops:feature:workflowbuilder:task:draft-generation',
+      scope: {
+        scopeKey: 'acme:workspace:ops',
+        scopeType: 'workspace',
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+      featureKey: 'workflowbuilder',
+      taskType: 'draft-generation',
+      routing: {
+        defaultLane: 'cheap-model',
+        maxLane: 'premium-model',
+        deterministicFirst: true,
+        cacheEnabled: true,
+        preferredCredentialMode: 'byo',
+        allowByoKeys: true,
+        downgradeAtQuotaPressure: 'near-limit',
+        requireApprovalAboveLane: 'balanced-model',
+      },
+      source: 'admin-ui',
+    });
+  });
+
+  it('should reject routing policies whose max lane is lower than the default lane', () => {
+    expect(() =>
+      service.buildRoutingPolicyRecord({
+        tenantSlug: 'acme',
+        defaultLane: 'premium-model',
+        maxLane: 'cheap-model',
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('should build a tenant-scoped budget policy record with normalized ceilings', () => {
+    const result = service.buildBudgetPolicyRecord({
+      tenantSlug: 'Acme',
+      featureKey: 'OperatorControlPlane',
+      monthlyTokenBudget: 10000.8,
+      hardMonthlyTokenLimit: 25000.2,
+      premiumExecutionCap: 120.9,
+      requireApprovalAtProjectedCost: 9.5,
+    });
+
+    expect(result).toEqual({
+      policyKey: 'acme:tenant:default:feature:operatorcontrolplane:budget',
+      scope: {
+        scopeKey: 'acme:tenant:default',
+        scopeType: 'tenant',
+        tenantSlug: 'acme',
+        workspaceSlug: null,
+      },
+      featureKey: 'operatorcontrolplane',
+      budget: {
+        monthlyTokenBudget: 10000,
+        hardMonthlyTokenLimit: 25000,
+        premiumExecutionCap: 120,
+        blockOnHardLimit: true,
+        requireApprovalAtProjectedCost: 9.5,
+      },
+      source: 'aifut-budget',
+    });
+  });
+
+  it('should reject budget policies whose hard limit is lower than the monthly budget', () => {
+    expect(() =>
+      service.buildBudgetPolicyRecord({
+        tenantSlug: 'acme',
+        monthlyTokenBudget: 10000,
+        hardMonthlyTokenLimit: 5000,
+      }),
+    ).toThrow('AI hard monthly token limit cannot be lower than monthly token budget.');
+  });
+
+  it('should build usage event records with normalized totals and defaults', () => {
+    const occurredAt = new Date('2026-05-30T12:10:00.000Z');
+
+    const result = service.buildUsageEventRecord({
+      tenantSlug: 'Acme',
+      workspaceSlug: 'Ops',
+      actorKey: 'user_1',
+      featureKey: 'WorkflowBuilder',
+      taskType: 'Draft-Generation',
+      providerKey: 'OpenAI',
+      modelKey: 'GPT-5.4',
+      credentialMode: 'aifut-managed',
+      executionLane: 'balanced-model',
+      inputTokens: 1200,
+      outputTokens: 300,
+      estimatedCost: 0.11,
+      actualCost: 0.12,
+      cacheHit: false,
+      retryCount: 1,
+      escalationCount: 0,
+      status: 'success',
+      source: 'Ai-Gateway',
+      occurredAt,
+    });
+
+    expect(result).toEqual({
+      eventKey: 'ai-usage:acme:workspace:ops:workflowbuilder:draft-generation:user_1',
+      scope: {
+        scopeKey: 'acme:workspace:ops',
+        scopeType: 'workspace',
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+      actorKey: 'user_1',
+      featureKey: 'workflowbuilder',
+      taskType: 'draft-generation',
+      providerKey: 'openai',
+      modelKey: 'gpt-5.4',
+      credentialMode: 'aifut-managed',
+      executionLane: 'balanced-model',
+      usage: {
+        inputTokens: 1200,
+        outputTokens: 300,
+        totalTokens: 1500,
+        estimatedCost: 0.11,
+        actualCost: 0.12,
+        cacheHit: false,
+        retryCount: 1,
+        escalationCount: 0,
+      },
+      status: 'success',
+      source: 'ai-gateway',
+      occurredAt,
+    });
+  });
+});
