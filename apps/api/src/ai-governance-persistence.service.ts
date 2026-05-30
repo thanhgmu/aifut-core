@@ -4,6 +4,11 @@ import { PrismaService } from './prisma.service';
 type AiCredentialMode = 'aifut-managed' | 'byo';
 type AiPolicyScopeType = 'tenant' | 'workspace';
 type AiQuotaPressure = 'normal' | 'near-limit' | 'hard-limit';
+type AiGatewayDecisionOutcome =
+  | 'allowed'
+  | 'downgraded'
+  | 'approval-required'
+  | 'blocked';
 type AiExecutionLane =
   | 'deterministic'
   | 'artifact-cache'
@@ -576,6 +581,16 @@ export class AiGovernancePersistenceService {
       this.laneRank(selectedLane) > this.laneRank(approvalLane)
         ? `Selected lane ${selectedLane} requires approval above ${approvalLane}.`
         : budgetPressure.approvalReason;
+    const blockReason = budgetPressure.blockReason;
+    const downgradeReason =
+      selectedLane && selectedLane !== cappedLane
+        ? `Quota pressure ${budgetPressure.pressure} downgraded lane from ${cappedLane} to ${selectedLane}.`
+        : null;
+    const outcomeStatus = this.resolveDecisionOutcome({
+      blockReason,
+      approvalReason,
+      downgradeReason,
+    });
 
     return {
       scope: routingPolicy.scope,
@@ -587,17 +602,59 @@ export class AiGovernancePersistenceService {
       quotaPressure: budgetPressure.pressure,
       requiresApproval: Boolean(approvalReason),
       approvalReason,
-      blockReason: budgetPressure.blockReason,
-      downgradeReason:
-        selectedLane && selectedLane !== cappedLane
-          ? `Quota pressure ${budgetPressure.pressure} downgraded lane from ${cappedLane} to ${selectedLane}.`
-          : null,
+      blockReason,
+      downgradeReason,
+      outcome: {
+        status: outcomeStatus,
+        label: this.decisionOutcomeLabel(outcomeStatus),
+        reasons: [blockReason, approvalReason, downgradeReason].filter(Boolean),
+      },
+      executionPolicy: {
+        canDispatch: !blockReason,
+        canAutoDispatch: !blockReason && !approvalReason,
+        requiresHumanApproval: Boolean(approvalReason),
+        shouldRecordUsageEvent: !blockReason,
+      },
       policyKeys: {
         routingPolicyKey: routingPolicy.policyKey,
         budgetPolicyKey: budgetPressure.budgetPolicy.policyKey,
       },
       usageWindow: budgetPressure.usageWindow,
     };
+  }
+
+  private resolveDecisionOutcome(input: {
+    blockReason: string | null;
+    approvalReason: string | null;
+    downgradeReason: string | null;
+  }): AiGatewayDecisionOutcome {
+    if (input.blockReason) {
+      return 'blocked';
+    }
+
+    if (input.approvalReason) {
+      return 'approval-required';
+    }
+
+    if (input.downgradeReason) {
+      return 'downgraded';
+    }
+
+    return 'allowed';
+  }
+
+  private decisionOutcomeLabel(outcome: AiGatewayDecisionOutcome) {
+    switch (outcome) {
+      case 'blocked':
+        return 'Blocked before dispatch';
+      case 'approval-required':
+        return 'Approval required before automatic dispatch';
+      case 'downgraded':
+        return 'Allowed with lower-cost lane';
+      case 'allowed':
+      default:
+        return 'Allowed for automatic dispatch';
+    }
   }
 
   private resolveScope(tenantSlug?: string, workspaceSlug?: string | null) {

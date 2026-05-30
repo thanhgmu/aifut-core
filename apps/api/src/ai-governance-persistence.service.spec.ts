@@ -356,6 +356,17 @@ describe('AiGovernancePersistenceService', () => {
       quotaPressure: 'hard-limit',
       requiresApproval: false,
       blockReason: 'Projected AI token usage reaches hard monthly limit of 1000.',
+      outcome: {
+        status: 'blocked',
+        label: 'Blocked before dispatch',
+        reasons: ['Projected AI token usage reaches hard monthly limit of 1000.'],
+      },
+      executionPolicy: {
+        canDispatch: false,
+        canAutoDispatch: false,
+        requiresHumanApproval: false,
+        shouldRecordUsageEvent: false,
+      },
       usageWindow: {
         usedTokens: 900,
         projectedTokens: 100,
@@ -425,6 +436,127 @@ describe('AiGovernancePersistenceService', () => {
       requiresApproval: false,
       downgradeReason:
         'Quota pressure near-limit downgraded lane from premium-model to balanced-model.',
+      outcome: {
+        status: 'downgraded',
+        label: 'Allowed with lower-cost lane',
+        reasons: [
+          'Quota pressure near-limit downgraded lane from premium-model to balanced-model.',
+        ],
+      },
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: true,
+        requiresHumanApproval: false,
+        shouldRecordUsageEvent: true,
+      },
+    });
+  });
+
+  it('should mark gateway decisions as approval-required when selected lane crosses approval threshold', async () => {
+    const prisma = {
+      aiRoutingPolicy: {
+        findFirst: jest.fn().mockResolvedValueOnce({
+          tenantSlug: 'acme',
+          workspaceSlug: null,
+          featureKey: 'workflowbuilder',
+          taskType: 'draft',
+          defaultLane: 'premium-model',
+          maxLane: 'premium-model',
+          preferredCredentialMode: 'aifut-managed',
+          allowByoKeys: false,
+          requireApprovalAboveLane: 'balanced-model',
+          downgradeAtQuotaPressure: 'hard-limit',
+          cacheEnabled: true,
+          deterministicFirst: true,
+          source: 'tenant-policy',
+        }),
+      },
+      aiBudgetPolicy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      aiUsageEvent: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            totalTokens: 0,
+            actualCost: 0,
+            estimatedCost: 0,
+          },
+        }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.buildGatewayDecision({
+        tenantSlug: 'Acme',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        requestedLane: 'premium-model',
+      }),
+    ).resolves.toMatchObject({
+      selectedLane: 'premium-model',
+      requiresApproval: true,
+      approvalReason:
+        'Selected lane premium-model requires approval above balanced-model.',
+      outcome: {
+        status: 'approval-required',
+        label: 'Approval required before automatic dispatch',
+        reasons: [
+          'Selected lane premium-model requires approval above balanced-model.',
+        ],
+      },
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: false,
+        requiresHumanApproval: true,
+        shouldRecordUsageEvent: true,
+      },
+    });
+  });
+
+  it('should mark uncomplicated gateway decisions as allowed for automatic dispatch', async () => {
+    const prisma = {
+      aiRoutingPolicy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      aiBudgetPolicy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      aiUsageEvent: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            totalTokens: 0,
+            actualCost: 0,
+            estimatedCost: 0,
+          },
+        }),
+      },
+    };
+    service = new AiGovernancePersistenceService(prisma as never);
+
+    await expect(
+      service.buildGatewayDecision({
+        tenantSlug: 'Acme',
+        featureKey: 'WorkflowBuilder',
+        taskType: 'Draft',
+        requestedLane: 'cheap-model',
+      }),
+    ).resolves.toMatchObject({
+      selectedLane: 'cheap-model',
+      requiresApproval: false,
+      blockReason: null,
+      downgradeReason: null,
+      outcome: {
+        status: 'allowed',
+        label: 'Allowed for automatic dispatch',
+        reasons: [],
+      },
+      executionPolicy: {
+        canDispatch: true,
+        canAutoDispatch: true,
+        requiresHumanApproval: false,
+        shouldRecordUsageEvent: true,
+      },
     });
   });
 

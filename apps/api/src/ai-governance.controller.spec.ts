@@ -131,6 +131,12 @@ describe('AiGovernanceController', () => {
       taskType: 'draft',
       selectedLane: 'balanced-model',
       blockReason: null,
+      outcome: {
+        status: 'downgraded',
+      },
+      executionPolicy: {
+        canAutoDispatch: true,
+      },
     });
 
     const result = await controller.gatewayDecision(
@@ -161,6 +167,12 @@ describe('AiGovernanceController', () => {
       status: 'decision-ready',
       decision: {
         selectedLane: 'balanced-model',
+        outcome: {
+          status: 'downgraded',
+        },
+        executionPolicy: {
+          canAutoDispatch: true,
+        },
       },
     });
   });
