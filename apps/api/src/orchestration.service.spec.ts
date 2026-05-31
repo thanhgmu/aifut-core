@@ -2989,7 +2989,7 @@ describe('OrchestrationService', () => {
         },
       ],
     });
-    expect(runtimeHistory.persistRuntimeHistory).toHaveBeenCalledTimes(1);
+    expect(runtimeHistory.persistRuntimeHistory).not.toHaveBeenCalled();
     expect(runtimeHistory.findLatestMutation).not.toHaveBeenCalled();
     expect(runtimeHistory.findLatestSnapshot).not.toHaveBeenCalled();
   });

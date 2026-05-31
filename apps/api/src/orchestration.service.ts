@@ -2078,6 +2078,7 @@ export class OrchestrationService {
 
   async materializeExecutionRuntime(
     input: OrchestrationRuntimeContextInput,
+    options?: { persistSnapshot?: boolean },
   ): Promise<ReturnType<OrchestrationService['submitExecutionContract']> & OrchestrationMaterializedRuntimeResponse> {
     const submission = this.submitExecutionContract(input);
 
@@ -2332,7 +2333,10 @@ export class OrchestrationService {
       eventRecords,
     });
 
-    const persistence = await this.persistRuntimeSnapshot(runtimeSnapshot);
+    const persistence =
+      options?.persistSnapshot === false
+        ? null
+        : await this.persistRuntimeSnapshot(runtimeSnapshot);
 
     return {
       ...submission,
@@ -2348,7 +2352,9 @@ export class OrchestrationService {
   }
 
   async applyApprovalDecision(input: OrchestrationApprovalDecisionInput) {
-    const runtime = await this.materializeExecutionRuntime(input);
+    const runtime = await this.materializeExecutionRuntime(input, {
+      persistSnapshot: false,
+    });
     const task = runtime.approvalTaskQueue.find(
       (record) => record.taskKey === input.taskKey,
     );
@@ -2582,7 +2588,9 @@ export class OrchestrationService {
   }
 
   async dispatchExecutionRun(input: OrchestrationExecutionDispatchInput) {
-    const runtime = await this.materializeExecutionRuntime(input);
+    const runtime = await this.materializeExecutionRuntime(input, {
+      persistSnapshot: false,
+    });
     const run = runtime.executionRunDispatchQueue.find(
       (record) => record.runKey === input.runKey,
     );
