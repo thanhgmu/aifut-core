@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `c829525`.
+- `main` is synchronized with `origin/main` at `2e9146f`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `2e9146f` fix(api): align production runtime entry
 - `c829525` refactor(api): centralize domain readiness evaluation
 - `9c86250` feat(api): align domain runtime readiness diagnostics
 - `26ca3ff` feat(api): clarify domain workspace routing visibility
@@ -35,7 +36,8 @@ Last updated: 2026-05-31
 - Domain readiness now has one pure `evaluateTenantDomainReadiness(...)` evaluator shared by hostname runtime reads and domain write responses.
 - Domain write guardrails consume the same bounded reasons while preserving existing bad-request messages and response compatibility. Write responses now include readiness `reasons`.
 - Verification passed: targeted domain specs `119/119`, API build, full API Jest `25/25` suites and `330/330` tests, local runtime verifier `ok: true`, and live HTTP proof showing write/read parity for `certificate-status:pending`.
-- Local-dev follow-up: `npm run start:prod --workspace apps/api` currently targets stale `dist/main`; the direct built entry `dist/src/main.js` was used for the HTTP proof.
+- Local production startup is aligned: `npm run start:prod --workspace apps/api` now runs the actual built entry `dist/src/main.js`.
+- Verification passed: API build, real `start:prod` boot, live `GET /` returning `200`, PostgreSQL runtime verifier `ok: true` with seeded counts `2/2/2/2`, and clean port `3002` teardown after proof.
 - Domain host resolution now aligns runtime readiness with the domain write contract and explains legacy drift through bounded DNS, certificate, provisioning-mode, and provider reasons.
 - Platform subdomains remain ready without tenant-managed DNS metadata, while explicitly pending certificates remain non-ready.
 - Verification passed: targeted domain specs `75/75`, API build, full API Jest `24/24` suites and `327/327` tests, local runtime verifier `ok: true`, and live HTTP pending-certificate proof.

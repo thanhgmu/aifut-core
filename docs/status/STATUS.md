@@ -1,11 +1,17 @@
 # AIFUT Status
 
+## 2026-05-31 local production runtime entry checkpoint
+- Commit `2e9146f` (`fix(api): align production runtime entry`) is pushed to GitHub.
+- `npm run start:prod --workspace apps/api` now runs the actual Nest build entry `dist/src/main.js` instead of stale `dist/main`.
+- Verification: API build, real `start:prod` boot, live `GET /` returning `200`, PostgreSQL runtime verifier `ok: true` with seeded counts `2/2/2/2`, and clean port `3002` teardown after proof.
+- Next: continue HQ domain-routing visibility or the next narrow low-collision domain-governance slice.
+
 ## 2026-05-31 shared domain-readiness evaluator checkpoint
 - Commit `c829525` (`refactor(api): centralize domain readiness evaluation`) is pushed to GitHub.
 - New pure utility `evaluateTenantDomainReadiness(...)` is shared by hostname runtime reads and domain write responses, removing duplicated readiness semantics without changing schema, auth, or policy boundaries.
 - Existing domain write guardrail messages remain stable, while write responses now expose the same bounded `reasons` as hostname resolution.
 - Verification: targeted domain specs `119/119`, API build, full API Jest `25/25` suites and `330/330` tests, local runtime verifier `ok: true`, and live HTTP write/read parity proof returning `routeReady: false` with `certificate-status:pending`.
-- Local-dev follow-up: `npm run start:prod --workspace apps/api` still points to stale `dist/main`; the HTTP proof used the actual built entry `dist/src/main.js`.
+- The follow-up production entry drift was repaired in `2e9146f`.
 
 ## 2026-05-31 domain runtime-readiness diagnostics checkpoint
 - Commit `9c86250` (`feat(api): align domain runtime readiness diagnostics`) is pushed to GitHub.
