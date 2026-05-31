@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `9c86250`.
+- `main` is synchronized with `origin/main` at `c829525`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `c829525` refactor(api): centralize domain readiness evaluation
 - `9c86250` feat(api): align domain runtime readiness diagnostics
 - `26ca3ff` feat(api): clarify domain workspace routing visibility
 - `328b8d9` feat(api): normalize domain lifecycle enums
@@ -31,6 +32,10 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Domain readiness now has one pure `evaluateTenantDomainReadiness(...)` evaluator shared by hostname runtime reads and domain write responses.
+- Domain write guardrails consume the same bounded reasons while preserving existing bad-request messages and response compatibility. Write responses now include readiness `reasons`.
+- Verification passed: targeted domain specs `119/119`, API build, full API Jest `25/25` suites and `330/330` tests, local runtime verifier `ok: true`, and live HTTP proof showing write/read parity for `certificate-status:pending`.
+- Local-dev follow-up: `npm run start:prod --workspace apps/api` currently targets stale `dist/main`; the direct built entry `dist/src/main.js` was used for the HTTP proof.
 - Domain host resolution now aligns runtime readiness with the domain write contract and explains legacy drift through bounded DNS, certificate, provisioning-mode, and provider reasons.
 - Platform subdomains remain ready without tenant-managed DNS metadata, while explicitly pending certificates remain non-ready.
 - Verification passed: targeted domain specs `75/75`, API build, full API Jest `24/24` suites and `327/327` tests, local runtime verifier `ok: true`, and live HTTP pending-certificate proof.
