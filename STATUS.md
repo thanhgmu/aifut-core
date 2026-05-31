@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint is `2e9146f`.
+- `main` is synchronized with `origin/main`; latest functional checkpoint is `618df96`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `618df96` feat(web): surface domain routing readiness in HQ
 - `2e9146f` fix(api): align production runtime entry
 - `c829525` refactor(api): centralize domain readiness evaluation
 - `9c86250` feat(api): align domain runtime readiness diagnostics
@@ -33,6 +34,9 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `GET /integrations/domain-routing` now enriches every tenant domain with `readiness` from the shared `evaluateTenantDomainReadiness(...)` evaluator.
+- Web UI HQ now reads that existing endpoint through the bounded read pipeline and renders a domain-routing readiness metric, API link, tenant/workspace scope, route status, and bounded reasons.
+- Verification passed: targeted domain specs `79/79`, API build, full API Jest `26/26` suites and `331/331` tests, web typecheck/build, PostgreSQL runtime verifier `ok: true`, live domain-routing proof over four seeded domains, HQ render `200`, and clean `3000` / `3002` teardown.
 - Domain readiness now has one pure `evaluateTenantDomainReadiness(...)` evaluator shared by hostname runtime reads and domain write responses.
 - Domain write guardrails consume the same bounded reasons while preserving existing bad-request messages and response compatibility. Write responses now include readiness `reasons`.
 - Verification passed: targeted domain specs `119/119`, API build, full API Jest `25/25` suites and `330/330` tests, local runtime verifier `ok: true`, and live HTTP proof showing write/read parity for `certificate-status:pending`.
@@ -62,8 +66,8 @@ Last updated: 2026-05-31
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Continue the next low-collision domain lifecycle verification or narrow write-path slice without broadening into a redesign.
-2. Keep authenticated HQ reads and bounded runtime visibility incremental while the preview evolves toward a real operator control room.
+1. Review the next low-collision domain-routing UX slice: expose friendly workspace labels instead of raw workspace IDs without broadening into schema redesign.
+2. Continue narrow domain lifecycle verification or write-path hardening while keeping shared Prisma/auth/policy zones serialized.
 
 ## One-command approved replay proof
 - Commit `6ffbb83` adds `npm run local:exercise-approved-replay --workspace apps/api`.
