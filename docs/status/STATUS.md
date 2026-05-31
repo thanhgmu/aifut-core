@@ -1,5 +1,12 @@
 # AIFUT Status
 
+## 2026-05-31 runtime progression checkpoint
+- Commit `f16df5b` (`fix(api): preserve runtime progression during transitions`) is pushed to GitHub.
+- Approval-decision and dispatch transition commands no longer persist a fresh materialized baseline before reading latest persisted mutation state.
+- This prevents a cleared run from being moved backward to `awaiting-approval`.
+- Real local proof succeeded: activate -> approve -> AI-governance approved dispatch -> audit persistence -> approval-history `count: 1` -> diagnostics latest outcome `approved-resumed` -> Web UI HQ production render `200` with persisted actor evidence.
+- Verification: targeted orchestration/audit `87/87`, full API Jest `24/24` suites and `321/321` tests, API build, web typecheck/build, runtime-history check `ok: true`, runtime verifier `ok: true`.
+
 ## 2026-05-31 runtime read guard checkpoint
 - Commit `5c21615` (`feat(api): guard orchestration runtime reads`) is pushed to GitHub.
 - Execution runtime history, diagnostics, and approval-history reads now require the existing `operator-control` access policy with `OPERATOR` minimum role and workspace context.

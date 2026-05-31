@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `5c21615`.
+- `main` is synchronized with `origin/main` at `f16df5b`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `f16df5b` fix(api): preserve runtime progression during transitions
 - `5c21615` feat(api): guard orchestration runtime reads
 - `76d83be` feat(web): surface ai approval replay diagnostics
 - `81b7882` feat(api): expose AI governance approval replay history
@@ -38,8 +39,14 @@ Last updated: 2026-05-31
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Seed or exercise a local approved replay so the HQ route can verify a non-empty approval-history render.
-2. Continue operator-ready hardening around authenticated HQ reads and bounded runtime visibility.
+1. Continue operator-ready hardening around authenticated HQ reads and bounded runtime visibility.
+2. Add a stable local exercise helper for the approved replay proof so the non-empty HQ check is repeatable with one command.
+
+## Runtime transition progression fix
+- Commit `f16df5b` prevents approval-decision and dispatch transition commands from persisting a fresh materialized baseline snapshot before reading current persisted state.
+- This preserves approval clearance and avoids moving a dispatchable run back to `awaiting-approval`.
+- A real local flow now succeeds end to end: activate runtime -> approve workflow task -> dispatch with AI-governance approval -> persist approval audit -> expose non-empty history -> render Web UI HQ.
+- Live proof on plan `plan:acme:ops:live-runtime`: approval history `count: 1`, diagnostics `approvedResumedCount: 1`, latest outcome `approved-resumed`, HQ production route render `200` with persisted actor `ops@acme.test`.
 
 ## Runtime read hardening
 - Commit `5c21615` protects execution runtime history, diagnostics, and approval-history reads with `AccessPolicyGuard` and the existing `operator-control` scope at `OPERATOR` minimum role.
