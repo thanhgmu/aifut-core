@@ -3,11 +3,13 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `6ffbb83`.
+- `main` is synchronized with `origin/main` at `35c86cf`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `35c86cf` feat(web): surface bounded HQ read failures
+- `8d6ee88` fix(dev): align local runtime exercise endpoints
 - `6ffbb83` feat(dev): add approved replay proof helper
 - `f16df5b` fix(api): preserve runtime progression during transitions
 - `5c21615` feat(api): guard orchestration runtime reads
@@ -26,6 +28,8 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `apps/web/lib/runtime-data.ts` now preserves bounded read status through `getJsonResult(...)` while keeping the existing nullable `getJson(...)` API stable for current callers.
+- The Web UI HQ operator preview now distinguishes guarded `401/403` access failures from unreachable API failures and renders a bounded read-status panel only when a preview dependency is unavailable.
 - `apps/web/app/foundation/operator-preview/page.tsx` now fetches plan-scoped approval replay history beside existing health and runtime diagnostics.
 - The UI surfaces persisted approval replay count, recent approval-dispatch resumes, and recent `held`, `approved-resumed`, `blocked`, and `auto-dispatched` outcome counts without inventing missing data.
 - The local sample context now matches seeded runtime truth: `ops@acme.test` and `plan:acme:ops:live-runtime`.
@@ -34,14 +38,16 @@ Last updated: 2026-05-31
 - Targeted verification: `npm test -- --runInBand audit-events.service.spec.ts orchestration.controller.spec.ts` passing (`32/32`).
 - API build and web production build passing.
 - Web typecheck passing when run sequentially.
+- Latest Web UI HQ bounded-read slice: web typecheck and web production build passing.
+- Focused ESLint remains blocked by the repo baseline: ESLint 9 cannot find an `eslint.config.*` file.
 - Full API Jest: `npm test -- --runInBand` passing (`24/24` suites, `320/320` tests).
 - Local runtime verification: `npm run local:verify-runtime` passing against `http://127.0.0.1:3002`.
 - Local Web UI HQ proof: `GET http://127.0.0.1:3000/foundation/operator-preview` returned `200` and rendered approval replay, AI dispatch outcome, and truthful empty-history states.
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Continue operator-ready hardening around authenticated HQ reads and bounded runtime visibility.
-2. Consider aligning older runtime exercise scripts to configurable API ports.
+1. Continue the next low-collision `lane/domain-governance-hardening` controller/service verification or narrow write-path slice.
+2. Keep authenticated HQ reads and bounded runtime visibility incremental while the preview evolves toward a real operator control room.
 
 ## One-command approved replay proof
 - Commit `6ffbb83` adds `npm run local:exercise-approved-replay --workspace apps/api`.

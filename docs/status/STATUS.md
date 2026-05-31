@@ -1,5 +1,11 @@
 # AIFUT Status
 
+## 2026-05-31 Web UI HQ bounded-read checkpoint
+- Commit `35c86cf` (`feat(web): surface bounded HQ read failures`) is pushed to GitHub.
+- `getJsonResult(...)` now preserves HTTP status or unreachable-API failures while the existing nullable `getJson(...)` wrapper remains compatible for current callers.
+- The operator preview surfaces a bounded read-status panel only when a preview dependency is unavailable and distinguishes guarded `401/403` access denial from API connectivity failures.
+- Verification: web typecheck and web production build pass. Focused ESLint is still blocked by the repo baseline because ESLint 9 cannot find an `eslint.config.*` file.
+
 ## 2026-05-31 local runtime exercise alignment
 - Legacy runtime persistence and transition exercise scripts now use `NEXT_PUBLIC_API_URL` with the canonical `http://127.0.0.1:3002` fallback instead of hard-coding stale port `4000`.
 - Both scripts now order persisted snapshots by runtime `recordedAt` and expose that timestamp in proof output.
