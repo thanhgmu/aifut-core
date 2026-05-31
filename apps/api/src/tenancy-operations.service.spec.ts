@@ -1799,6 +1799,7 @@ describe('TenancyOperationsService', () => {
 
     expect(result.governance.readiness).toEqual({
       routeReady: false,
+      reasons: ['certificate-status:pending'],
     });
   });
 

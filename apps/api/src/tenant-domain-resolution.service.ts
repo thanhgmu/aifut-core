@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 type ResolveHostnameInput = {
   hostname?: string;
@@ -94,25 +95,7 @@ export class TenantDomainResolutionService {
         ? 'implicit-domain-workspace'
         : 'tenant-default';
 
-    const platformManagedDomain = domain.kind === 'PLATFORM_SUBDOMAIN';
-    const dnsTargetReady = platformManagedDomain || Boolean(domain.dnsTarget);
-    const certificateReady =
-      !domain.certificateStatus ||
-      ['active', 'issued', 'ready'].includes(
-        domain.certificateStatus.trim().toLowerCase(),
-      );
-    const provisioningMode = domain.provisioningMode?.trim().toLowerCase();
-    const provisioningModeReady =
-      domain.kind !== 'AFFILIATE_DOMAIN' || Boolean(provisioningMode);
-    const providerReady =
-      !['managed', 'affiliate-managed'].includes(provisioningMode ?? '') ||
-      Boolean(domain.provider);
-    const routeReady =
-      domain.status === 'ACTIVE' &&
-      dnsTargetReady &&
-      certificateReady &&
-      provisioningModeReady &&
-      providerReady;
+    const runtimeRouting = evaluateTenantDomainReadiness(domain);
 
     return {
       hostname,
@@ -147,22 +130,7 @@ export class TenantDomainResolutionService {
           effectiveWorkspaceSlug: resolvedWorkspace?.slug ?? null,
           mismatchDetected: workspaceMismatchDetected,
         },
-        runtimeRouting: {
-          routeReady,
-          reasons: [
-            ...(domain.status !== 'ACTIVE'
-              ? [`domain-status:${domain.status.toLowerCase()}`]
-              : []),
-            ...(!dnsTargetReady ? ['dns-target:missing'] : []),
-            ...(!certificateReady
-              ? [
-                  `certificate-status:${domain.certificateStatus?.trim().toLowerCase()}`,
-                ]
-              : []),
-            ...(!provisioningModeReady ? ['provisioning-mode:missing'] : []),
-            ...(!providerReady ? ['provider:missing'] : []),
-          ],
-        },
+        runtimeRouting,
       },
       next: [
         'host-header-tenant-resolution',

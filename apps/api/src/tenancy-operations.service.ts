@@ -14,6 +14,7 @@ import {
 import { AccessPolicyService } from './access-policy.service';
 import { ActorContextInput } from './actor-context.service';
 import { PrismaService } from './prisma.service';
+import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 type TenancyOperationInput = ActorContextInput;
 
@@ -183,16 +184,21 @@ export class TenancyOperationsService {
     const provisioningMode = this.normalizeOptionalLowercase(
       input.provisioningMode,
     );
-    const certificateReady =
-      !certificateStatus ||
-      ['active', 'issued', 'ready'].includes(certificateStatus.toLowerCase());
+    const readiness = evaluateTenantDomainReadiness({
+      kind,
+      status,
+      dnsTarget,
+      certificateStatus,
+      provider,
+      provisioningMode,
+    });
     const managedProvisioning =
       provisioningMode === 'managed' || provisioningMode === 'affiliate-managed';
 
     if (
       status === TenantDomainStatus.ACTIVE &&
       kind !== TenantDomainKind.PLATFORM_SUBDOMAIN &&
-      !dnsTarget
+      readiness.reasons.includes('dns-target:missing')
     ) {
       throw new BadRequestException(
         'Active custom or affiliate domains require dnsTarget.',
@@ -202,7 +208,9 @@ export class TenancyOperationsService {
     if (
       status === TenantDomainStatus.ACTIVE &&
       kind !== TenantDomainKind.PLATFORM_SUBDOMAIN &&
-      !certificateReady
+      readiness.reasons.some((reason) =>
+        reason.startsWith('certificate-status:'),
+      )
     ) {
       throw new BadRequestException(
         'Active custom or affiliate domains require ready certificateStatus.',
@@ -218,14 +226,17 @@ export class TenancyOperationsService {
     if (
       status === TenantDomainStatus.ACTIVE &&
       kind === TenantDomainKind.AFFILIATE_DOMAIN &&
-      !provisioningMode
+      readiness.reasons.includes('provisioning-mode:missing')
     ) {
       throw new BadRequestException(
         'Active affiliate domains require provisioningMode.',
       );
     }
 
-    if (status === TenantDomainStatus.ACTIVE && managedProvisioning && !provider) {
+    if (
+      status === TenantDomainStatus.ACTIVE &&
+      readiness.reasons.includes('provider:missing')
+    ) {
       throw new BadRequestException(
         'Managed or affiliate-managed active domains require provider.',
       );
@@ -359,14 +370,7 @@ export class TenancyOperationsService {
             ? 'rebound-domain-scope'
             : 'retained-domain-scope',
         },
-        readiness: {
-          routeReady:
-            domain.status === TenantDomainStatus.ACTIVE &&
-            (!domain.certificateStatus ||
-              ['active', 'issued', 'ready'].includes(
-                domain.certificateStatus.toLowerCase(),
-              )),
-        },
+        readiness: evaluateTenantDomainReadiness(domain),
         provisioning: {
           provider: domain.provider,
           mode: domain.provisioningMode,
