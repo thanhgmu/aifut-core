@@ -107,6 +107,61 @@ type RuntimeDiagnosticsResponse = {
       runtimeStatus?: string;
       recordedAt?: string | null;
     } | null;
+    recentAiGovernanceOutcomes?: {
+      recentOutcomeCount?: number;
+      heldCount?: number;
+      approvedResumedCount?: number;
+      blockedCount?: number;
+      autoDispatchedCount?: number;
+      latestOutcome?: {
+        eventKey?: string;
+        outcome?: "held" | "approved-resumed" | "blocked" | "auto-dispatched";
+        runKey?: string | null;
+        runtimeStatus?: string;
+        recordedAt?: string;
+      } | null;
+    };
+  };
+  next?: string[];
+};
+
+type ApprovalHistoryResponse = {
+  capability?: string;
+  status?: string;
+  approvalHistory?: {
+    capability?: string;
+    status?: string;
+    planId?: string;
+    count?: number;
+    approvalDispatchResumes?: Array<{
+      id?: string;
+      targetId?: string | null;
+      createdAt?: string;
+      user?: {
+        id?: string;
+        email?: string;
+        name?: string | null;
+      } | null;
+      metadata?: {
+        runKey?: string;
+        approval?: {
+          status?: string;
+          decision?: string;
+          approvedBy?: string;
+          note?: string | null;
+        };
+        governanceDecision?: {
+          selectedLane?: string | null;
+          credentialMode?: string;
+          approvalReason?: string | null;
+        };
+        usageEventKey?: string | null;
+        actorContext?: {
+          workspaceSlug?: string | null;
+          membershipRole?: string | null;
+        };
+      };
+    }>;
   };
   next?: string[];
 };
@@ -114,9 +169,9 @@ type RuntimeDiagnosticsResponse = {
 const SAMPLE_OPERATOR_CONTEXT = {
   tenantSlug: "acme",
   workspaceSlug: "ops",
-  userEmail: "operator@acme.test",
+  userEmail: "ops@acme.test",
   connectionSlug: "n8n-main",
-  planId: "plan_ops_runtime_v1",
+  planId: "plan:acme:ops:live-runtime",
 };
 
 async function getOperatorPreviewData() {
@@ -126,7 +181,7 @@ async function getOperatorPreviewData() {
     userEmail: SAMPLE_OPERATOR_CONTEXT.userEmail,
   });
 
-  const [health, connectionHealth, runtimeDiagnostics] = await Promise.all([
+  const [health, connectionHealth, runtimeDiagnostics, approvalHistory] = await Promise.all([
     getJson<HealthResponse>("/health"),
     getJson<ConnectionHealthResponse>(
       `/integrations/connections/health-timeline?${new URLSearchParams({
@@ -137,18 +192,28 @@ async function getOperatorPreviewData() {
     getJson<RuntimeDiagnosticsResponse>(
       `/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?${params.toString()}`,
     ),
+    getJson<ApprovalHistoryResponse>(
+      `/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/approval-history?${new URLSearchParams({
+        ...Object.fromEntries(params.entries()),
+        limit: "6",
+      }).toString()}`,
+    ),
   ]);
 
-  return { health, connectionHealth, runtimeDiagnostics };
+  return { health, connectionHealth, runtimeDiagnostics, approvalHistory };
 }
 
 export default async function OperatorPreviewPage() {
-  const { health, connectionHealth, runtimeDiagnostics } = await getOperatorPreviewData();
+  const { health, connectionHealth, runtimeDiagnostics, approvalHistory } = await getOperatorPreviewData();
   const healthSummary = connectionHealth?.healthSummary;
   const timeline = Array.isArray(connectionHealth?.healthTimeline)
     ? connectionHealth.healthTimeline.slice(-4).reverse()
     : [];
   const runtimeSummary = runtimeDiagnostics?.runtimeDiagnostics?.diagnosticsSummary;
+  const aiGovernanceOutcomes = runtimeDiagnostics?.runtimeDiagnostics?.recentAiGovernanceOutcomes;
+  const approvalDispatchResumes = Array.isArray(approvalHistory?.approvalHistory?.approvalDispatchResumes)
+    ? approvalHistory.approvalHistory.approvalDispatchResumes
+    : [];
 
   return (
     <main style={pageStyle}>
@@ -168,6 +233,7 @@ export default async function OperatorPreviewPage() {
             <LinkButton href="/dashboard">Dashboard</LinkButton>
             <LinkButton href={`${API_BASE}/integrations/connections/health-timeline?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&connectionSlug=${SAMPLE_OPERATOR_CONTEXT.connectionSlug}`}>Health timeline API</LinkButton>
             <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}`}>Runtime diagnostics API</LinkButton>
+            <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/approval-history?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&limit=6`}>Approval history API</LinkButton>
           </div>
         </div>
 
@@ -175,6 +241,7 @@ export default async function OperatorPreviewPage() {
           <MetricCard title="API" value={health?.status ?? "unknown"} note={`db: ${health?.database ?? "unknown"}`} />
           <MetricCard title="Connection status" value={connectionHealth?.connection?.status ?? "unavailable"} note={connectionHealth?.connection?.provider ?? "No provider surfaced"} />
           <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
+          <MetricCard title="Approval replays" value={String(approvalHistory?.approvalHistory?.count ?? 0)} note="persisted approval-dispatch resumes" />
           <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
         </section>
 
@@ -253,6 +320,31 @@ export default async function OperatorPreviewPage() {
                 <DataPoint label="Mutated targets" value={String(runtimeSummary?.mutatedTargetCount ?? 0)} />
                 <DataPoint label="Last recorded" value={formatDate(runtimeSummary?.latestRecordedAt)} />
 
+                <MiniPanel title="AI dispatch outcomes">
+                  {aiGovernanceOutcomes ? (
+                    <>
+                      <StrongLine>{aiGovernanceOutcomes.recentOutcomeCount ?? 0} recent persisted outcomes</StrongLine>
+                      <MutedLine>
+                        held {aiGovernanceOutcomes.heldCount ?? 0} / approved-resumed {aiGovernanceOutcomes.approvedResumedCount ?? 0} / blocked {aiGovernanceOutcomes.blockedCount ?? 0} / auto-dispatched {aiGovernanceOutcomes.autoDispatchedCount ?? 0}
+                      </MutedLine>
+                      {aiGovernanceOutcomes.latestOutcome ? (
+                        <>
+                          <MutedLine>
+                            Latest: {aiGovernanceOutcomes.latestOutcome.outcome ?? "unknown outcome"} / {aiGovernanceOutcomes.latestOutcome.runtimeStatus ?? "unknown status"} / {formatDate(aiGovernanceOutcomes.latestOutcome.recordedAt)}
+                          </MutedLine>
+                          <MutedLine>
+                            Run: {aiGovernanceOutcomes.latestOutcome.runKey ?? "No run key recorded"}
+                          </MutedLine>
+                        </>
+                      ) : (
+                        <MutedLine>No persisted AI dispatch outcomes were returned for this sample plan.</MutedLine>
+                      )}
+                    </>
+                  ) : (
+                    <MutedLine>AI dispatch outcome diagnostics are unavailable for this sample plan.</MutedLine>
+                  )}
+                </MiniPanel>
+
                 <div style={infoCardStyle}>
                   <div style={sectionLabelStyle}>Operator readout</div>
                   <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.7 }}>
@@ -273,6 +365,46 @@ export default async function OperatorPreviewPage() {
               </div>
             ) : (
               <EmptyState message="Runtime diagnostics are unavailable for the sample plan context." />
+            )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 18 }}>
+          <Panel title="Recent approval-dispatch resumes">
+            {approvalHistory?.approvalHistory ? (
+              approvalDispatchResumes.length > 0 ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {approvalDispatchResumes.map((entry, index) => (
+                    <div key={entry.id ?? `${entry.targetId ?? "run"}-${index}`} style={timelineRowStyle}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{entry.metadata?.runKey ?? entry.targetId ?? "Persisted run"}</div>
+                        <div style={{ color: "#9fb0ff", fontSize: 13 }}>
+                          {entry.metadata?.approval?.decision ?? "approval replay"} / {formatDate(entry.createdAt)}
+                        </div>
+                      </div>
+                      <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 680, textAlign: "right", lineHeight: 1.6 }}>
+                        <div>
+                          {entry.metadata?.governanceDecision?.selectedLane ?? "No lane recorded"}
+                          {" / "}
+                          {entry.metadata?.governanceDecision?.credentialMode ?? "No credential mode recorded"}
+                        </div>
+                        <div>
+                          by {entry.metadata?.approval?.approvedBy ?? entry.user?.email ?? "unknown actor"}
+                          {entry.metadata?.approval?.note ? ` / ${entry.metadata.approval.note}` : ""}
+                        </div>
+                        {entry.metadata?.governanceDecision?.approvalReason ? (
+                          <div>{entry.metadata.governanceDecision.approvalReason}</div>
+                        ) : null}
+                        {entry.metadata?.usageEventKey ? <div>usage: {entry.metadata.usageEventKey}</div> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState message="No persisted approval-dispatch resumes were returned for the sample plan context." />
+              )
+            ) : (
+              <EmptyState message="Approval replay history is unavailable for the sample plan context." />
             )}
           </Panel>
         </section>
