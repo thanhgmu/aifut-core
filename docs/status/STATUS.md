@@ -1,5 +1,11 @@
 # AIFUT Status
 
+## 2026-05-31 domain workspace-routing visibility checkpoint
+- Commit `26ca3ff` (`feat(api): clarify domain workspace routing visibility`) is pushed to GitHub.
+- `TenantDomainResolutionService.resolveHostname(...)` now distinguishes a non-enforced workspace mismatch from a real fallback by reporting `workspace-request-mismatch`.
+- Host-resolution governance now exposes requested, hostname-bound, and effective workspace slugs plus an explicit mismatch flag so HQ/runtime diagnostics can explain routing scope without changing routing behavior.
+- Verification: targeted domain-resolution spec `5/5`, API build, full API Jest `24/24` suites and `324/324` tests, local runtime verifier `ok: true`, and live HTTP proof with a workspace-bound proof domain (`ops`) requested through mismatched workspace `sales`.
+
 ## 2026-05-31 domain lifecycle enum normalization checkpoint
 - Commit `328b8d9` (`feat(api): normalize domain lifecycle enums`) is pushed to GitHub.
 - `TenancyOperationsService.upsertDomain(...)` now normalizes and explicitly validates domain `kind` and `status` values before Prisma persistence.
