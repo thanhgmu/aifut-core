@@ -1,5 +1,11 @@
 # AIFUT Status
 
+## 2026-05-31 local runtime exercise alignment
+- Legacy runtime persistence and transition exercise scripts now use `NEXT_PUBLIC_API_URL` with the canonical `http://127.0.0.1:3002` fallback instead of hard-coding stale port `4000`.
+- Both scripts now order persisted snapshots by runtime `recordedAt` and expose that timestamp in proof output.
+- Verification: both scripts pass `node --check`, stale port/order patterns are absent from `apps/api/scripts`, and API build passes.
+- Live execution was not run because the local API was intentionally offline during this heartbeat.
+
 ## 2026-05-31 one-command approved replay proof
 - Commit `6ffbb83` (`feat(dev): add approved replay proof helper`) is pushed to GitHub.
 - Run `npm run local:exercise-approved-replay --workspace apps/api` while local API is available.

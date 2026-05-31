@@ -4,6 +4,7 @@ const http = require('http');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 
+const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3002';
 const planId = 'plan:acme:ops:live-runtime';
 const sharedPayload = {
   objective: 'Activate runtime bridge',
@@ -96,7 +97,7 @@ async function main() {
 
   try {
     const approvalResponse = await postJson(
-      `http://127.0.0.1:4000/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/approval-decision`,
+      `${apiBase}/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/approval-decision`,
       {
         ...sharedPayload,
         taskKey: 'plan:acme:ops:live-runtime:approval:1:task',
@@ -105,7 +106,7 @@ async function main() {
     );
 
     const dispatchResponse = await postJson(
-      `http://127.0.0.1:4000/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/dispatch-run`,
+      `${apiBase}/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/dispatch-run`,
       {
         ...sharedPayload,
         runKey: 'plan:acme:ops:live-runtime:child:1:runner:run',
@@ -114,12 +115,13 @@ async function main() {
 
     const snapshots = await prisma.orchestrationRuntimeSnapshot.findMany({
       where: { planId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { recordedAt: 'asc' },
       select: {
         snapshotKey: true,
         snapshotType: true,
         runtimeStatus: true,
         recordedBy: true,
+        recordedAt: true,
         createdAt: true,
       },
     });

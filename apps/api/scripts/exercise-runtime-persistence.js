@@ -4,6 +4,7 @@ const http = require('http');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 
+const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3002';
 const planId = 'plan:acme:ops:live-runtime';
 
 function postJson(url, body, headers = {}) {
@@ -46,7 +47,7 @@ async function main() {
 
   try {
     const response = await postJson(
-      `http://127.0.0.1:4000/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/activate`,
+      `${apiBase}/orchestration/plans/${encodeURIComponent(planId)}/execution-runtime/activate`,
       {
         objective: 'Activate runtime bridge',
         executionModes: ['human-approved', 'event-driven'],
@@ -101,7 +102,7 @@ async function main() {
 
     const snapshots = await prisma.orchestrationRuntimeSnapshot.findMany({
       where: { planId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { recordedAt: 'asc' },
       select: {
         snapshotKey: true,
         planId: true,
@@ -110,6 +111,7 @@ async function main() {
         tenantSlug: true,
         workspaceSlug: true,
         recordedBy: true,
+        recordedAt: true,
         createdAt: true,
       },
     });
