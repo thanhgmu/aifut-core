@@ -1018,6 +1018,12 @@ export class OrchestrationController {
   }
 
   @Get('plans/:planId/execution-runtime/history')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    requireWorkspace: true,
+    scope: 'operator-control',
+  })
   async getExecutionRuntimeHistory(
     @Param('planId') planId: string,
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
@@ -1070,6 +1076,12 @@ export class OrchestrationController {
   }
 
   @Get('plans/:planId/execution-runtime/diagnostics')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    requireWorkspace: true,
+    scope: 'operator-control',
+  })
   async getExecutionRuntimeDiagnostics(
     @Param('planId') planId: string,
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
@@ -1122,6 +1134,12 @@ export class OrchestrationController {
   }
 
   @Get('plans/:planId/execution-runtime/approval-history')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    requireWorkspace: true,
+    scope: 'operator-control',
+  })
   async getExecutionRuntimeApprovalHistory(
     @Param('planId') planId: string,
     @Headers('x-tenant-slug') tenantSlugHeader?: string,

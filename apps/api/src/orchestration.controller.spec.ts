@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { MembershipRole } from '@prisma/client';
+import { ACCESS_POLICY_METADATA_KEY } from './access-policy.constants';
 import { AccessPolicyService } from './access-policy.service';
 import { OrchestrationController } from './orchestration.controller';
 import { ActorContextService } from './actor-context.service';
@@ -114,6 +116,33 @@ describe('OrchestrationController', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('should guard runtime history, diagnostics, and approval-history reads as operator controls', () => {
+    const requirement = {
+      minimumRole: MembershipRole.OPERATOR,
+      requireWorkspace: true,
+      scope: 'operator-control',
+    };
+
+    expect(
+      Reflect.getMetadata(
+        ACCESS_POLICY_METADATA_KEY,
+        controller.getExecutionRuntimeHistory,
+      ),
+    ).toEqual(requirement);
+    expect(
+      Reflect.getMetadata(
+        ACCESS_POLICY_METADATA_KEY,
+        controller.getExecutionRuntimeDiagnostics,
+      ),
+    ).toEqual(requirement);
+    expect(
+      Reflect.getMetadata(
+        ACCESS_POLICY_METADATA_KEY,
+        controller.getExecutionRuntimeApprovalHistory,
+      ),
+    ).toEqual(requirement);
   });
 
   it('should resolve orchestration context from bearer identity when explicit tenant/user headers are absent', async () => {
