@@ -859,6 +859,81 @@ describe('TenancyOperationsService', () => {
     expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
   });
 
+  it('should normalize domain kind and status before persistence', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_normalized_enum',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'cloudflare',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:40:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:40:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+      kind: ' affiliate_domain ' as TenantDomainKind,
+      status: ' active ' as TenantDomainStatus,
+      provider: 'cloudflare',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.aifut.test',
+      certificateStatus: 'issued',
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          kind: TenantDomainKind.AFFILIATE_DOMAIN,
+          status: TenantDomainStatus.ACTIVE,
+        }),
+        update: expect.objectContaining({
+          kind: TenantDomainKind.AFFILIATE_DOMAIN,
+          status: TenantDomainStatus.ACTIVE,
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      status: 'domain-upserted',
+      domain: {
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+      },
+    });
+  });
+
+  it('should reject invalid normalized domain kind values', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: ' unsupported ' as TenantDomainKind,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
+  it('should reject invalid normalized domain status values', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        status: ' unsupported ' as TenantDomainStatus,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should reject domain writes whose hostname normalizes to an empty value', async () => {
     await expect(
       service.upsertDomain({

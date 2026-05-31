@@ -173,8 +173,8 @@ export class TenancyOperationsService {
       );
     }
 
-    const kind = input.kind ?? TenantDomainKind.CUSTOM;
-    const status = input.status ?? TenantDomainStatus.ACTIVE;
+    const kind = this.normalizeDomainKind(input.kind);
+    const status = this.normalizeDomainStatus(input.status);
     const dnsTarget = this.normalizeOptional(input.dnsTarget);
     const certificateStatus = this.normalizeOptionalLowercase(
       input.certificateStatus,
@@ -638,5 +638,33 @@ export class TenancyOperationsService {
     }
 
     throw new BadRequestException(`Invalid storage policy mode ${normalized}.`);
+  }
+
+  private normalizeDomainKind(value?: string | null): TenantDomainKind {
+    const normalized = this.normalizeOptionalUppercase(value);
+
+    if (!normalized) {
+      return TenantDomainKind.CUSTOM;
+    }
+
+    if (Object.values(TenantDomainKind).includes(normalized as TenantDomainKind)) {
+      return normalized as TenantDomainKind;
+    }
+
+    throw new BadRequestException(`Invalid domain kind ${normalized}.`);
+  }
+
+  private normalizeDomainStatus(value?: string | null): TenantDomainStatus {
+    const normalized = this.normalizeOptionalUppercase(value);
+
+    if (!normalized) {
+      return TenantDomainStatus.ACTIVE;
+    }
+
+    if (Object.values(TenantDomainStatus).includes(normalized as TenantDomainStatus)) {
+      return normalized as TenantDomainStatus;
+    }
+
+    throw new BadRequestException(`Invalid domain status ${normalized}.`);
   }
 }
