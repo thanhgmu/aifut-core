@@ -189,4 +189,70 @@ describe('TenantDomainResolutionService', () => {
       },
     });
   });
+
+  it('should treat active platform subdomains as route ready without tenant-managed dns or certificate metadata', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_3',
+      hostname: 'acme.aifut.test',
+      kind: 'PLATFORM_SUBDOMAIN',
+      status: 'ACTIVE',
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+      workspace: null,
+    });
+
+    const result = await service.resolveHostname({
+      hostname: 'acme.aifut.test',
+    });
+
+    expect(result.governance.runtimeRouting).toEqual({
+      routeReady: true,
+      reasons: [],
+    });
+  });
+
+  it('should explain legacy custom-domain readiness drift', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_4',
+      hostname: 'legacy.acme.test',
+      kind: 'CUSTOM',
+      status: 'ACTIVE',
+      isPrimary: false,
+      provider: null,
+      provisioningMode: 'managed',
+      dnsTarget: null,
+      certificateStatus: 'pending',
+      workspaceId: null,
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+      workspace: null,
+    });
+
+    const result = await service.resolveHostname({
+      hostname: 'legacy.acme.test',
+    });
+
+    expect(result.governance.runtimeRouting).toEqual({
+      routeReady: false,
+      reasons: [
+        'dns-target:missing',
+        'certificate-status:pending',
+        'provider:missing',
+      ],
+    });
+  });
 });

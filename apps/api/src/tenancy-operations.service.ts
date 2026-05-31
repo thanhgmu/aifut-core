@@ -362,8 +362,7 @@ export class TenancyOperationsService {
         readiness: {
           routeReady:
             domain.status === TenantDomainStatus.ACTIVE &&
-            (domain.kind === TenantDomainKind.PLATFORM_SUBDOMAIN ||
-              !domain.certificateStatus ||
+            (!domain.certificateStatus ||
               ['active', 'issued', 'ready'].includes(
                 domain.certificateStatus.toLowerCase(),
               )),

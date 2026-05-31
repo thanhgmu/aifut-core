@@ -1772,6 +1772,36 @@ describe('TenancyOperationsService', () => {
     });
   });
 
+  it('should surface pending platform certificate readiness after domain upsert', async () => {
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_platform_pending',
+      hostname: 'pending.acme.aifut.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: 'pending',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:05:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:05:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'pending.acme.aifut.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      certificateStatus: 'pending',
+    });
+
+    expect(result.governance.readiness).toEqual({
+      routeReady: false,
+    });
+  });
+
   it('should demote only tenant-scope primaries when promoting a tenant-level primary affiliate domain', async () => {
     prisma.tenantDomain.upsert.mockResolvedValue({
       id: 'domain_tenant_affiliate_primary',
