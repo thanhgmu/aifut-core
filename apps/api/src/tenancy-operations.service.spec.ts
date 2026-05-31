@@ -609,6 +609,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_tenant_primary_2' },
         workspaceId: null,
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -1668,6 +1669,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_1' },
         workspaceId: 'ws_1',
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -1748,6 +1750,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_tenant_primary' },
         workspaceId: null,
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -1838,6 +1841,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_tenant_affiliate_primary' },
         workspaceId: null,
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -2027,6 +2031,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_affiliate_primary' },
         workspaceId: 'ws_1',
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -2810,6 +2815,7 @@ describe('TenancyOperationsService', () => {
         tenantId: 'tenant_1',
         id: { not: 'domain_existing' },
         workspaceId: 'ws_1',
+        isPrimary: true,
       },
       data: {
         isPrimary: false,
@@ -2837,6 +2843,57 @@ describe('TenancyOperationsService', () => {
         previousScope: 'tenant:default',
         targetScope: 'workspace:ops',
         action: 'rebound-domain-scope',
+      },
+    });
+  });
+
+  it('should retain an existing primary domain when an update omits isPrimary', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing',
+      tenantId: 'tenant_1',
+      workspaceId: null,
+      isPrimary: true,
+      workspace: null,
+    });
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_existing',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:40:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:40:00.000Z'),
+    });
+    prisma.tenantDomain.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          isPrimary: true,
+        }),
+      }),
+    );
+    expect(result.governance).toMatchObject({
+      primaryScope: 'tenant:default',
+      primaryIntent: {
+        requestedPromotion: false,
+        requestedDemotion: false,
+        explicitDemotionApproved: false,
+        resultingPrimary: true,
+        resultingAction: 'promote-target-as-scope-primary',
       },
     });
   });

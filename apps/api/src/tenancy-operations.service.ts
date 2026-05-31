@@ -194,6 +194,7 @@ export class TenancyOperationsService {
     });
     const managedProvisioning =
       provisioningMode === 'managed' || provisioningMode === 'affiliate-managed';
+    const isPrimary = input.isPrimary ?? existingDomain?.isPrimary ?? false;
 
     if (
       status === TenantDomainStatus.ACTIVE &&
@@ -217,7 +218,7 @@ export class TenancyOperationsService {
       );
     }
 
-    if ((input.isPrimary ?? false) && status !== TenantDomainStatus.ACTIVE) {
+    if (isPrimary && status !== TenantDomainStatus.ACTIVE) {
       throw new BadRequestException(
         'Primary domains must be ACTIVE before promotion.',
       );
@@ -271,7 +272,7 @@ export class TenancyOperationsService {
         workspaceId: workspace?.id ?? null,
         kind,
         status,
-        isPrimary: input.isPrimary ?? false,
+        isPrimary,
         provider,
         provisioningMode,
         dnsTarget,
@@ -283,7 +284,7 @@ export class TenancyOperationsService {
         hostname,
         kind,
         status,
-        isPrimary: input.isPrimary ?? false,
+        isPrimary,
         provider,
         provisioningMode,
         dnsTarget,
@@ -318,6 +319,7 @@ export class TenancyOperationsService {
           tenantId: resolved.context.tenant.id,
           id: { not: domain.id },
           workspaceId: workspace?.id ?? null,
+          isPrimary: true,
         },
         data: {
           isPrimary: false,
