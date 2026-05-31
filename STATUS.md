@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `76d83be`.
+- `main` is synchronized with `origin/main` at `5c21615`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `5c21615` feat(api): guard orchestration runtime reads
 - `76d83be` feat(web): surface ai approval replay diagnostics
 - `81b7882` feat(api): expose AI governance approval replay history
 - `9e67fca` test(api): tighten AI governance dispatch diagnostics coverage
@@ -37,8 +38,13 @@ Last updated: 2026-05-31
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Guard operator-facing diagnostics and approval-history reads with the existing operator-control policy before promoting the preview toward production HQ.
-2. Correct the runtime-history schema check expectation: local snapshot storage exposes `createdAt`, while `runtime-history:check` currently expects `recordedAt`.
-3. Seed or exercise a local approved replay so the HQ route can verify a non-empty approval-history render.
+1. Seed or exercise a local approved replay so the HQ route can verify a non-empty approval-history render.
+2. Continue operator-ready hardening around authenticated HQ reads and bounded runtime visibility.
+
+## Runtime read hardening
+- Commit `5c21615` protects execution runtime history, diagnostics, and approval-history reads with `AccessPolicyGuard` and the existing `operator-control` scope at `OPERATOR` minimum role.
+- Focused metadata coverage confirms all three read routes carry the intended policy contract.
+- Local PostgreSQL drift was corrected by applying committed migrations `20260521075800_add_runtime_snapshot_recorded_at` and `20260530184200_add_ai_governance_persistence`; `prisma migrate status`, `runtime-history:check`, and runtime verifier are green.
+- Verification: targeted `33/33`, full API Jest `24/24` suites and `321/321` tests, API build, and live guarded runtime history/diagnostics/approval-history reads all passing.
 2. Bind the approval replay diagnostics/history surfaces into the Web UI HQ control plane.
 3. Keep `lane/domain-governance-hardening` ready for the next low-collision verification/write-path slice.

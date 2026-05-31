@@ -1,5 +1,12 @@
 # AIFUT Status
 
+## 2026-05-31 runtime read guard checkpoint
+- Commit `5c21615` (`feat(api): guard orchestration runtime reads`) is pushed to GitHub.
+- Execution runtime history, diagnostics, and approval-history reads now require the existing `operator-control` access policy with `OPERATOR` minimum role and workspace context.
+- Metadata coverage verifies the three route contracts.
+- Local PostgreSQL was brought up to committed migration truth with `20260521075800_add_runtime_snapshot_recorded_at` and `20260530184200_add_ai_governance_persistence`.
+- Verification: targeted `33/33`, full API Jest `24/24` suites and `321/321` tests, API build, Prisma migration status clean, runtime-history check `ok: true`, runtime verifier `ok: true`, and all three guarded local read routes returning `200` for seeded operator context.
+
 ## 2026-05-31 Web UI HQ approval replay checkpoint
 - Commit `76d83be` (`feat(web): surface ai approval replay diagnostics`) is pushed to GitHub.
 - The operator preview now consumes live plan-scoped approval replay history plus recent AI dispatch outcomes (`held`, `approved-resumed`, `blocked`, `auto-dispatched`).
