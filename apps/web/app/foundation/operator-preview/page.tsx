@@ -1,4 +1,4 @@
-import { API_BASE, getJson, type HealthResponse } from "../../../lib/runtime-data";
+import { API_BASE, getJsonResult, type HealthResponse, type JsonResult } from "../../../lib/runtime-data";
 
 type ConnectionHealthResponse = {
   capability?: string;
@@ -182,17 +182,17 @@ async function getOperatorPreviewData() {
   });
 
   const [health, connectionHealth, runtimeDiagnostics, approvalHistory] = await Promise.all([
-    getJson<HealthResponse>("/health"),
-    getJson<ConnectionHealthResponse>(
+    getJsonResult<HealthResponse>("/health"),
+    getJsonResult<ConnectionHealthResponse>(
       `/integrations/connections/health-timeline?${new URLSearchParams({
         ...Object.fromEntries(params.entries()),
         connectionSlug: SAMPLE_OPERATOR_CONTEXT.connectionSlug,
       }).toString()}`,
     ),
-    getJson<RuntimeDiagnosticsResponse>(
+    getJsonResult<RuntimeDiagnosticsResponse>(
       `/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?${params.toString()}`,
     ),
-    getJson<ApprovalHistoryResponse>(
+    getJsonResult<ApprovalHistoryResponse>(
       `/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/approval-history?${new URLSearchParams({
         ...Object.fromEntries(params.entries()),
         limit: "6",
@@ -200,11 +200,22 @@ async function getOperatorPreviewData() {
     ),
   ]);
 
-  return { health, connectionHealth, runtimeDiagnostics, approvalHistory };
+  return {
+    health: health.data,
+    connectionHealth: connectionHealth.data,
+    runtimeDiagnostics: runtimeDiagnostics.data,
+    approvalHistory: approvalHistory.data,
+    readResults: {
+      health,
+      connectionHealth,
+      runtimeDiagnostics,
+      approvalHistory,
+    },
+  };
 }
 
 export default async function OperatorPreviewPage() {
-  const { health, connectionHealth, runtimeDiagnostics, approvalHistory } = await getOperatorPreviewData();
+  const { health, connectionHealth, runtimeDiagnostics, approvalHistory, readResults } = await getOperatorPreviewData();
   const healthSummary = connectionHealth?.healthSummary;
   const timeline = Array.isArray(connectionHealth?.healthTimeline)
     ? connectionHealth.healthTimeline.slice(-4).reverse()
@@ -214,6 +225,7 @@ export default async function OperatorPreviewPage() {
   const approvalDispatchResumes = Array.isArray(approvalHistory?.approvalHistory?.approvalDispatchResumes)
     ? approvalHistory.approvalHistory.approvalDispatchResumes
     : [];
+  const failedReads = Object.entries(readResults).filter(([, result]) => !result.data);
 
   return (
     <main style={pageStyle}>
@@ -242,8 +254,24 @@ export default async function OperatorPreviewPage() {
           <MetricCard title="Connection status" value={connectionHealth?.connection?.status ?? "unavailable"} note={connectionHealth?.connection?.provider ?? "No provider surfaced"} />
           <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
           <MetricCard title="Approval replays" value={String(approvalHistory?.approvalHistory?.count ?? 0)} note="persisted approval-dispatch resumes" />
+          <MetricCard title="HQ reads" value={failedReads.length === 0 ? "Healthy" : `${failedReads.length} unavailable`} note={failedReads.length === 0 ? "all preview reads returned data" : "inspect bounded read status below"} />
           <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
         </section>
+
+        {failedReads.length > 0 ? (
+          <section style={{ marginTop: 18 }}>
+            <Panel title="Bounded read status">
+              <div style={{ display: "grid", gap: 10 }}>
+                {failedReads.map(([name, result]) => (
+                  <div key={name} style={timelineRowStyle}>
+                    <StrongLine>{formatReadName(name)}</StrongLine>
+                    <MutedLine>{formatReadFailure(result)}</MutedLine>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </section>
+        ) : null}
 
         <section style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 }}>
           <Panel title="Connection health command center">
@@ -306,7 +334,7 @@ export default async function OperatorPreviewPage() {
                 </div>
               </div>
             ) : (
-              <EmptyState message="Connection health preview is unavailable right now. This route stays honest and shows the gap instead of inventing state." />
+              <EmptyState message={`Connection health preview is unavailable: ${formatReadFailure(readResults.connectionHealth)}.`} />
             )}
           </Panel>
 
@@ -364,7 +392,7 @@ export default async function OperatorPreviewPage() {
                 </div>
               </div>
             ) : (
-              <EmptyState message="Runtime diagnostics are unavailable for the sample plan context." />
+              <EmptyState message={`Runtime diagnostics are unavailable: ${formatReadFailure(readResults.runtimeDiagnostics)}.`} />
             )}
           </Panel>
         </section>
@@ -404,7 +432,7 @@ export default async function OperatorPreviewPage() {
                 <EmptyState message="No persisted approval-dispatch resumes were returned for the sample plan context." />
               )
             ) : (
-              <EmptyState message="Approval replay history is unavailable for the sample plan context." />
+              <EmptyState message={`Approval replay history is unavailable: ${formatReadFailure(readResults.approvalHistory)}.`} />
             )}
           </Panel>
         </section>
@@ -491,6 +519,18 @@ function formatDetail(detail?: Record<string, unknown>) {
   const firstPair = Object.entries(detail)[0];
   if (!firstPair) return "No extra detail";
   return `${firstPair[0]}: ${String(firstPair[1])}`;
+}
+
+function formatReadFailure(result: JsonResult<unknown>) {
+  if (result.status === 401 || result.status === 403) {
+    return `Access denied (${result.error ?? `HTTP ${result.status}`})`;
+  }
+
+  return result.error ?? "No data returned";
+}
+
+function formatReadName(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
 const pageStyle: React.CSSProperties = {

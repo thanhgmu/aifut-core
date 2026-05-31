@@ -33,14 +33,40 @@ export type AdapterInterfaceRegistryResponse = {
 };
 
 export async function getJson<T>(path: string): Promise<T | null> {
+  const result = await getJsonResult<T>(path);
+  return result.data;
+}
+
+export type JsonResult<T> = {
+  data: T | null;
+  status: number | null;
+  error: string | null;
+};
+
+export async function getJsonResult<T>(path: string): Promise<JsonResult<T>> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       cache: "no-store",
     });
 
-    if (!res.ok) return null;
-    return (await res.json()) as T;
+    if (!res.ok) {
+      return {
+        data: null,
+        status: res.status,
+        error: `HTTP ${res.status}`,
+      };
+    }
+
+    return {
+      data: (await res.json()) as T,
+      status: res.status,
+      error: null,
+    };
   } catch {
-    return null;
+    return {
+      data: null,
+      status: null,
+      error: "API unreachable",
+    };
   }
 }
