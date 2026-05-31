@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 @Injectable()
 export class InfrastructureProfileService {
@@ -203,7 +204,10 @@ export class InfrastructureProfileService {
           slug: tenant.slug,
           name: tenant.name,
         },
-        domains,
+        domains: domains.map((domain) => ({
+          ...domain,
+          readiness: evaluateTenantDomainReadiness(domain),
+        })),
         recommendations: [
           'declare-primary-subdomain-or-custom-domain',
           'attach-dns-target-and-certificate-status',

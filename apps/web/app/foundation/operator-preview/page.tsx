@@ -166,6 +166,30 @@ type ApprovalHistoryResponse = {
   next?: string[];
 };
 
+type DomainRoutingResponse = {
+  capability?: string;
+  status?: string;
+  routing?: {
+    tenant?: {
+      id?: string;
+      slug?: string;
+      name?: string;
+    };
+    domains?: Array<{
+      id?: string;
+      hostname?: string;
+      kind?: string;
+      status?: string;
+      isPrimary?: boolean;
+      workspaceId?: string | null;
+      readiness?: {
+        routeReady?: boolean;
+        reasons?: string[];
+      };
+    }>;
+  };
+};
+
 const SAMPLE_OPERATOR_CONTEXT = {
   tenantSlug: "acme",
   workspaceSlug: "ops",
@@ -181,7 +205,7 @@ async function getOperatorPreviewData() {
     userEmail: SAMPLE_OPERATOR_CONTEXT.userEmail,
   });
 
-  const [health, connectionHealth, runtimeDiagnostics, approvalHistory] = await Promise.all([
+  const [health, connectionHealth, runtimeDiagnostics, approvalHistory, domainRouting] = await Promise.all([
     getJsonResult<HealthResponse>("/health"),
     getJsonResult<ConnectionHealthResponse>(
       `/integrations/connections/health-timeline?${new URLSearchParams({
@@ -198,6 +222,9 @@ async function getOperatorPreviewData() {
         limit: "6",
       }).toString()}`,
     ),
+    getJsonResult<DomainRoutingResponse>(
+      `/integrations/domain-routing?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}`,
+    ),
   ]);
 
   return {
@@ -205,17 +232,19 @@ async function getOperatorPreviewData() {
     connectionHealth: connectionHealth.data,
     runtimeDiagnostics: runtimeDiagnostics.data,
     approvalHistory: approvalHistory.data,
+    domainRouting: domainRouting.data,
     readResults: {
       health,
       connectionHealth,
       runtimeDiagnostics,
       approvalHistory,
+      domainRouting,
     },
   };
 }
 
 export default async function OperatorPreviewPage() {
-  const { health, connectionHealth, runtimeDiagnostics, approvalHistory, readResults } = await getOperatorPreviewData();
+  const { health, connectionHealth, runtimeDiagnostics, approvalHistory, domainRouting, readResults } = await getOperatorPreviewData();
   const healthSummary = connectionHealth?.healthSummary;
   const timeline = Array.isArray(connectionHealth?.healthTimeline)
     ? connectionHealth.healthTimeline.slice(-4).reverse()
@@ -225,6 +254,8 @@ export default async function OperatorPreviewPage() {
   const approvalDispatchResumes = Array.isArray(approvalHistory?.approvalHistory?.approvalDispatchResumes)
     ? approvalHistory.approvalHistory.approvalDispatchResumes
     : [];
+  const domains = Array.isArray(domainRouting?.routing?.domains) ? domainRouting.routing.domains : [];
+  const routeReadyDomainCount = domains.filter((domain) => domain.readiness?.routeReady).length;
   const failedReads = Object.entries(readResults).filter(([, result]) => !result.data);
 
   return (
@@ -246,6 +277,7 @@ export default async function OperatorPreviewPage() {
             <LinkButton href={`${API_BASE}/integrations/connections/health-timeline?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&connectionSlug=${SAMPLE_OPERATOR_CONTEXT.connectionSlug}`}>Health timeline API</LinkButton>
             <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}`}>Runtime diagnostics API</LinkButton>
             <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/approval-history?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&limit=6`}>Approval history API</LinkButton>
+            <LinkButton href={`${API_BASE}/integrations/domain-routing?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}`}>Domain routing API</LinkButton>
           </div>
         </div>
 
@@ -254,6 +286,7 @@ export default async function OperatorPreviewPage() {
           <MetricCard title="Connection status" value={connectionHealth?.connection?.status ?? "unavailable"} note={connectionHealth?.connection?.provider ?? "No provider surfaced"} />
           <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
           <MetricCard title="Approval replays" value={String(approvalHistory?.approvalHistory?.count ?? 0)} note="persisted approval-dispatch resumes" />
+          <MetricCard title="Domain routes" value={`${routeReadyDomainCount}/${domains.length}`} note="ready routes from shared evaluator" />
           <MetricCard title="HQ reads" value={failedReads.length === 0 ? "Healthy" : `${failedReads.length} unavailable`} note={failedReads.length === 0 ? "all preview reads returned data" : "inspect bounded read status below"} />
           <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
         </section>
@@ -393,6 +426,36 @@ export default async function OperatorPreviewPage() {
               </div>
             ) : (
               <EmptyState message={`Runtime diagnostics are unavailable: ${formatReadFailure(readResults.runtimeDiagnostics)}.`} />
+            )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 18 }}>
+          <Panel title="Domain routing readiness">
+            {domainRouting?.routing ? (
+              domains.length > 0 ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {domains.map((domain, index) => (
+                    <div key={domain.id ?? `${domain.hostname ?? "domain"}-${index}`} style={timelineRowStyle}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{domain.hostname ?? "Unknown hostname"}</div>
+                        <div style={{ color: "#9fb0ff", fontSize: 13 }}>
+                          {domain.kind ?? "unknown kind"} / {domain.workspaceId ? `workspace ${domain.workspaceId}` : "tenant scope"}
+                          {domain.isPrimary ? " / primary" : ""}
+                        </div>
+                      </div>
+                      <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 680, textAlign: "right", lineHeight: 1.6 }}>
+                        <div>{domain.readiness?.routeReady ? "Route ready" : "Needs attention"}</div>
+                        <div>{domain.readiness?.reasons?.join(", ") || "No readiness blockers"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState message="No domains were returned for the sample tenant context." />
+              )
+            ) : (
+              <EmptyState message={`Domain routing readiness is unavailable: ${formatReadFailure(readResults.domainRouting)}.`} />
             )}
           </Panel>
         </section>
