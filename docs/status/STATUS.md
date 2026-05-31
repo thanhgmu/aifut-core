@@ -1,5 +1,11 @@
 # AIFUT Status
 
+## 2026-05-31 domain lifecycle enum normalization checkpoint
+- Commit `328b8d9` (`feat(api): normalize domain lifecycle enums`) is pushed to GitHub.
+- `TenancyOperationsService.upsertDomain(...)` now normalizes and explicitly validates domain `kind` and `status` values before Prisma persistence.
+- Mixed-case or whitespace-padded values are accepted when they map to valid enums; invalid values return bounded bad-request failures instead of low-level persistence errors.
+- Verification: targeted tenancy operations service spec `67/67`, API build, full API Jest `24/24` suites and `324/324` tests, local runtime verifier `ok: true`, and live HTTP proof with padded lowercase values persisted as `PLATFORM_SUBDOMAIN` / `ACTIVE`.
+
 ## 2026-05-31 Web UI HQ bounded-read checkpoint
 - Commit `35c86cf` (`feat(web): surface bounded HQ read failures`) is pushed to GitHub.
 - `getJsonResult(...)` now preserves HTTP status or unreachable-API failures while the existing nullable `getJson(...)` wrapper remains compatible for current callers.

@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `35c86cf`.
+- `main` is synchronized with `origin/main` at `328b8d9`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `328b8d9` feat(api): normalize domain lifecycle enums
 - `35c86cf` feat(web): surface bounded HQ read failures
 - `8d6ee88` fix(dev): align local runtime exercise endpoints
 - `6ffbb83` feat(dev): add approved replay proof helper
@@ -28,6 +29,8 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `TenancyOperationsService.upsertDomain(...)` now normalizes and explicitly validates domain `kind` and `status` values before persistence, matching the existing normalization discipline for storage modes and provisioning metadata.
+- Mixed-case or whitespace-padded HTTP inputs now resolve cleanly, while invalid values return a bounded `BadRequestException` instead of drifting into lower-level Prisma errors.
 - `apps/web/lib/runtime-data.ts` now preserves bounded read status through `getJsonResult(...)` while keeping the existing nullable `getJson(...)` API stable for current callers.
 - The Web UI HQ operator preview now distinguishes guarded `401/403` access failures from unreachable API failures and renders a bounded read-status panel only when a preview dependency is unavailable.
 - `apps/web/app/foundation/operator-preview/page.tsx` now fetches plan-scoped approval replay history beside existing health and runtime diagnostics.
@@ -40,13 +43,14 @@ Last updated: 2026-05-31
 - Web typecheck passing when run sequentially.
 - Latest Web UI HQ bounded-read slice: web typecheck and web production build passing.
 - Focused ESLint remains blocked by the repo baseline: ESLint 9 cannot find an `eslint.config.*` file.
+- Domain lifecycle enum checkpoint: targeted tenancy operations spec passing (`67/67`), API build passing, full API Jest passing (`24/24` suites, `324/324` tests), local runtime verifier `ok: true`, and live HTTP mixed-case normalization proof passing.
 - Full API Jest: `npm test -- --runInBand` passing (`24/24` suites, `320/320` tests).
 - Local runtime verification: `npm run local:verify-runtime` passing against `http://127.0.0.1:3002`.
 - Local Web UI HQ proof: `GET http://127.0.0.1:3000/foundation/operator-preview` returned `200` and rendered approval replay, AI dispatch outcome, and truthful empty-history states.
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Continue the next low-collision `lane/domain-governance-hardening` controller/service verification or narrow write-path slice.
+1. Continue the next low-collision domain lifecycle verification or narrow write-path slice without broadening into a redesign.
 2. Keep authenticated HQ reads and bounded runtime visibility incremental while the preview evolves toward a real operator control room.
 
 ## One-command approved replay proof
