@@ -3,11 +3,13 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `328b8d9`.
+- `main` is synchronized with `origin/main` at `9c86250`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `9c86250` feat(api): align domain runtime readiness diagnostics
+- `26ca3ff` feat(api): clarify domain workspace routing visibility
 - `328b8d9` feat(api): normalize domain lifecycle enums
 - `35c86cf` feat(web): surface bounded HQ read failures
 - `8d6ee88` fix(dev): align local runtime exercise endpoints
@@ -29,6 +31,9 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Domain host resolution now aligns runtime readiness with the domain write contract and explains legacy drift through bounded DNS, certificate, provisioning-mode, and provider reasons.
+- Platform subdomains remain ready without tenant-managed DNS metadata, while explicitly pending certificates remain non-ready.
+- Verification passed: targeted domain specs `75/75`, API build, full API Jest `24/24` suites and `327/327` tests, local runtime verifier `ok: true`, and live HTTP pending-certificate proof.
 - `TenancyOperationsService.upsertDomain(...)` now normalizes and explicitly validates domain `kind` and `status` values before persistence, matching the existing normalization discipline for storage modes and provisioning metadata.
 - Mixed-case or whitespace-padded HTTP inputs now resolve cleanly, while invalid values return a bounded `BadRequestException` instead of drifting into lower-level Prisma errors.
 - `apps/web/lib/runtime-data.ts` now preserves bounded read status through `getJsonResult(...)` while keeping the existing nullable `getJson(...)` API stable for current callers.

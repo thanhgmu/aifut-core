@@ -1,5 +1,12 @@
 # AIFUT Status
 
+## 2026-05-31 domain runtime-readiness diagnostics checkpoint
+- Commit `9c86250` (`feat(api): align domain runtime readiness diagnostics`) is pushed to GitHub.
+- Domain host resolution now evaluates runtime readiness against the current write contract and explains legacy drift through bounded reasons: missing DNS target, pending certificate, missing affiliate provisioning mode, or missing managed provider.
+- Platform subdomains remain ready without tenant-managed DNS metadata, while an explicitly pending certificate correctly keeps them non-ready.
+- The domain upsert response now uses the same certificate-readiness semantics as runtime host resolution.
+- Verification: targeted domain specs `75/75`, API build, full API Jest `24/24` suites and `327/327` tests, local runtime verifier `ok: true`, and live HTTP proof returning `routeReady: false` with `certificate-status:pending`.
+
 ## 2026-05-31 domain workspace-routing visibility checkpoint
 - Commit `26ca3ff` (`feat(api): clarify domain workspace routing visibility`) is pushed to GitHub.
 - `TenantDomainResolutionService.resolveHostname(...)` now distinguishes a non-enforced workspace mismatch from a real fallback by reporting `workspace-request-mismatch`.
