@@ -79,12 +79,17 @@ export class TenantDomainResolutionService {
         : domain.workspace;
 
     const bindingScope = domain.workspace ? 'workspace' : 'tenant';
+    const workspaceMismatchDetected = Boolean(
+      workspaceSlug &&
+      domain.workspace?.slug &&
+      domain.workspace.slug !== workspaceSlug,
+    );
     const workspaceRequestDisposition = workspaceSlug
       ? domain.workspace?.slug === workspaceSlug
         ? 'matched'
         : enforceWorkspaceMatch
           ? 'blocked'
-          : 'fallback-to-domain-binding'
+          : 'workspace-request-mismatch'
       : domain.workspace
         ? 'implicit-domain-workspace'
         : 'tenant-default';
@@ -123,6 +128,12 @@ export class TenantDomainResolutionService {
       governance: {
         bindingScope,
         workspaceRequestDisposition,
+        workspaceRouting: {
+          requestedWorkspaceSlug: workspaceSlug ?? null,
+          boundWorkspaceSlug: domain.workspace?.slug ?? null,
+          effectiveWorkspaceSlug: resolvedWorkspace?.slug ?? null,
+          mismatchDetected: workspaceMismatchDetected,
+        },
         runtimeRouting: {
           routeReady,
           reasons: [

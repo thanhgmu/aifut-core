@@ -126,6 +126,12 @@ describe('TenantDomainResolutionService', () => {
       governance: {
         bindingScope: 'workspace',
         workspaceRequestDisposition: 'matched',
+        workspaceRouting: {
+          requestedWorkspaceSlug: 'ops',
+          boundWorkspaceSlug: 'ops',
+          effectiveWorkspaceSlug: 'ops',
+          mismatchDetected: false,
+        },
         runtimeRouting: {
           routeReady: true,
           reasons: [],
@@ -169,7 +175,13 @@ describe('TenantDomainResolutionService', () => {
     expect(result).toMatchObject({
       governance: {
         bindingScope: 'workspace',
-        workspaceRequestDisposition: 'fallback-to-domain-binding',
+        workspaceRequestDisposition: 'workspace-request-mismatch',
+        workspaceRouting: {
+          requestedWorkspaceSlug: 'sales',
+          boundWorkspaceSlug: 'ops',
+          effectiveWorkspaceSlug: null,
+          mismatchDetected: true,
+        },
         runtimeRouting: {
           routeReady: false,
           reasons: ['domain-status:degraded', 'certificate-status:pending'],
