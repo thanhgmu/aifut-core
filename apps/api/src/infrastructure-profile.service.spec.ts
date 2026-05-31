@@ -23,6 +23,10 @@ describe('InfrastructureProfileService', () => {
             provider: null,
             provisioningMode: 'managed',
             workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
             createdAt: new Date('2026-05-31T00:00:00.000Z'),
             updatedAt: new Date('2026-05-31T00:00:00.000Z'),
           },
@@ -44,6 +48,10 @@ describe('InfrastructureProfileService', () => {
     expect(result.routing.domains[0]).toMatchObject({
       hostname: 'legacy.acme.test',
       workspaceId: 'workspace_1',
+      workspace: {
+        name: 'Operations',
+        slug: 'ops',
+      },
       readiness: {
         routeReady: false,
         reasons: [

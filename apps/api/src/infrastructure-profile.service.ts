@@ -190,6 +190,12 @@ export class InfrastructureProfileService {
         provider: true,
         provisioningMode: true,
         workspaceId: true,
+        workspace: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },

@@ -182,6 +182,10 @@ type DomainRoutingResponse = {
       status?: string;
       isPrimary?: boolean;
       workspaceId?: string | null;
+      workspace?: {
+        name?: string;
+        slug?: string;
+      } | null;
       readiness?: {
         routeReady?: boolean;
         reasons?: string[];
@@ -440,7 +444,7 @@ export default async function OperatorPreviewPage() {
                       <div>
                         <div style={{ fontWeight: 700 }}>{domain.hostname ?? "Unknown hostname"}</div>
                         <div style={{ color: "#9fb0ff", fontSize: 13 }}>
-                          {domain.kind ?? "unknown kind"} / {domain.workspaceId ? `workspace ${domain.workspaceId}` : "tenant scope"}
+                          {domain.kind ?? "unknown kind"} / {formatDomainWorkspace(domain)}
                           {domain.isPrimary ? " / primary" : ""}
                         </div>
                       </div>
@@ -582,6 +586,17 @@ function formatDetail(detail?: Record<string, unknown>) {
   const firstPair = Object.entries(detail)[0];
   if (!firstPair) return "No extra detail";
   return `${firstPair[0]}: ${String(firstPair[1])}`;
+}
+
+function formatDomainWorkspace(domain: {
+  workspaceId?: string | null;
+  workspace?: { name?: string; slug?: string } | null;
+}) {
+  if (!domain.workspaceId) return "tenant scope";
+  if (!domain.workspace?.name) return `workspace ${domain.workspace?.slug ?? domain.workspaceId}`;
+  return domain.workspace.slug
+    ? `workspace ${domain.workspace.name} (${domain.workspace.slug})`
+    : `workspace ${domain.workspace.name}`;
 }
 
 function formatReadFailure(result: JsonResult<unknown>) {
