@@ -1,5 +1,13 @@
 # AIFUT Status
 
+## 2026-05-31 Web UI HQ approval replay checkpoint
+- Commit `76d83be` (`feat(web): surface ai approval replay diagnostics`) is pushed to GitHub.
+- The operator preview now consumes live plan-scoped approval replay history plus recent AI dispatch outcomes (`held`, `approved-resumed`, `blocked`, `auto-dispatched`).
+- The preview shows replay count, recent persisted resumes, actor/lane/reason/usage evidence when present, and explicit empty states when data is absent.
+- Local sample context was aligned to seeded truth: `ops@acme.test` and `plan:acme:ops:live-runtime`.
+- Verification: web typecheck, web production build, API build, full API Jest `24/24` suites and `320/320` tests, PostgreSQL-backed runtime verifier, live approval-history API `200`, live diagnostics API `200`, and local HQ route render `200`.
+- Follow-up hardening: apply operator-control guards to HQ read routes and correct the snapshot `recordedAt` expectation in `runtime-history:check`.
+
 ## 2026-05-31 Wave 2 approval-history checkpoint
 - `GET /orchestration/plans/:planId/execution-runtime/approval-history` now exposes compact plan-filtered AI-governance approval replay audit history.
 - The query stays tenant/workspace-scoped, returns only `ai-governance.approval-dispatch-resumed` execution-run events, and accepts a bounded `limit`.
