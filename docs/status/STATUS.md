@@ -1,5 +1,12 @@
 # AIFUT Status
 
+## 2026-05-31 one-command approved replay proof
+- Commit `6ffbb83` (`feat(dev): add approved replay proof helper`) is pushed to GitHub.
+- Run `npm run local:exercise-approved-replay --workspace apps/api` while local API is available.
+- The helper creates a unique plan, applies approval-requiring AI routing, activates the runtime, approves its task, dispatches with AI-governance approval, and verifies persisted history plus diagnostics.
+- Live execution returned `ok: true`, approval history `count: 1`, diagnostics `approvedResumedCount: 1`, and latest outcome `approved-resumed`.
+- Regression gates remain green: full API Jest `321/321`, API build, runtime-history check, and runtime verifier.
+
 ## 2026-05-31 runtime progression checkpoint
 - Commit `f16df5b` (`fix(api): preserve runtime progression during transitions`) is pushed to GitHub.
 - Approval-decision and dispatch transition commands no longer persist a fresh materialized baseline before reading latest persisted mutation state.

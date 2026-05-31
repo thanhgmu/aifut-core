@@ -3,11 +3,12 @@
 Last updated: 2026-05-31
 
 ## Current repo reality
-- `main` is synchronized with `origin/main` at `f16df5b`.
+- `main` is synchronized with `origin/main` at `6ffbb83`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
 
 ## Landed recently
+- `6ffbb83` feat(dev): add approved replay proof helper
 - `f16df5b` fix(api): preserve runtime progression during transitions
 - `5c21615` feat(api): guard orchestration runtime reads
 - `76d83be` feat(web): surface ai approval replay diagnostics
@@ -40,7 +41,12 @@ Last updated: 2026-05-31
 
 ## Next actions
 1. Continue operator-ready hardening around authenticated HQ reads and bounded runtime visibility.
-2. Add a stable local exercise helper for the approved replay proof so the non-empty HQ check is repeatable with one command.
+2. Consider aligning older runtime exercise scripts to configurable API ports.
+
+## One-command approved replay proof
+- Commit `6ffbb83` adds `npm run local:exercise-approved-replay --workspace apps/api`.
+- The helper creates a unique proof plan by default, configures approval-requiring AI routing, activates runtime, approves the workflow task, dispatches with AI-governance approval, then verifies approval history and diagnostics.
+- Live helper execution returned `ok: true`, `approvalHistoryCount: 1`, `approvedResumedCount: 1`, and latest outcome `approved-resumed`.
 
 ## Runtime transition progression fix
 - Commit `f16df5b` prevents approval-decision and dispatch transition commands from persisting a fresh materialized baseline snapshot before reading current persisted state.
