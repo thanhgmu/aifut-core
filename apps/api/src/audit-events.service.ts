@@ -207,6 +207,79 @@ export class AuditEventsService {
     };
   }
 
+  async listAiGovernanceApprovalDispatchResumes(input: {
+    tenantSlug?: string;
+    userEmail?: string;
+    workspaceSlug?: string;
+    hostname?: string;
+    planId?: string;
+    limit?: number;
+  }) {
+    const planId = input.planId?.trim();
+
+    if (!planId) {
+      throw new BadRequestException('Missing planId.');
+    }
+
+    const context = await this.actorContext.resolve({
+      tenantSlug: input.tenantSlug,
+      userEmail: input.userEmail,
+      workspaceSlug: input.workspaceSlug,
+      hostname: input.hostname,
+    });
+    const workspace = context.activeWorkspace;
+    const events = await this.prisma.auditEvent.findMany({
+      where: {
+        tenantId: context.tenant.id,
+        action: 'ai-governance.approval-dispatch-resumed',
+        targetType: 'orchestration-execution-run',
+        AND: [
+          {
+            metadata: {
+              path: ['planId'],
+              equals: planId,
+            },
+          },
+          ...(workspace
+            ? [
+                {
+                  metadata: {
+                    path: ['actorContext', 'workspaceSlug'],
+                    equals: workspace.slug,
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      take: this.normalizeLimit(input.limit),
+      select: {
+        id: true,
+        targetId: true,
+        metadata: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capability: 'audit',
+      status: 'resolved',
+      tenant: context.tenant,
+      workspace,
+      planId,
+      count: events.length,
+      approvalDispatchResumes: events,
+    };
+  }
+
   private normalizeLimit(limit?: number) {
     if (!limit) {
       return 20;

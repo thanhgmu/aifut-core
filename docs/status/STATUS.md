@@ -1,5 +1,10 @@
 # AIFUT Status
 
+## 2026-05-31 Wave 2 approval-history checkpoint
+- `GET /orchestration/plans/:planId/execution-runtime/approval-history` now exposes compact plan-filtered AI-governance approval replay audit history.
+- The query stays tenant/workspace-scoped, returns only `ai-governance.approval-dispatch-resumed` execution-run events, and accepts a bounded `limit`.
+- Verification: targeted audit/controller tests `32/32`, full API Jest `24/24` suites and `320/320` tests, API build, and local runtime verifier all passing.
+
 ## 2026-05-31 Wave 2 approval audit checkpoint
 - Approved AI-governance replay dispatches now persist a first-class `ai-governance.approval-dispatch-resumed` audit event after dispatch and usage-ledger recording succeed.
 - The audit record stores tenant/workspace actor context plus plan/run, approval attribution, policy outcome, selected lane, credential mode, approval reason, and linked usage-event key.

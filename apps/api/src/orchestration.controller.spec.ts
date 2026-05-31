@@ -38,6 +38,7 @@ describe('OrchestrationController', () => {
   };
   let auditEvents: {
     write: jest.Mock;
+    listAiGovernanceApprovalDispatchResumes: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -75,6 +76,7 @@ describe('OrchestrationController', () => {
     };
     auditEvents = {
       write: jest.fn(),
+      listAiGovernanceApprovalDispatchResumes: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -3649,6 +3651,55 @@ describe('OrchestrationController', () => {
         latestEvent: {
           eventKey: 'plan:acme:ops:runtime:child:1:runner:run:dispatch',
         },
+      },
+    });
+  });
+
+  it('should fetch compact AI governance approval history for an execution plan', async () => {
+    auditEvents.listAiGovernanceApprovalDispatchResumes.mockResolvedValue({
+      capability: 'audit',
+      status: 'resolved',
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      workspace: { id: 'ws_1', slug: 'ops' },
+      planId: 'plan:acme:ops:runtime',
+      count: 1,
+      approvalDispatchResumes: [
+        {
+          id: 'audit_1',
+          targetId: 'run_1',
+          createdAt: '2026-05-31T02:00:00.000Z',
+        },
+      ],
+    });
+
+    const result = await controller.getExecutionRuntimeApprovalHistory(
+      'plan:acme:ops:runtime',
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '7',
+    );
+
+    expect(auditEvents.listAiGovernanceApprovalDispatchResumes).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      hostname: 'ops.acme.test',
+      planId: 'plan:acme:ops:runtime',
+      limit: 7,
+    });
+    expect(result).toMatchObject({
+      status: 'execution-runtime-approval-history-fetched',
+      approvalHistory: {
+        planId: 'plan:acme:ops:runtime',
+        count: 1,
+        approvalDispatchResumes: [{ id: 'audit_1', targetId: 'run_1' }],
       },
     });
   });

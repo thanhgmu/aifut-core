@@ -1121,6 +1121,36 @@ export class OrchestrationController {
     };
   }
 
+  @Get('plans/:planId/execution-runtime/approval-history')
+  async getExecutionRuntimeApprovalHistory(
+    @Param('planId') planId: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Query('limit') limitQuery?: string,
+  ) {
+    return {
+      capability: 'orchestration',
+      status: 'execution-runtime-approval-history-fetched',
+      approvalHistory:
+        await this.auditEvents.listAiGovernanceApprovalDispatchResumes({
+          tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+          userEmail: userEmailHeader ?? userEmailQuery,
+          workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+          hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+          planId,
+          limit: limitQuery ? Number(limitQuery) : undefined,
+        }),
+      next: ['approval-audit-detail', 'dispatch-outcome-tracking'],
+    };
+  }
+
   @Get('roadmap')
   roadmap() {
     return {
