@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main.js",
     "seed": "ts-node scripts/seed.ts",
     "local:verify-runtime": "node scripts/verify-local-runtime.js",
     "local:exercise-approved-replay": "node scripts/exercise-ai-approved-replay.js",
