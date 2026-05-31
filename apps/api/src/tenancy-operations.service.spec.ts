@@ -2888,12 +2888,74 @@ describe('TenancyOperationsService', () => {
     );
     expect(result.governance).toMatchObject({
       primaryScope: 'tenant:default',
+      primaryReassignment: {
+        action: 'retained-existing-primary',
+      },
       primaryIntent: {
         requestedPromotion: false,
         requestedDemotion: false,
         explicitDemotionApproved: false,
         resultingPrimary: true,
-        resultingAction: 'promote-target-as-scope-primary',
+        resultingAction: 'retain-existing-scope-primary',
+      },
+    });
+  });
+
+  it('should retain existing domain lifecycle metadata when a partial update omits it', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing',
+      tenantId: 'tenant_1',
+      workspaceId: null,
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+      workspace: null,
+    });
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_existing',
+      hostname: 'partner.acme.test',
+      kind: TenantDomainKind.AFFILIATE_DOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: 'reseller-edge',
+      provisioningMode: 'affiliate-managed',
+      dnsTarget: 'edge.partner.test',
+      certificateStatus: 'ready',
+      workspaceId: null,
+      createdAt: new Date('2026-04-26T09:45:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:45:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'partner.acme.test',
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          kind: TenantDomainKind.AFFILIATE_DOMAIN,
+          status: TenantDomainStatus.ACTIVE,
+          provider: 'reseller-edge',
+          provisioningMode: 'affiliate-managed',
+          dnsTarget: 'edge.partner.test',
+          certificateStatus: 'ready',
+        }),
+      }),
+    );
+    expect(result.governance).toMatchObject({
+      readiness: {
+        routeReady: true,
+      },
+      provisioning: {
+        provider: 'reseller-edge',
+        mode: 'affiliate-managed',
+        externallyManaged: true,
       },
     });
   });

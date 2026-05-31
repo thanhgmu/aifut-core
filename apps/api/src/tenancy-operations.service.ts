@@ -156,7 +156,13 @@ export class TenancyOperationsService {
         id: true,
         tenantId: true,
         workspaceId: true,
+        kind: true,
+        status: true,
         isPrimary: true,
+        provider: true,
+        provisioningMode: true,
+        dnsTarget: true,
+        certificateStatus: true,
         workspace: {
           select: {
             slug: true,
@@ -174,15 +180,31 @@ export class TenancyOperationsService {
       );
     }
 
-    const kind = this.normalizeDomainKind(input.kind);
-    const status = this.normalizeDomainStatus(input.status);
-    const dnsTarget = this.normalizeOptional(input.dnsTarget);
+    const kind =
+      input.kind === undefined
+        ? existingDomain?.kind ?? this.normalizeDomainKind()
+        : this.normalizeDomainKind(input.kind);
+    const status =
+      input.status === undefined
+        ? existingDomain?.status ?? this.normalizeDomainStatus()
+        : this.normalizeDomainStatus(input.status);
+    const dnsTarget =
+      input.dnsTarget === undefined
+        ? existingDomain?.dnsTarget ?? null
+        : this.normalizeOptional(input.dnsTarget);
     const certificateStatus = this.normalizeOptionalLowercase(
-      input.certificateStatus,
+      input.certificateStatus === undefined
+        ? existingDomain?.certificateStatus
+        : input.certificateStatus,
     );
-    const provider = this.normalizeOptional(input.provider);
+    const provider =
+      input.provider === undefined
+        ? existingDomain?.provider ?? null
+        : this.normalizeOptional(input.provider);
     const provisioningMode = this.normalizeOptionalLowercase(
-      input.provisioningMode,
+      input.provisioningMode === undefined
+        ? existingDomain?.provisioningMode
+        : input.provisioningMode,
     );
     const readiness = evaluateTenantDomainReadiness({
       kind,
@@ -195,6 +217,7 @@ export class TenancyOperationsService {
     const managedProvisioning =
       provisioningMode === 'managed' || provisioningMode === 'affiliate-managed';
     const isPrimary = input.isPrimary ?? existingDomain?.isPrimary ?? false;
+    const promotionRequested = input.isPrimary === true;
 
     if (
       status === TenantDomainStatus.ACTIVE &&
@@ -343,22 +366,30 @@ export class TenancyOperationsService {
           demotedPrimaryCount: primaryReassignment.count,
           collisionDetected: primaryCollisionDetected,
           action: domain.isPrimary
-            ? primaryCollisionDetected
-              ? 'promoted-and-demoted-existing-primary'
-              : 'promoted-without-existing-primary-collision'
+            ? promotionRequested
+              ? primaryCollisionDetected
+                ? 'promoted-and-demoted-existing-primary'
+                : 'promoted-without-existing-primary-collision'
+              : primaryCollisionDetected
+                ? 'retained-primary-and-demoted-existing-primary'
+                : 'retained-existing-primary'
             : 'no-primary-reassignment',
         },
         primaryIntent: {
-          requestedPromotion: Boolean(input.isPrimary),
+          requestedPromotion: promotionRequested,
           requestedDemotion: demotionRequested,
           explicitDemotionApproved: demotionRequested
             ? Boolean(input.allowPrimaryDemotion)
             : false,
           resultingPrimary: domain.isPrimary,
           resultingAction: domain.isPrimary
-            ? primaryCollisionDetected
-              ? 'promote-target-and-demote-existing-scope-primary'
-              : 'promote-target-as-scope-primary'
+            ? promotionRequested
+              ? primaryCollisionDetected
+                ? 'promote-target-and-demote-existing-scope-primary'
+                : 'promote-target-as-scope-primary'
+              : primaryCollisionDetected
+                ? 'retain-primary-and-demote-existing-scope-primary'
+                : 'retain-existing-scope-primary'
             : 'retain-or-write-non-primary-domain',
         },
         scopeTransition: {
