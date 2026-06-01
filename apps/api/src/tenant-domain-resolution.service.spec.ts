@@ -68,6 +68,14 @@ describe('TenantDomainResolutionService', () => {
     expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
   });
 
+  it('should reject IP literal hostnames before lookup', async () => {
+    await expect(
+      service.resolveHostname({ hostname: '127.0.0.1' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
+  });
+
   it('should block enforced workspace mismatch', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_1',

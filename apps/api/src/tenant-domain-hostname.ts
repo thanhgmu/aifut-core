@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { isIP } from 'node:net';
 
 export function normalizeTenantDomainHostname(value?: string) {
   const authority = value
@@ -20,7 +21,8 @@ export function normalizeTenantDomainHostname(value?: string) {
 
   if (
     normalized &&
-    (normalized.length > 253 ||
+    (isIP(normalized) !== 0 ||
+      normalized.length > 253 ||
       !normalized
         .split('.')
         .every(
