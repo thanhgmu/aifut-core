@@ -219,4 +219,39 @@ describe('ActorContextService', () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('should reject an explicit workspace when the user has no matching membership', async () => {
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user_1',
+      email: 'owner@acme.test',
+      name: 'Owner',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.membership.findMany.mockResolvedValue([
+      {
+        id: 'membership_ops',
+        role: 'OWNER',
+        isDefault: true,
+        workspace: {
+          id: 'workspace_ops',
+          name: 'Ops',
+          slug: 'ops',
+        },
+      },
+    ]);
+
+    await expect(
+      service.resolve({
+        tenantSlug: 'acme',
+        userEmail: 'owner@acme.test',
+        workspaceSlug: 'sales',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

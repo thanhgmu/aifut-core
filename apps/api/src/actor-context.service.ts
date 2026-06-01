@@ -223,6 +223,12 @@ export class ActorContextService {
         workspaceSlug && membership.workspace?.slug.toLowerCase() === workspaceSlug,
     );
 
+    if (workspaceSlug && !activeMembership) {
+      throw new ForbiddenException(
+        `User ${user.email} has no membership in workspace ${workspaceSlug} for tenant ${tenant.slug}.`,
+      );
+    }
+
     if (!activeMembership && domainResolution?.workspace?.slug) {
       activeMembership = memberships.find(
         (membership) =>
