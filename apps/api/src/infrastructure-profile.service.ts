@@ -94,6 +94,13 @@ export class InfrastructureProfileService {
             targetRegion: true,
             backupTargetRef: true,
             meteringEnabled: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
             createdAt: true,
           },
           orderBy: [{ mode: 'asc' }, { key: 'asc' }],
@@ -262,6 +269,12 @@ export class InfrastructureProfileService {
         backupTargetRef: true,
         meteringEnabled: true,
         workspaceId: true,
+        workspace: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },

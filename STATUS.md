@@ -59,6 +59,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Storage policies in tenant infrastructure profile and storage-routing policy summary reads now preserve workspace binding labels alongside raw IDs.
+- Verification passed: targeted infrastructure profile spec `3/3`, API build, full API Jest `26/26` suites and `360/360` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-seed production profile proof, and clean port `3002` teardown.
 - Tenant infrastructure profile domain reads now preserve workspace binding context with `workspaceId` plus friendly workspace `name` and `slug`, matching domain-routing visibility.
 - Verification passed: targeted infrastructure profile spec `2/2`, API build, full API Jest `26/26` suites and `359/359` tests, PostgreSQL runtime verifier `ok: true`, live production-build profile proof, and clean port `3002` teardown.
 - Domain lifecycle runtime reads reject malformed, ambiguous, IP-literal, single-label, cross-tenant, cross-workspace, and non-route-ready hostname context at the appropriate boundaries.

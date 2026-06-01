@@ -43,7 +43,24 @@ describe('InfrastructureProfileService', () => {
               createdAt: new Date('2026-05-31T00:00:00.000Z'),
             },
           ],
-          storagePolicies: [],
+          storagePolicies: [
+            {
+              id: 'storage_policy_1',
+              key: 'documents',
+              mode: 'HYBRID',
+              storageClass: 'STANDARD',
+              targetRef: 'tenant-primary',
+              targetRegion: 'ap-southeast-1',
+              backupTargetRef: 'platform-backup',
+              meteringEnabled: true,
+              workspaceId: 'workspace_1',
+              workspace: {
+                name: 'Operations',
+                slug: 'ops',
+              },
+              createdAt: new Date('2026-05-31T00:00:00.000Z'),
+            },
+          ],
         }),
       },
     };
@@ -77,6 +94,14 @@ describe('InfrastructureProfileService', () => {
       readiness: {
         routeReady: true,
         reasons: [],
+      },
+    });
+    expect(result.storagePolicies[0]).toMatchObject({
+      key: 'documents',
+      workspaceId: 'workspace_1',
+      workspace: {
+        name: 'Operations',
+        slug: 'ops',
       },
     });
   });
@@ -139,6 +164,51 @@ describe('InfrastructureProfileService', () => {
           'certificate-status:pending',
           'provider:missing',
         ],
+      },
+    });
+  });
+
+  it('should expose friendly workspace bindings in storage routing policy', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+        }),
+      },
+      tenantStoragePolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'storage_policy_1',
+            key: 'documents',
+            mode: 'HYBRID',
+            storageClass: 'STANDARD',
+            targetRef: 'tenant-primary',
+            targetRegion: 'ap-southeast-1',
+            backupTargetRef: 'platform-backup',
+            meteringEnabled: true,
+            workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
+            createdAt: new Date('2026-06-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+          },
+        ]),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.getStorageRoutingPolicy(' ACME ');
+
+    expect(result.storage.policies[0]).toMatchObject({
+      key: 'documents',
+      workspaceId: 'workspace_1',
+      workspace: {
+        name: 'Operations',
+        slug: 'ops',
       },
     });
   });
