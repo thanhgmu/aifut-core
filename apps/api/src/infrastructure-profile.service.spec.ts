@@ -10,7 +10,26 @@ describe('InfrastructureProfileService', () => {
           name: 'Acme',
           createdAt: new Date('2026-05-31T00:00:00.000Z'),
           workspaces: [],
-          integrations: [],
+          integrations: [
+            {
+              id: 'connection_1',
+              name: 'NexovaFlow Ops',
+              slug: 'nexovaflow-ops',
+              category: 'WORKFLOW',
+              provider: 'nexovaflow',
+              status: 'ACTIVE',
+              workspaceId: 'workspace_1',
+              workspace: {
+                name: 'Operations',
+                slug: 'ops',
+              },
+              lastVerifiedAt: new Date('2026-05-31T00:00:00.000Z'),
+              routingMode: 'direct',
+              targetBaseUrl: 'https://nexovaflow.example.com',
+              targetRegion: 'ap-southeast-1',
+              targetEnvironment: 'cloud',
+            },
+          ],
           entitlements: [],
           domains: [
             {
@@ -98,6 +117,14 @@ describe('InfrastructureProfileService', () => {
     });
     expect(result.storagePolicies[0]).toMatchObject({
       key: 'documents',
+      workspaceId: 'workspace_1',
+      workspace: {
+        name: 'Operations',
+        slug: 'ops',
+      },
+    });
+    expect(result.integrations[0]).toMatchObject({
+      slug: 'nexovaflow-ops',
       workspaceId: 'workspace_1',
       workspace: {
         name: 'Operations',

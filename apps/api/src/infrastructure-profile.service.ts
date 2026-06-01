@@ -43,6 +43,12 @@ export class InfrastructureProfileService {
             provider: true,
             status: true,
             workspaceId: true,
+            workspace: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
             lastVerifiedAt: true,
             routingMode: true,
             targetBaseUrl: true,
