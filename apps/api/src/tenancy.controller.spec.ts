@@ -1,3 +1,4 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { TenantDomainKind, TenantDomainStatus } from '@prisma/client';
@@ -11,6 +12,7 @@ import { AccessPolicyService } from './access-policy.service';
 
 describe('TenancyController', () => {
   let controller: TenancyController;
+  let actorContext: { resolve: jest.Mock };
   let tenantDomainResolution: { resolveHostname: jest.Mock };
   let storageRoutingPolicy: {
     getEffectivePolicy: jest.Mock;
@@ -39,6 +41,9 @@ describe('TenancyController', () => {
       upsertStoragePolicy: jest.fn(),
       upsertPackageAssignment: jest.fn(),
     };
+    actorContext = {
+      resolve: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenancyController],
@@ -55,9 +60,7 @@ describe('TenancyController', () => {
         },
         {
           provide: ActorContextService,
-          useValue: {
-            resolve: jest.fn(),
-          },
+          useValue: actorContext,
         },
         {
           provide: TenantDomainResolutionService,
@@ -87,6 +90,40 @@ describe('TenancyController', () => {
     }).compile();
 
     controller = module.get<TenancyController>(TenancyController);
+  });
+
+  it('should enforce known forwarded-host tenant matching for current topology reads', async () => {
+    actorContext.resolve.mockRejectedValue(new ForbiddenException());
+
+    await expect(
+      controller.current(
+        'acme',
+        'ops@acme.test',
+        undefined,
+        'OPS.ACME.TEST:443',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: undefined,
+      hostname: 'ops.acme.test',
+      enforceWorkspaceDomainMatch: true,
+    });
+  });
+
+  it('should reject malformed forwarded-host lists before current topology actor resolution', async () => {
+    await expect(
+      controller.current(
+        'acme',
+        'ops@acme.test',
+        undefined,
+        'ops.acme.test, proxy.acme.test',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(actorContext.resolve).not.toHaveBeenCalled();
   });
 
   it('should pass enforceWorkspaceMatch into host resolution', async () => {

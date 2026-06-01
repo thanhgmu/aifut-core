@@ -22,6 +22,7 @@ import { TenantDomainResolutionService } from './tenant-domain-resolution.servic
 import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
 import { TenancyOperationsService } from './tenancy-operations.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
+import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
 
 @Controller('tenancy')
 export class TenancyController {
@@ -62,11 +63,15 @@ export class TenancyController {
     @Query('workspaceSlug') workspaceSlugQuery?: string,
     @Query('hostname') hostnameQuery?: string,
   ) {
+    const forwardedHostname = forwardedHostHeader
+      ? normalizeTenantDomainHostname(forwardedHostHeader)
+      : undefined;
     const context = await this.actorContext.resolve({
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
-      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      hostname: forwardedHostname ?? hostHeader ?? hostnameQuery,
+      enforceWorkspaceDomainMatch: true,
     });
 
     const [domains, storagePolicies] = await Promise.all([
