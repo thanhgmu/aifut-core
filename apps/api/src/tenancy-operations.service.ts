@@ -14,6 +14,7 @@ import {
 import { AccessPolicyService } from './access-policy.service';
 import { ActorContextInput } from './actor-context.service';
 import { PrismaService } from './prisma.service';
+import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
 import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 type TenancyOperationInput = ActorContextInput;
@@ -647,29 +648,7 @@ export class TenancyOperationsService {
   }
 
   private normalizeHostname(value?: string) {
-    const normalized = value
-      ?.trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .split('/')[0]
-      ?.split(':')[0];
-
-    if (
-      normalized &&
-      (normalized.length > 253 ||
-        !normalized
-          .split('.')
-          .every(
-            (label) =>
-              label.length > 0 &&
-              label.length <= 63 &&
-              /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label),
-          ))
-    ) {
-      throw new BadRequestException('Invalid hostname.');
-    }
-
-    return normalized;
+    return normalizeTenantDomainHostname(value);
   }
 
   private normalizeOptional(value?: string | null) {

@@ -44,6 +44,14 @@ describe('TenantDomainResolutionService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('should reject malformed hostnames before lookup', async () => {
+    await expect(
+      service.resolveHostname({ hostname: 'invalid_host.acme.test' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
+  });
+
   it('should block enforced workspace mismatch', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_1',

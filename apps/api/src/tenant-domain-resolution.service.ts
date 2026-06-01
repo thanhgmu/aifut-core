@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
 import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 type ResolveHostnameInput = {
@@ -150,11 +151,6 @@ export class TenantDomainResolutionService {
   }
 
   private normalizeHostname(hostname?: string) {
-    return hostname
-      ?.trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .split('/')[0]
-      ?.split(':')[0];
+    return normalizeTenantDomainHostname(hostname);
   }
 }
