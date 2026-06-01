@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { TenantDomainResolutionService } from './tenant-domain-resolution.service';
@@ -224,6 +229,12 @@ export class ActorContextService {
           membership.workspace?.slug.toLowerCase() ===
           domainResolution.workspace?.slug.toLowerCase(),
       );
+
+      if (!activeMembership) {
+        throw new ForbiddenException(
+          `Hostname ${domainResolution.hostname} is bound to workspace ${domainResolution.workspace.slug}, but the resolved user has no membership in that workspace.`,
+        );
+      }
     }
 
     if (!activeMembership) {

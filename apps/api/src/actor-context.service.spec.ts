@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ActorContextService } from './actor-context.service';
 import { PrismaService } from './prisma.service';
@@ -166,5 +170,53 @@ describe('ActorContextService', () => {
       enforceWorkspaceMatch: undefined,
       requireRouteReady: true,
     });
+  });
+
+  it('should reject workspace-bound hostname routing when the user lacks membership in the bound workspace', async () => {
+    tenantDomainResolution.resolveHostname.mockResolvedValue({
+      hostname: 'sales.acme.test',
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
+      workspace: {
+        id: 'workspace_sales',
+        name: 'Sales',
+        slug: 'sales',
+      },
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user_1',
+      email: 'owner@acme.test',
+      name: 'Owner',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.membership.findMany.mockResolvedValue([
+      {
+        id: 'membership_ops',
+        role: 'OWNER',
+        isDefault: true,
+        workspace: {
+          id: 'workspace_ops',
+          name: 'Ops',
+          slug: 'ops',
+        },
+      },
+    ]);
+
+    await expect(
+      service.resolve({
+        hostname: 'sales.acme.test',
+        userEmail: 'owner@acme.test',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
