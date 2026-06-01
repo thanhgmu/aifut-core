@@ -21,7 +21,10 @@ export function evaluateTenantDomainReadiness(
   const dnsTargetReady =
     platformManagedDomain || Boolean(normalizeOptional(input.dnsTarget));
   const certificateReady =
-    !certificateStatus || readyCertificateStatuses.includes(certificateStatus);
+    (platformManagedDomain && !certificateStatus) ||
+    Boolean(
+      certificateStatus && readyCertificateStatuses.includes(certificateStatus),
+    );
   const provisioningModeReady =
     kind !== 'AFFILIATE_DOMAIN' || Boolean(provisioningMode);
   const providerReady =
@@ -31,7 +34,7 @@ export function evaluateTenantDomainReadiness(
     ...(status !== 'ACTIVE' ? [`domain-status:${status.toLowerCase()}`] : []),
     ...(!dnsTargetReady ? ['dns-target:missing'] : []),
     ...(!certificateReady
-      ? [`certificate-status:${certificateStatus}`]
+      ? [`certificate-status:${certificateStatus ?? 'missing'}`]
       : []),
     ...(!provisioningModeReady ? ['provisioning-mode:missing'] : []),
     ...(!providerReady ? ['provider:missing'] : []),

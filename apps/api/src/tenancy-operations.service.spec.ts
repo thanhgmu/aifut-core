@@ -982,6 +982,19 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject active custom domains without certificate metadata', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        dnsTarget: 'edge.aifut.test',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('should reject active custom domains when certificate status normalizes to a non-ready value', async () => {
     await expect(
       service.upsertDomain({
@@ -1066,6 +1079,21 @@ describe('TenancyOperationsService', () => {
         provisioningMode: 'affiliate-managed',
         dnsTarget: 'edge.partner.test',
         certificateStatus: ' Pending ',
+        provider: 'reseller-edge',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('should reject active affiliate domains without certificate metadata', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'partner.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        provisioningMode: 'affiliate-managed',
+        dnsTarget: 'edge.partner.test',
         provider: 'reseller-edge',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);

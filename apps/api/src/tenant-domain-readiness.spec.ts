@@ -47,4 +47,30 @@ describe('evaluateTenantDomainReadiness', () => {
       reasons: ['provisioning-mode:missing'],
     });
   });
+
+  it('should require certificate metadata for custom and affiliate domains', () => {
+    expect(
+      evaluateTenantDomainReadiness({
+        kind: 'CUSTOM',
+        status: 'ACTIVE',
+        dnsTarget: 'edge.custom.test',
+      }),
+    ).toEqual({
+      routeReady: false,
+      reasons: ['certificate-status:missing'],
+    });
+
+    expect(
+      evaluateTenantDomainReadiness({
+        kind: 'AFFILIATE_DOMAIN',
+        status: 'ACTIVE',
+        dnsTarget: 'edge.partner.test',
+        provisioningMode: 'affiliate-managed',
+        provider: 'reseller-edge',
+      }),
+    ).toEqual({
+      routeReady: false,
+      reasons: ['certificate-status:missing'],
+    });
+  });
 });
