@@ -145,7 +145,7 @@ export class TenancyOperationsService {
       throw new BadRequestException('Missing hostname.');
     }
 
-    const workspace = await this.resolveWorkspace({
+    const requestedWorkspace = await this.resolveWorkspace({
       tenantId: resolved.context.tenant.id,
       workspaceSlug: input.workspaceSlug,
     });
@@ -165,6 +165,8 @@ export class TenancyOperationsService {
         certificateStatus: true,
         workspace: {
           select: {
+            id: true,
+            name: true,
             slug: true,
           },
         },
@@ -180,6 +182,10 @@ export class TenancyOperationsService {
       );
     }
 
+    const workspace =
+      input.workspaceSlug === undefined && existingDomain
+        ? existingDomain.workspace
+        : requestedWorkspace;
     const kind =
       input.kind === undefined
         ? existingDomain?.kind ?? this.normalizeDomainKind()

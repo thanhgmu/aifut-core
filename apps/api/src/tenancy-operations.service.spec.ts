@@ -633,7 +633,7 @@ describe('TenancyOperationsService', () => {
     });
   });
 
-  it('should surface workspace-to-tenant rebinding for non-primary domains without override flags', async () => {
+  it('should surface explicit workspace-to-tenant rebinding for non-primary domains without override flags', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_existing',
       tenantId: 'tenant_1',
@@ -659,6 +659,7 @@ describe('TenancyOperationsService', () => {
     const result = await service.upsertDomain({
       tenantSlug: 'acme',
       userEmail: 'ops@acme.test',
+      workspaceSlug: '',
       hostname: 'ops.acme.test',
       kind: TenantDomainKind.CUSTOM,
       status: TenantDomainStatus.ACTIVE,
@@ -2956,6 +2957,70 @@ describe('TenancyOperationsService', () => {
         provider: 'reseller-edge',
         mode: 'affiliate-managed',
         externallyManaged: true,
+      },
+    });
+  });
+
+  it('should retain existing workspace scope when a partial update omits workspaceSlug', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing',
+      tenantId: 'tenant_1',
+      workspaceId: 'ws_1',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspace: {
+        id: 'ws_1',
+        name: 'Operations',
+        slug: 'ops',
+      },
+    });
+    prisma.tenantDomain.upsert.mockResolvedValue({
+      id: 'domain_existing',
+      hostname: 'ops.acme.test',
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspaceId: 'ws_1',
+      createdAt: new Date('2026-04-26T09:50:00.000Z'),
+      updatedAt: new Date('2026-04-26T09:50:00.000Z'),
+    });
+
+    const result = await service.upsertDomain({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'ops.acme.test',
+    });
+
+    expect(prisma.tenantDomain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          workspaceId: 'ws_1',
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      workspace: {
+        id: 'ws_1',
+        name: 'Operations',
+        slug: 'ops',
+      },
+      governance: {
+        bindingScope: 'workspace',
+        scopeTransition: {
+          rebindingRequested: false,
+          previousScope: 'workspace:ops',
+          targetScope: 'workspace:ops',
+          action: 'retained-domain-scope',
+        },
       },
     });
   });
