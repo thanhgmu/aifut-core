@@ -185,11 +185,14 @@ export class TenancyController {
     @Query('requireWritePolicy') requireWritePolicy?: string,
     @Query('allowTenantScope') allowTenantScope?: string,
   ) {
+    const forwardedHostname = forwardedHostHeader
+      ? normalizeTenantDomainHostname(forwardedHostHeader)
+      : undefined;
     const input = {
       tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
       userEmail: userEmailHeader ?? userEmailQuery,
       workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
-      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      hostname: forwardedHostname ?? hostHeader ?? hostnameQuery,
       policyKey,
       writePath,
     };

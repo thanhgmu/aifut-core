@@ -24,7 +24,10 @@ export class StorageRoutingPolicyService {
   async getEffectivePolicy(
     input: ActorContextInput & { policyKey?: string; writePath?: string },
   ) {
-    const context = await this.actorContext.resolve(input);
+    const context = await this.actorContext.resolve({
+      ...input,
+      enforceWorkspaceDomainMatch: true,
+    });
     const policyKey = input.policyKey?.trim().toLowerCase();
 
     if (!policyKey) {

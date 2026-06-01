@@ -189,6 +189,26 @@ describe('TenancyController', () => {
     });
   });
 
+  it('should reject malformed forwarded-host lists before storage policy resolution', async () => {
+    await expect(
+      controller.resolveStoragePolicy(
+        'acme',
+        'ops@acme.test',
+        undefined,
+        'ops.acme.test, proxy.acme.test',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'assets',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(storageRoutingPolicy.getEffectivePolicy).not.toHaveBeenCalled();
+    expect(storageRoutingPolicy.requireWritePolicy).not.toHaveBeenCalled();
+  });
+
   it('should enforce write-policy guardrails when requested', async () => {
     storageRoutingPolicy.requireWritePolicy.mockResolvedValue({
       policyKey: 'assets',

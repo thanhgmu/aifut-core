@@ -63,6 +63,29 @@ describe('StorageRoutingPolicyService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('should enforce known hostname tenant matching for policy reads', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: null,
+    });
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([]);
+
+    await service.getEffectivePolicy({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'ops.acme.test',
+      policyKey: 'assets',
+    });
+
+    expect(actorContext.resolve).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      hostname: 'ops.acme.test',
+      policyKey: 'assets',
+      enforceWorkspaceDomainMatch: true,
+    });
+  });
+
   it('should enforce hybrid policy dependencies and normalize the write path when allowed', async () => {
     actorContext.resolve.mockResolvedValue({
       tenant: { id: 'tenant_1', slug: 'acme' },
