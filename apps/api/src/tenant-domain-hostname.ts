@@ -6,9 +6,13 @@ export function normalizeTenantDomainHostname(value?: string) {
     .toLowerCase()
     .replace(/^https?:\/\//, '')
     .split('/')[0];
-  const authorityMatch = authority?.match(/^([^:]+)(?::\d+)?$/);
+  const authorityMatch = authority?.match(/^([^:]+)(?::(\d+))?$/);
+  const port = authorityMatch?.[2] ? Number(authorityMatch[2]) : null;
 
-  if (authority && !authorityMatch) {
+  if (
+    authority &&
+    (!authorityMatch || (port != null && (port < 1 || port > 65535)))
+  ) {
     throw new BadRequestException('Invalid hostname.');
   }
 
