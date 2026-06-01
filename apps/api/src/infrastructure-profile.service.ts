@@ -73,6 +73,13 @@ export class InfrastructureProfileService {
             certificateStatus: true,
             provider: true,
             provisioningMode: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
             createdAt: true,
           },
           orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],

@@ -1,13 +1,38 @@
 # STATUS
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint is `618df96`.
+- `main` is synchronized with `origin/main`; latest functional checkpoint is `687ee24`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
-- The Web UI HQ operator preview now consumes compact approval replay audit history and recent AI dispatch diagnostics from live backend truth.
+- The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
+- The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 
 ## Landed recently
+- `687ee24` fix(api): enforce storage policy hostname match
+- `53b3cee` fix(api): enforce topology read hostname match
+- `1c2e6cb` fix(api): validate forwarded host at guard boundary
+- `231ac8d` fix(api): enforce known hostname tenant match
+- `2412bcd` test(api): lock proxy hostname list rejection
+- `b405bed` fix(api): reject single-label domain bindings
+- `e9abb84` fix(api): reject domain IP literal bindings
+- `689f3ed` fix(api): validate domain authority port range
+- `dd892d8` fix(api): reject ambiguous domain authorities
+- `afd8a95` fix(api): validate runtime domain hostnames
+- `575f6dc` fix(api): reject malformed domain hostnames
+- `8b23eb9` fix(api): reject unauthorized workspace selection
+- `66f17fd` fix(api): enforce hostname workspace match
+- `f1b2f5e` fix(api): enforce hostname workspace membership
+- `1a77ef2` fix(api): enforce route-ready hostname context
+- `e19fc69` fix(api): require route-ready primary domains
+- `e6027da` fix(api): require tenant domain certificate metadata
+- `45d614e` fix(api): report honest domain profile readiness
+- `09ab4fa` fix(api): require explicit domain scope rebinding
+- `7cb5979` fix(api): preserve domain workspace scope on partial updates
+- `b4105fd` fix(api): preserve domain metadata on partial updates
+- `d4461fd` fix(api): preserve domain primary intent on partial updates
+- `d3c025e` feat(web): label HQ domain workspaces
+- `48759d8` docs(status): record HQ domain routing readiness
 - `618df96` feat(web): surface domain routing readiness in HQ
 - `2e9146f` fix(api): align production runtime entry
 - `c829525` refactor(api): centralize domain readiness evaluation
@@ -34,6 +59,11 @@ Last updated: 2026-05-31
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Tenant infrastructure profile domain reads now preserve workspace binding context with `workspaceId` plus friendly workspace `name` and `slug`, matching domain-routing visibility.
+- Verification passed: targeted infrastructure profile spec `2/2`, API build, full API Jest `26/26` suites and `359/359` tests, PostgreSQL runtime verifier `ok: true`, live production-build profile proof, and clean port `3002` teardown.
+- Domain lifecycle runtime reads reject malformed, ambiguous, IP-literal, single-label, cross-tenant, cross-workspace, and non-route-ready hostname context at the appropriate boundaries.
+- Storage topology and effective storage policy reads now bind to the same enforced hostname context as actor resolution.
+- Verification passed at `687ee24`: targeted tests `162/162`, full API Jest `359/359`, API build, PostgreSQL runtime verifier `ok: true`, and live HTTP isolation proof.
 - `GET /integrations/domain-routing` now enriches every tenant domain with `readiness` from the shared `evaluateTenantDomainReadiness(...)` evaluator.
 - Web UI HQ now reads that existing endpoint through the bounded read pipeline and renders a domain-routing readiness metric, API link, tenant/workspace scope, route status, and bounded reasons.
 - Verification passed: targeted domain specs `79/79`, API build, full API Jest `26/26` suites and `331/331` tests, web typecheck/build, PostgreSQL runtime verifier `ok: true`, live domain-routing proof over four seeded domains, HQ render `200`, and clean `3000` / `3002` teardown.
@@ -66,7 +96,7 @@ Last updated: 2026-05-31
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Review the next low-collision domain-routing UX slice: expose friendly workspace labels instead of raw workspace IDs without broadening into schema redesign.
+1. Keep domain lifecycle runtime-read contracts aligned across domain-routing, infrastructure-profile, topology, and storage policy surfaces.
 2. Continue narrow domain lifecycle verification or write-path hardening while keeping shared Prisma/auth/policy zones serialized.
 
 ## One-command approved replay proof
