@@ -3,7 +3,7 @@
 Last updated: 2026-06-01
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint is `687ee24`.
+- `main` is synchronized with `origin/main`; latest functional checkpoint is `f11faac`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
