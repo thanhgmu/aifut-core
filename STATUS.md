@@ -59,6 +59,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Effective storage routing policy reads now preserve friendly workspace binding labels at the service boundary for controller and internal callers.
+- Verification passed: targeted storage routing policy spec `9/9`, API build, full API Jest `26/26` suites and `361/361` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-seed live storage policy proof, and clean port `3002` teardown.
 - Current tenancy topology reads now preserve friendly workspace labels for visible domains and storage policies while retaining existing scope filters.
 - Verification passed: targeted tenancy controller spec `45/45`, API build, full API Jest `26/26` suites and `361/361` tests, PostgreSQL runtime verifier `ok: true`, live workspace-bound domain topology proof with truthful empty storage seed, and clean port `3002` teardown.
 - Storage policies in tenant infrastructure profile and storage-routing policy summary reads now preserve workspace binding labels alongside raw IDs.

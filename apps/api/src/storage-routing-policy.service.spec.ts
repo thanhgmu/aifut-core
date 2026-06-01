@@ -102,6 +102,10 @@ describe('StorageRoutingPolicyService', () => {
         backupTargetRef: 'b2://tenant-backup',
         meteringEnabled: false,
         workspaceId: 'ws_1',
+        workspace: {
+          name: 'Operations',
+          slug: 'ops',
+        },
         createdAt: new Date('2026-04-24T00:00:00.000Z'),
       },
     ]);
@@ -118,6 +122,13 @@ describe('StorageRoutingPolicyService', () => {
       ownershipScope: 'workspace',
       workspaceSlug: 'ops',
       mode: TenantStorageMode.HYBRID,
+    });
+    expect(result.effectivePolicy).toMatchObject({
+      workspaceId: 'ws_1',
+      workspace: {
+        name: 'Operations',
+        slug: 'ops',
+      },
     });
     expect(result.writeGuardrail).toMatchObject({
       enforcedWritePath:

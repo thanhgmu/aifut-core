@@ -56,6 +56,12 @@ export class StorageRoutingPolicyService {
         backupTargetRef: true,
         meteringEnabled: true,
         workspaceId: true,
+        workspace: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
         createdAt: true,
       },
     });
