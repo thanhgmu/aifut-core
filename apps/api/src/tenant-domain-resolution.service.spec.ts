@@ -52,6 +52,14 @@ describe('TenantDomainResolutionService', () => {
     expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
   });
 
+  it('should reject ambiguous hostname ports before lookup', async () => {
+    await expect(
+      service.resolveHostname({ hostname: 'ops.acme.test:443:evil' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
+  });
+
   it('should block enforced workspace mismatch', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_1',

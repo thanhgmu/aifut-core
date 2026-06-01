@@ -1,12 +1,18 @@
 import { BadRequestException } from '@nestjs/common';
 
 export function normalizeTenantDomainHostname(value?: string) {
-  const normalized = value
+  const authority = value
     ?.trim()
     .toLowerCase()
     .replace(/^https?:\/\//, '')
-    .split('/')[0]
-    ?.split(':')[0];
+    .split('/')[0];
+  const authorityMatch = authority?.match(/^([^:]+)(?::\d+)?$/);
+
+  if (authority && !authorityMatch) {
+    throw new BadRequestException('Invalid hostname.');
+  }
+
+  const normalized = authorityMatch?.[1] ?? authority;
 
   if (
     normalized &&
