@@ -59,6 +59,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Current tenancy topology reads now preserve friendly workspace labels for visible domains and storage policies while retaining existing scope filters.
+- Verification passed: targeted tenancy controller spec `45/45`, API build, full API Jest `26/26` suites and `361/361` tests, PostgreSQL runtime verifier `ok: true`, live workspace-bound domain topology proof with truthful empty storage seed, and clean port `3002` teardown.
 - Storage policies in tenant infrastructure profile and storage-routing policy summary reads now preserve workspace binding labels alongside raw IDs.
 - Verification passed: targeted infrastructure profile spec `3/3`, API build, full API Jest `26/26` suites and `360/360` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-seed production profile proof, and clean port `3002` teardown.
 - Tenant infrastructure profile domain reads now preserve workspace binding context with `workspaceId` plus friendly workspace `name` and `slug`, matching domain-routing visibility.

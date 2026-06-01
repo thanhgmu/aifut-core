@@ -93,6 +93,12 @@ export class TenancyController {
           status: true,
           isPrimary: true,
           workspaceId: true,
+          workspace: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
           createdAt: true,
         },
       }),
@@ -117,6 +123,12 @@ export class TenancyController {
           backupTargetRef: true,
           meteringEnabled: true,
           workspaceId: true,
+          workspace: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
           createdAt: true,
         },
       }),

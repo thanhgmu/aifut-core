@@ -13,6 +13,10 @@ import { AccessPolicyService } from './access-policy.service';
 describe('TenancyController', () => {
   let controller: TenancyController;
   let actorContext: { resolve: jest.Mock };
+  let prisma: {
+    tenantDomain: { findMany: jest.Mock };
+    tenantStoragePolicy: { findMany: jest.Mock };
+  };
   let tenantDomainResolution: { resolveHostname: jest.Mock };
   let storageRoutingPolicy: {
     getEffectivePolicy: jest.Mock;
@@ -44,6 +48,10 @@ describe('TenancyController', () => {
     actorContext = {
       resolve: jest.fn(),
     };
+    prisma = {
+      tenantDomain: { findMany: jest.fn() },
+      tenantStoragePolicy: { findMany: jest.fn() },
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenancyController],
@@ -54,8 +62,8 @@ describe('TenancyController', () => {
             tenant: { count: jest.fn() },
             workspace: { count: jest.fn() },
             user: { count: jest.fn() },
-            tenantDomain: { findMany: jest.fn() },
-            tenantStoragePolicy: { findMany: jest.fn() },
+            tenantDomain: prisma.tenantDomain,
+            tenantStoragePolicy: prisma.tenantStoragePolicy,
           },
         },
         {
@@ -124,6 +132,57 @@ describe('TenancyController', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(actorContext.resolve).not.toHaveBeenCalled();
+  });
+
+  it('should expose friendly workspace bindings in current topology reads', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'workspace_1', name: 'Operations', slug: 'ops' },
+      activeMembership: { role: 'OPERATOR' },
+      resolution: { workspaceSlug: 'ops' },
+    });
+    prisma.tenantDomain.findMany.mockResolvedValue([
+      {
+        id: 'domain_1',
+        hostname: 'ops.acme.test',
+        workspaceId: 'workspace_1',
+        workspace: { name: 'Operations', slug: 'ops' },
+      },
+    ]);
+    prisma.tenantStoragePolicy.findMany.mockResolvedValue([
+      {
+        id: 'storage_policy_1',
+        key: 'documents',
+        workspaceId: 'workspace_1',
+        workspace: { name: 'Operations', slug: 'ops' },
+      },
+    ]);
+
+    const result = await controller.current(
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+    );
+
+    expect(result.topology).toMatchObject({
+      domains: {
+        items: [
+          {
+            workspaceId: 'workspace_1',
+            workspace: { name: 'Operations', slug: 'ops' },
+          },
+        ],
+      },
+      storagePolicies: {
+        items: [
+          {
+            workspaceId: 'workspace_1',
+            workspace: { name: 'Operations', slug: 'ops' },
+          },
+        ],
+      },
+    });
   });
 
   it('should pass enforceWorkspaceMatch into host resolution', async () => {
