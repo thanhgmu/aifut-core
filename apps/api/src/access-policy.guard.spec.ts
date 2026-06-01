@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { MembershipRole } from '@prisma/client';
 import { AccessPolicyGuard } from './access-policy.guard';
@@ -154,6 +154,73 @@ describe('AccessPolicyGuard', () => {
         authUserId: undefined,
         tenantSlug: 'acme',
         userEmail: 'owner@acme.test',
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('should reject malformed forwarded hostnames before access-policy resolution', async () => {
+    reflector.getAllAndOverride.mockReturnValue({
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
+
+    const executionContext: any = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({
+        getRequest: () => ({
+          headers: {
+            'x-forwarded-host': 'ops.acme.test, proxy.acme.test',
+            'x-tenant-slug': 'acme',
+            'x-user-email': 'owner@acme.test',
+          },
+          query: {},
+          body: {},
+        }),
+      }),
+    };
+
+    await expect(guard.canActivate(executionContext)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(accessPolicy.resolveAndRequire).not.toHaveBeenCalled();
+  });
+
+  it('should preserve local host fallback when no forwarded hostname exists', async () => {
+    reflector.getAllAndOverride.mockReturnValue({
+      minimumRole: MembershipRole.ADMIN,
+      scope: 'tenant-admin',
+    });
+    accessPolicy.resolveAndRequire.mockResolvedValue({
+      context: {
+        tenant: { slug: 'acme' },
+        user: { email: 'owner@acme.test' },
+      },
+      boundary: { role: MembershipRole.OWNER },
+    });
+
+    const executionContext: any = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({
+        getRequest: () => ({
+          headers: {
+            host: '127.0.0.1:3002',
+            'x-tenant-slug': 'acme',
+            'x-user-email': 'owner@acme.test',
+          },
+          query: {},
+          body: {},
+        }),
+      }),
+    };
+
+    await guard.canActivate(executionContext);
+
+    expect(accessPolicy.resolveAndRequire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: '127.0.0.1:3002',
       }),
       expect.any(Object),
     );

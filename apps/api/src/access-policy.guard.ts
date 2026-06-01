@@ -6,6 +6,7 @@ import {
   ACCESS_POLICY_METADATA_KEY,
 } from './access-policy.constants';
 import { resolveAuthUserId } from './auth/jwt.util';
+import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
 
 type RequestWithContext = {
   headers?: Record<string, string | string[] | undefined>;
@@ -32,6 +33,9 @@ export class AccessPolicyGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<RequestWithContext>();
+    const forwardedHostname = this.normalizeForwardedHostname(
+      request.headers?.['x-forwarded-host'],
+    );
     const resolved = await this.accessPolicy.resolveAndRequire(
       {
         tenantSlug: this.pickString(
@@ -50,7 +54,7 @@ export class AccessPolicyGuard implements CanActivate {
           request.body?.workspaceSlug,
         ),
         hostname: this.pickString(
-          request.headers?.['x-forwarded-host'],
+          forwardedHostname,
           request.headers?.host,
           request.query?.hostname,
           request.body?.hostname,
@@ -65,6 +69,22 @@ export class AccessPolicyGuard implements CanActivate {
     return true;
   }
 
+  private normalizeForwardedHostname(value: unknown) {
+    const forwardedHostname = Array.isArray(value)
+      ? value
+          .filter(
+            (candidate): candidate is string =>
+              typeof candidate === 'string' && candidate.trim().length > 0,
+          )
+          .join(',')
+      : typeof value === 'string'
+        ? value
+        : undefined;
+
+    return forwardedHostname
+      ? normalizeTenantDomainHostname(forwardedHostname)
+      : undefined;
+  }
 
   private pickString(...values: unknown[]) {
     for (const value of values) {
