@@ -129,4 +129,42 @@ describe('ActorContextService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('should require route-ready hostname resolution for runtime actor context', async () => {
+    tenantDomainResolution.resolveHostname.mockResolvedValue({
+      hostname: 'ops.acme.test',
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
+      workspace: null,
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user_1',
+      email: 'owner@acme.test',
+      name: 'Owner',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.membership.findMany.mockResolvedValue([]);
+
+    await service.resolve({
+      hostname: 'ops.acme.test',
+      userEmail: 'owner@acme.test',
+    });
+
+    expect(tenantDomainResolution.resolveHostname).toHaveBeenCalledWith({
+      hostname: 'ops.acme.test',
+      workspaceSlug: undefined,
+      enforceWorkspaceMatch: undefined,
+      requireRouteReady: true,
+    });
+  });
 });

@@ -190,6 +190,35 @@ describe('TenantDomainResolutionService', () => {
     });
   });
 
+  it('should block route-unready domains when runtime routing is required', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_2',
+      hostname: 'acme.test',
+      kind: 'PLATFORM_SUBDOMAIN',
+      status: 'ACTIVE',
+      isPrimary: false,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: 'pending',
+      workspaceId: null,
+      tenant: {
+        id: 'tenant_1',
+        name: 'Acme',
+        slug: 'acme',
+        createdAt: new Date('2026-04-24T00:00:00.000Z'),
+      },
+      workspace: null,
+    });
+
+    await expect(
+      service.resolveHostname({
+        hostname: 'acme.test',
+        requireRouteReady: true,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('should treat active platform subdomains as route ready without tenant-managed dns or certificate metadata', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_3',

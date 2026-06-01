@@ -90,6 +90,7 @@ export class ActorContextService {
           hostname: input.hostname,
           workspaceSlug,
           enforceWorkspaceMatch: input.enforceWorkspaceDomainMatch,
+          requireRouteReady: true,
         });
 
     let tenant: ActorContextTenant | null = null;

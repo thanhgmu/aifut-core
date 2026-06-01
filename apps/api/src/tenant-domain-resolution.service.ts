@@ -11,6 +11,7 @@ type ResolveHostnameInput = {
   hostname?: string;
   workspaceSlug?: string;
   enforceWorkspaceMatch?: boolean;
+  requireRouteReady?: boolean;
 };
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TenantDomainResolutionService {
     const hostname = this.normalizeHostname(input.hostname);
     const workspaceSlug = input.workspaceSlug?.trim().toLowerCase();
     const enforceWorkspaceMatch = input.enforceWorkspaceMatch ?? false;
+    const requireRouteReady = input.requireRouteReady ?? false;
 
     if (!hostname) {
       throw new BadRequestException(
@@ -97,6 +99,12 @@ export class TenantDomainResolutionService {
 
     const runtimeRouting = evaluateTenantDomainReadiness(domain);
 
+    if (requireRouteReady && !runtimeRouting.routeReady) {
+      throw new ForbiddenException(
+        `Hostname ${hostname} is not route-ready: ${runtimeRouting.reasons.join(', ')}.`,
+      );
+    }
+
     return {
       hostname,
       domain: {
@@ -120,6 +128,7 @@ export class TenantDomainResolutionService {
           ? domain.workspace?.slug === workspaceSlug
           : Boolean(domain.workspace),
         enforceWorkspaceMatch,
+        requireRouteReady,
       },
       governance: {
         bindingScope,
