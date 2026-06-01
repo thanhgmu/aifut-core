@@ -253,6 +253,12 @@ export class TenancyOperationsService {
       );
     }
 
+    if (isPrimary && !readiness.routeReady) {
+      throw new BadRequestException(
+        'Primary domains must be route-ready before promotion or retention.',
+      );
+    }
+
     if (
       status === TenantDomainStatus.ACTIVE &&
       kind === TenantDomainKind.AFFILIATE_DOMAIN &&

@@ -1024,6 +1024,20 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject route-unready platform domains from becoming primary', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: true,
+        certificateStatus: 'pending',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('should reject active affiliate domains without provisioning mode', async () => {
     await expect(
       service.upsertDomain({
@@ -2915,6 +2929,33 @@ describe('TenancyOperationsService', () => {
         resultingAction: 'retain-existing-scope-primary',
       },
     });
+  });
+
+  it('should reject retaining an existing primary when a partial update makes it route-unready', async () => {
+    prisma.tenantDomain.findUnique.mockResolvedValue({
+      id: 'domain_existing',
+      tenantId: 'tenant_1',
+      workspaceId: null,
+      kind: TenantDomainKind.PLATFORM_SUBDOMAIN,
+      status: TenantDomainStatus.ACTIVE,
+      isPrimary: true,
+      provider: null,
+      provisioningMode: null,
+      dnsTarget: null,
+      certificateStatus: null,
+      workspace: null,
+    });
+
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'acme.test',
+        certificateStatus: 'pending',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
   });
 
   it('should retain existing domain lifecycle metadata when a partial update omits it', async () => {
