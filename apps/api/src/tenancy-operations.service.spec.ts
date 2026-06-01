@@ -328,7 +328,7 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('should allow rebinding a non-primary domain across scope without explicit approval', async () => {
+  it('should allow rebinding a non-primary domain across scope with explicit approval', async () => {
     prisma.workspace.findUnique.mockResolvedValue({
       id: 'ws_1',
       name: 'Ops',
@@ -364,6 +364,7 @@ describe('TenancyOperationsService', () => {
       kind: TenantDomainKind.CUSTOM,
       status: TenantDomainStatus.ACTIVE,
       isPrimary: false,
+      allowScopeRebinding: true,
       provider: 'cloudflare',
       provisioningMode: 'managed',
       dnsTarget: 'edge.aifut.test',
@@ -383,7 +384,7 @@ describe('TenancyOperationsService', () => {
       },
       scopeTransition: {
         rebindingRequested: true,
-        explicitRebindingApproved: false,
+        explicitRebindingApproved: true,
         previousScope: 'tenant:default',
         targetScope: 'workspace:ops',
         action: 'rebound-domain-scope',
@@ -633,7 +634,7 @@ describe('TenancyOperationsService', () => {
     });
   });
 
-  it('should surface explicit workspace-to-tenant rebinding for non-primary domains without override flags', async () => {
+  it('should reject workspace-to-tenant rebinding for non-primary domains without explicit approval', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_existing',
       tenantId: 'tenant_1',
@@ -656,42 +657,27 @@ describe('TenancyOperationsService', () => {
       updatedAt: new Date('2026-04-26T09:30:00.000Z'),
     });
 
-    const result = await service.upsertDomain({
-      tenantSlug: 'acme',
-      userEmail: 'ops@acme.test',
-      workspaceSlug: '',
-      hostname: 'ops.acme.test',
-      kind: TenantDomainKind.CUSTOM,
-      status: TenantDomainStatus.ACTIVE,
-      isPrimary: false,
-      provider: 'cloudflare',
-      provisioningMode: 'managed',
-      dnsTarget: 'edge.aifut.test',
-      certificateStatus: 'issued',
-    });
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: '',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        isPrimary: false,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
 
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
     expect(prisma.tenantDomain.updateMany).not.toHaveBeenCalled();
-    expect(result.governance).toMatchObject({
-      bindingScope: 'tenant',
-      primaryScope: null,
-      primaryIntent: {
-        requestedPromotion: false,
-        requestedDemotion: false,
-        explicitDemotionApproved: false,
-        resultingPrimary: false,
-        resultingAction: 'retain-or-write-non-primary-domain',
-      },
-      scopeTransition: {
-        rebindingRequested: true,
-        explicitRebindingApproved: false,
-        previousScope: 'workspace:ops',
-        targetScope: 'tenant:default',
-        action: 'rebound-domain-scope',
-      },
-    });
   });
 
-  it('should allow affiliate-domain rebinding across scope without override flags when the domain is not primary', async () => {
+  it('should allow affiliate-domain rebinding across scope with explicit approval when the domain is not primary', async () => {
     prisma.workspace.findUnique.mockResolvedValue({
       id: 'ws_1',
       name: 'Ops',
@@ -727,6 +713,7 @@ describe('TenancyOperationsService', () => {
       kind: TenantDomainKind.AFFILIATE_DOMAIN,
       status: TenantDomainStatus.ACTIVE,
       isPrimary: false,
+      allowScopeRebinding: true,
       provider: 'reseller-edge',
       provisioningMode: 'affiliate-managed',
       dnsTarget: 'edge.partner.test',
@@ -746,7 +733,7 @@ describe('TenancyOperationsService', () => {
       },
       scopeTransition: {
         rebindingRequested: true,
-        explicitRebindingApproved: false,
+        explicitRebindingApproved: true,
         previousScope: 'tenant:default',
         targetScope: 'workspace:ops',
         action: 'rebound-domain-scope',

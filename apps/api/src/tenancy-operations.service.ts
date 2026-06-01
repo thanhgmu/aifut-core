@@ -284,13 +284,9 @@ export class TenancyOperationsService {
       );
     }
 
-    if (
-      scopeRebindingRequested &&
-      existingDomain?.isPrimary &&
-      !input.allowScopeRebinding
-    ) {
+    if (scopeRebindingRequested && !input.allowScopeRebinding) {
       throw new BadRequestException(
-        'Rebinding a primary domain across tenant/workspace scope requires allowScopeRebinding.',
+        'Rebinding a domain across tenant/workspace scope requires allowScopeRebinding.',
       );
     }
 
