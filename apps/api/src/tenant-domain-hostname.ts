@@ -22,6 +22,7 @@ export function normalizeTenantDomainHostname(value?: string) {
   if (
     normalized &&
     (isIP(normalized) !== 0 ||
+      !normalized.includes('.') ||
       normalized.length > 253 ||
       !normalized
         .split('.')
