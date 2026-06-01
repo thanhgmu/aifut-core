@@ -84,6 +84,14 @@ describe('TenantDomainResolutionService', () => {
     expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
   });
 
+  it('should reject comma-separated proxy hostname lists before lookup', async () => {
+    await expect(
+      service.resolveHostname({ hostname: 'ops.acme.test, proxy.acme.test' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
+  });
+
   it('should block enforced workspace mismatch', async () => {
     prisma.tenantDomain.findUnique.mockResolvedValue({
       id: 'domain_1',
