@@ -167,7 +167,7 @@ describe('ActorContextService', () => {
     expect(tenantDomainResolution.resolveHostname).toHaveBeenCalledWith({
       hostname: 'ops.acme.test',
       workspaceSlug: undefined,
-      enforceWorkspaceMatch: undefined,
+      enforceWorkspaceMatch: true,
       requireRouteReady: true,
     });
   });

@@ -94,7 +94,7 @@ export class ActorContextService {
       : await this.tenantDomainResolution.resolveHostname({
           hostname: input.hostname,
           workspaceSlug,
-          enforceWorkspaceMatch: input.enforceWorkspaceDomainMatch,
+          enforceWorkspaceMatch: true,
           requireRouteReady: true,
         });
 
