@@ -161,6 +161,12 @@ export class EntitlementsService {
           slug: true,
           status: true,
           workspaceId: true,
+          workspace: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
           updatedAt: true,
         },
       }),
