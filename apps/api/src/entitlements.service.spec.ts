@@ -620,4 +620,48 @@ describe('EntitlementsService', () => {
       nexovaflowConnectorReady: true,
     });
   });
+
+  it('should expose friendly workspace bindings for connector commercialization connections', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', name: 'Operations', slug: 'ops' },
+    });
+    prisma.tenantPackageAssignment.findMany.mockResolvedValue([]);
+    prisma.entitlement.findMany.mockResolvedValue([]);
+    prisma.integrationConnection.findMany.mockResolvedValue([
+      {
+        id: 'connection_1',
+        name: 'NexovaFlow Ops',
+        slug: 'nexovaflow-ops',
+        status: 'ACTIVE',
+        workspaceId: 'ws_1',
+        workspace: {
+          name: 'Operations',
+          slug: 'ops',
+        },
+        updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.getConnectorCommercializationState({
+      tenantSlug: 'acme',
+      userEmail: 'ops@acme.test',
+      workspaceSlug: 'ops',
+      connectorKey: 'nexovaflow',
+    });
+
+    expect(result.connector).toMatchObject({
+      connectionCount: 1,
+      activeConnectionCount: 1,
+      connections: [
+        {
+          workspaceId: 'ws_1',
+          workspace: {
+            name: 'Operations',
+            slug: 'ops',
+          },
+        },
+      ],
+    });
+  });
 });

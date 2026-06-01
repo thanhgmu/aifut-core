@@ -59,6 +59,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Connector commercialization reads now preserve friendly workspace binding labels for scoped dependency connections.
+- Verification passed: targeted entitlements spec `9/9`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-dependency live commercialization proof, and clean port `3002` teardown.
 - Admin package builder dependency reads now preserve friendly workspace binding labels for NexovaFlow connections.
 - Verification passed: targeted entitlements spec `8/8`, API build, full API Jest `26/26` suites and `362/362` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-dependency live builder proof, and clean port `3002` teardown.
 - Effective storage routing policy reads now preserve friendly workspace binding labels at the service boundary for controller and internal callers.
