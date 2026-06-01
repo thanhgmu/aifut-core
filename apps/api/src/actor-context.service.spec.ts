@@ -254,4 +254,68 @@ describe('ActorContextService', () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('should reject a strict known hostname bound to a different tenant', async () => {
+    tenantDomainResolution.resolveHostname.mockResolvedValue({
+      hostname: 'ops.beta.test',
+      tenant: {
+        id: 'tenant_2',
+        name: 'Beta',
+        slug: 'beta',
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
+      workspace: null,
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+
+    await expect(
+      service.resolve({
+        tenantSlug: 'acme',
+        userEmail: 'owner@acme.test',
+        hostname: 'ops.beta.test',
+        enforceWorkspaceDomainMatch: true,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tenantDomainResolution.resolveHostname).toHaveBeenCalledWith({
+      hostname: 'ops.beta.test',
+      workspaceSlug: undefined,
+      enforceWorkspaceMatch: true,
+      requireRouteReady: true,
+    });
+  });
+
+  it('should ignore an invalid fallback host for strict explicit tenant context', async () => {
+    tenantDomainResolution.resolveHostname.mockRejectedValue(
+      new BadRequestException('Invalid hostname.'),
+    );
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant_1',
+      name: 'Acme',
+      slug: 'acme',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user_1',
+      email: 'owner@acme.test',
+      name: 'Owner',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    });
+    prisma.membership.findMany.mockResolvedValue([]);
+
+    const result = await service.resolve({
+      tenantSlug: 'acme',
+      userEmail: 'owner@acme.test',
+      hostname: '127.0.0.1:3002',
+      enforceWorkspaceDomainMatch: true,
+    });
+
+    expect(result.tenant.slug).toBe('acme');
+    expect(result.resolution.usedHostnameResolution).toBe(false);
+  });
 });

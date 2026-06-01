@@ -90,7 +90,12 @@ export class ActorContextService {
     }
 
     const domainResolution = tenantSlug || authUserId
-      ? null
+      ? input.enforceWorkspaceDomainMatch
+        ? await this.tryResolveKnownHostname({
+            hostname: input.hostname,
+            workspaceSlug,
+          })
+        : null
       : await this.tenantDomainResolution.resolveHostname({
           hostname: input.hostname,
           workspaceSlug,
@@ -174,6 +179,12 @@ export class ActorContextService {
     if (!tenant) {
       throw new NotFoundException(
         `Tenant not found for slug: ${resolvedTenantSlug}`,
+      );
+    }
+
+    if (domainResolution && domainResolution.tenant.slug !== tenant.slug) {
+      throw new ForbiddenException(
+        `Hostname ${domainResolution.hostname} is bound to tenant ${domainResolution.tenant.slug}, not ${tenant.slug}.`,
       );
     }
 
@@ -283,5 +294,32 @@ export class ActorContextService {
         ),
       },
     };
+  }
+
+  private async tryResolveKnownHostname(input: {
+    hostname?: string;
+    workspaceSlug?: string;
+  }) {
+    if (!input.hostname?.trim()) {
+      return null;
+    }
+
+    try {
+      return await this.tenantDomainResolution.resolveHostname({
+        hostname: input.hostname,
+        workspaceSlug: input.workspaceSlug,
+        enforceWorkspaceMatch: true,
+        requireRouteReady: true,
+      });
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 }
