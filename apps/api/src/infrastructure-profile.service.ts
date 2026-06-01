@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
@@ -67,6 +71,8 @@ export class InfrastructureProfileService {
             isPrimary: true,
             dnsTarget: true,
             certificateStatus: true,
+            provider: true,
+            provisioningMode: true,
             createdAt: true,
           },
           orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
@@ -94,14 +100,13 @@ export class InfrastructureProfileService {
       );
     }
 
-    const integrationCounts = tenant.integrations.reduce<Record<string, number>>(
-      (accumulator, integration) => {
-        accumulator[integration.category] =
-          (accumulator[integration.category] ?? 0) + 1;
-        return accumulator;
-      },
-      {},
-    );
+    const integrationCounts = tenant.integrations.reduce<
+      Record<string, number>
+    >((accumulator, integration) => {
+      accumulator[integration.category] =
+        (accumulator[integration.category] ?? 0) + 1;
+      return accumulator;
+    }, {});
 
     const storageIntegrations = tenant.integrations.filter(
       (integration) => integration.category === 'STORAGE',
@@ -112,7 +117,16 @@ export class InfrastructureProfileService {
     );
 
     const primaryDomain =
-      tenant.domains.find((domain) => domain.isPrimary) ?? tenant.domains[0] ?? null;
+      tenant.domains.find((domain) => domain.isPrimary) ??
+      tenant.domains[0] ??
+      null;
+    const domains = tenant.domains.map((domain) => ({
+      ...domain,
+      readiness: evaluateTenantDomainReadiness(domain),
+    }));
+    const primaryDomainWithReadiness = primaryDomain
+      ? (domains.find((domain) => domain.id === primaryDomain.id) ?? null)
+      : null;
 
     const activeStoragePolicies = tenant.storagePolicies.filter(
       (policy) => policy.mode !== 'DISABLED',
@@ -133,10 +147,12 @@ export class InfrastructureProfileService {
         workspaceCount: tenant.workspaces.length,
         integrationCounts,
         domains: {
-          primary: primaryDomain,
-          total: tenant.domains.length,
-          customDomainReady: tenant.domains.some(
-            (domain) => domain.kind === 'CUSTOM',
+          primary: primaryDomainWithReadiness,
+          total: domains.length,
+          routeReady: domains.filter((domain) => domain.readiness.routeReady)
+            .length,
+          customDomainReady: domains.some(
+            (domain) => domain.kind === 'CUSTOM' && domain.readiness.routeReady,
           ),
         },
         storage: {
@@ -161,7 +177,7 @@ export class InfrastructureProfileService {
       workspaces: tenant.workspaces,
       integrations: tenant.integrations,
       entitlements: tenant.entitlements,
-      domains: tenant.domains,
+      domains,
       storagePolicies: tenant.storagePolicies,
       next: [
         'tenant-domain-binding',

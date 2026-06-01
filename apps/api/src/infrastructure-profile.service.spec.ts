@@ -1,6 +1,76 @@
 import { InfrastructureProfileService } from './infrastructure-profile.service';
 
 describe('InfrastructureProfileService', () => {
+  it('should report only route-ready custom domains as custom domain ready', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+          createdAt: new Date('2026-05-31T00:00:00.000Z'),
+          workspaces: [],
+          integrations: [],
+          entitlements: [],
+          domains: [
+            {
+              id: 'domain_1',
+              hostname: 'legacy.acme.test',
+              kind: 'CUSTOM',
+              status: 'ACTIVE',
+              isPrimary: true,
+              dnsTarget: null,
+              certificateStatus: 'pending',
+              provider: null,
+              provisioningMode: 'managed',
+              createdAt: new Date('2026-05-31T00:00:00.000Z'),
+            },
+            {
+              id: 'domain_2',
+              hostname: 'acme.aifut.test',
+              kind: 'PLATFORM_SUBDOMAIN',
+              status: 'ACTIVE',
+              isPrimary: false,
+              dnsTarget: null,
+              certificateStatus: null,
+              provider: null,
+              provisioningMode: null,
+              createdAt: new Date('2026-05-31T00:00:00.000Z'),
+            },
+          ],
+          storagePolicies: [],
+        }),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.getTenantInfrastructureProfile(' ACME ');
+
+    expect(result.infrastructure.domains).toMatchObject({
+      total: 2,
+      routeReady: 1,
+      customDomainReady: false,
+      primary: {
+        hostname: 'legacy.acme.test',
+        readiness: {
+          routeReady: false,
+          reasons: [
+            'dns-target:missing',
+            'certificate-status:pending',
+            'provider:missing',
+          ],
+        },
+      },
+    });
+    expect(result.domains[1]).toMatchObject({
+      hostname: 'acme.aifut.test',
+      readiness: {
+        routeReady: true,
+        reasons: [],
+      },
+    });
+  });
+
   it('should expose shared readiness diagnostics in domain routing policy', async () => {
     const prisma = {
       tenant: {
