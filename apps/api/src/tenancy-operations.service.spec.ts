@@ -923,6 +923,19 @@ describe('TenancyOperationsService', () => {
     expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
   });
 
+  it('should reject malformed domain hostnames before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'owner@acme.test',
+        hostname: 'invalid_host.acme.test',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.tenantDomain.findUnique).not.toHaveBeenCalled();
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should reject domain writes whose hostname normalizes to an empty value', async () => {
     await expect(
       service.upsertDomain({
