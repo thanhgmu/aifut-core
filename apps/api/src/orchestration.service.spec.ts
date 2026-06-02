@@ -207,6 +207,28 @@ describe('OrchestrationService', () => {
       },
       workflowGraph: {
         lanes: ['research', 'content', 'sales', 'support'],
+        nodes: [
+          { nodeKey: 'market-discovery' },
+          { nodeKey: 'supplier-validation' },
+          { nodeKey: 'go-to-market-planning' },
+          { nodeKey: 'content-production' },
+          { nodeKey: 'channel-distribution' },
+          { nodeKey: 'sales-conversion' },
+          { nodeKey: 'operations-fulfillment' },
+          { nodeKey: 'customer-success' },
+        ],
+        edges: expect.arrayContaining([
+          expect.objectContaining({
+            edgeKey: 'market-discovery->supplier-validation',
+            fromNodeKey: 'market-discovery',
+            toNodeKey: 'supplier-validation',
+          }),
+          expect.objectContaining({
+            edgeKey: 'customer-success->market-discovery',
+            fromNodeKey: 'customer-success',
+            toNodeKey: 'market-discovery',
+          }),
+        ]),
       },
       businessLifecycle: {
         planId: 'plan:acme:ops:draft',

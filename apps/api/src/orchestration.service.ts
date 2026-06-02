@@ -696,7 +696,14 @@ export class OrchestrationService {
     planId: string;
     objective?: string;
     lanes?: string[];
+    lifecyclePhases?: Array<{
+      phaseKey: string;
+      objective: string;
+      nextPhaseKey: string;
+    }>;
   }) {
+    const lifecyclePhases = input.lifecyclePhases ?? [];
+
     return {
       planId: input.planId,
       graphStatus: 'draft',
@@ -704,8 +711,18 @@ export class OrchestrationService {
         input.objective?.trim() ||
         'Project the parent workflow into a renderable graph with lanes, nodes, edges, and approval checkpoints.',
       lanes: this.normalizeStringList(input.lanes),
-      nodes: [],
-      edges: [],
+      nodes: lifecyclePhases.map((phase) => ({
+        nodeKey: phase.phaseKey,
+        nodeType: 'business-lifecycle-phase',
+        label: phase.phaseKey,
+        objective: phase.objective,
+      })),
+      edges: lifecyclePhases.map((phase) => ({
+        edgeKey: `${phase.phaseKey}->${phase.nextPhaseKey}`,
+        fromNodeKey: phase.phaseKey,
+        toNodeKey: phase.nextPhaseKey,
+        edgeType: 'business-lifecycle-transition',
+      })),
       overlays: {
         approvals: [],
         kpis: [],
@@ -822,6 +839,11 @@ export class OrchestrationService {
       constraints: input.constraints,
     });
     const planId = parentWorkflowPlan.id;
+    const businessLifecycle = this.buildBusinessLifecycleDraft({
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      planId,
+    });
 
     return {
       blueprintStatus: 'draft-review-required',
@@ -867,12 +889,9 @@ export class OrchestrationService {
         planId,
         objective,
         lanes: input.lanes,
+        lifecyclePhases: businessLifecycle.phases,
       }),
-      businessLifecycle: this.buildBusinessLifecycleDraft({
-        tenantSlug: input.tenantSlug,
-        workspaceSlug: input.workspaceSlug,
-        planId,
-      }),
+      businessLifecycle,
       executionContractDraft: this.buildExecutionContractDraft({
         tenantSlug: input.tenantSlug,
         workspaceSlug: input.workspaceSlug,
