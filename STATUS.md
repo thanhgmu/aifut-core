@@ -21,7 +21,8 @@ Last updated: 2026-06-03
 - Orchestration capability discovery now advertises the natural-language blueprint preview endpoint, preview-only execution mode, disabled external actions, and top-level review-summary availability.
 - The platform root endpoint navigation now links directly to the orchestration natural-language business-system blueprint preview endpoint.
 - The API docs now include a natural-language business blueprint preview usage example with request fields, render-first response fields, and the preview-only safety contract.
-- `main` is synchronized with `origin/main`; latest functional checkpoint documents how clients should call and render the natural-language business blueprint preview safely.
+- The API docs index now links the blueprint preview guide and repeats the preview-only rendering boundary for client implementers.
+- `main` is synchronized with `origin/main`; latest functional checkpoint makes the natural-language business blueprint preview guide discoverable from `docs/api`.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -31,6 +32,7 @@ Last updated: 2026-06-03
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `49c65db` docs(api): add blueprint preview usage example
 - `db5042c` feat(api): advertise blueprint preview capability
 - `3158124` test(api): lock blueprint review summary response
 - `6193444` feat(api): surface blueprint review summary
