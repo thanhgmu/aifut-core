@@ -1080,6 +1080,23 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject unknown affiliate provisioning modes before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'partner.acme.test',
+        kind: TenantDomainKind.AFFILIATE_DOMAIN,
+        status: TenantDomainStatus.ACTIVE,
+        provisioningMode: 'externally-managed',
+        dnsTarget: 'edge.partner.test',
+        certificateStatus: 'ready',
+      }),
+    ).rejects.toThrow('Invalid provisioningMode.');
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should reject active affiliate domains when dns target normalizes to empty', async () => {
     await expect(
       service.upsertDomain({

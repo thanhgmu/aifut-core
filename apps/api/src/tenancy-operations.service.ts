@@ -208,7 +208,7 @@ export class TenancyOperationsService {
       input.provider === undefined
         ? existingDomain?.provider ?? null
         : this.normalizeOptional(input.provider);
-    const provisioningMode = this.normalizeOptionalLowercase(
+    const provisioningMode = this.normalizeProvisioningMode(
       input.provisioningMode === undefined
         ? existingDomain?.provisioningMode
         : input.provisioningMode,
@@ -677,6 +677,20 @@ export class TenancyOperationsService {
     } catch {
       throw new BadRequestException('Invalid dnsTarget.');
     }
+  }
+
+  private normalizeProvisioningMode(value?: string | null) {
+    const normalized = this.normalizeOptionalLowercase(value);
+
+    if (
+      normalized &&
+      normalized !== 'managed' &&
+      normalized !== 'affiliate-managed'
+    ) {
+      throw new BadRequestException('Invalid provisioningMode.');
+    }
+
+    return normalized;
   }
 
   private normalizeOptionalUppercase(value?: string | null) {
