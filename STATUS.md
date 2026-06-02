@@ -1,15 +1,16 @@
 # STATUS
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint is `481b749`.
+- `main` is synchronized with `origin/main`; latest functional checkpoint adds shared domain readiness diagnostics to current topology reads.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `c52e1b2` feat(web): surface AI usage ledger in HQ
 - `687ee24` fix(api): enforce storage policy hostname match
 - `53b3cee` fix(api): enforce topology read hostname match
 - `1c2e6cb` fix(api): validate forwarded host at guard boundary
@@ -60,6 +61,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `GET /tenancy/current` now enriches visible topology domains with readiness from the shared `evaluateTenantDomainReadiness(...)` evaluator.
+- Verification passed: targeted tenancy controller spec `45/45`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, live production API health `200`, live current-topology readiness proof, and clean port `3002` teardown.
 - Web UI HQ now consumes `GET /ai-governance/usage-summary` for the sample orchestration runtime without redefining backend contracts.
 - Verification passed: web typecheck, web production build, live production API health `200`, HQ route `200` with AI usage ledger render, and clean `3000` / `3002` teardown.
 - Tenant infrastructure profile integration reads now preserve friendly workspace binding labels alongside raw connection scope IDs.

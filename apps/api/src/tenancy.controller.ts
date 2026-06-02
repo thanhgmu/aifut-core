@@ -23,6 +23,7 @@ import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
 import { TenancyOperationsService } from './tenancy-operations.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
+import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 @Controller('tenancy')
 export class TenancyController {
@@ -92,6 +93,10 @@ export class TenancyController {
           kind: true,
           status: true,
           isPrimary: true,
+          provider: true,
+          provisioningMode: true,
+          dnsTarget: true,
+          certificateStatus: true,
           workspaceId: true,
           workspace: {
             select: {
@@ -146,7 +151,10 @@ export class TenancyController {
       topology: {
         domains: {
           count: domains.length,
-          items: domains,
+          items: domains.map((domain) => ({
+            ...domain,
+            readiness: evaluateTenantDomainReadiness(domain),
+          })),
         },
         storagePolicies: {
           count: storagePolicies.length,

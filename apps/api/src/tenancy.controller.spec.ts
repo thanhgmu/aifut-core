@@ -145,6 +145,12 @@ describe('TenancyController', () => {
       {
         id: 'domain_1',
         hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
         workspaceId: 'workspace_1',
         workspace: { name: 'Operations', slug: 'ops' },
       },
@@ -171,6 +177,7 @@ describe('TenancyController', () => {
           {
             workspaceId: 'workspace_1',
             workspace: { name: 'Operations', slug: 'ops' },
+            readiness: { routeReady: true, reasons: [] },
           },
         ],
       },
