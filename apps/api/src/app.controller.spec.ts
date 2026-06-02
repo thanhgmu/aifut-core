@@ -31,6 +31,11 @@ describe('AppController', () => {
         },
         endpoints: {
           health: '/health',
+          orchestration: [
+            '/orchestration/capabilities',
+            '/orchestration/business-systems/draft-preview',
+            '/orchestration/roadmap',
+          ],
         },
       });
     });

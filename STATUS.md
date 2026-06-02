@@ -19,7 +19,8 @@ Last updated: 2026-06-03
 - Natural-language blueprint previews now surface a top-level review summary with activation status, blockers, ordered setup work, and decision counts without forcing consumers to inspect nested execution-contract details.
 - The orchestration controller contract test now locks top-level blueprint review-summary visibility so API refactors cannot silently drop activation blockers or ordered setup work.
 - Orchestration capability discovery now advertises the natural-language blueprint preview endpoint, preview-only execution mode, disabled external actions, and top-level review-summary availability.
-- `main` is synchronized with `origin/main`; latest functional checkpoint advertises natural-language blueprint preview discovery metadata.
+- The platform root endpoint navigation now links directly to the orchestration natural-language business-system blueprint preview endpoint.
+- `main` is synchronized with `origin/main`; latest functional checkpoint links the orchestration blueprint preview endpoint from platform root discovery.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -29,6 +30,7 @@ Last updated: 2026-06-03
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `db5042c` feat(api): advertise blueprint preview capability
 - `3158124` test(api): lock blueprint review summary response
 - `6193444` feat(api): surface blueprint review summary
 - `d6bc969` feat(api): summarize blueprint setup decisions
@@ -113,6 +115,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- The platform root endpoint navigation now includes `/orchestration/business-systems/draft-preview`, making natural-language business-system blueprint preview discoverable from the API root as well as `/orchestration/capabilities`.
+- Verification passed: targeted app/orchestration tests `89/89`, API build, and full API Jest `26/26` suites and `371/371` tests.
 - `GET /orchestration/capabilities` now advertises the natural-language blueprint preview endpoint, preview-only mode, disabled external actions, and top-level review-summary availability.
 - Verification passed: targeted orchestration tests `88/88`, API build, and full API Jest `26/26` suites and `371/371` tests.
 - The orchestration controller contract now explicitly preserves top-level blueprint review-summary visibility, including blocked activation status, bounded blockers, and ordered setup actions.

@@ -72,6 +72,7 @@ export class AppController {
         ],
         orchestration: [
           '/orchestration/capabilities',
+          '/orchestration/business-systems/draft-preview',
           '/orchestration/roadmap',
         ],
       },
