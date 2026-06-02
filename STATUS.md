@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces HQ AI-governance outcome correlation using existing diagnostics truth.
+- `main` is synchronized with `origin/main`; latest functional checkpoint keeps HQ domain-routing read failures bounded to the correct lane.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `f8ecf2b` feat(web): surface AI outcome event key in HQ
 - `62747d4` feat(web): surface runtime correlation keys in HQ
 - `f305fb3` feat(web): surface runtime scope bindings in HQ
 - `0291a25` feat(web): surface runtime history counts in HQ
@@ -76,6 +77,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now reports bounded domain-routing readiness read failures from the domain lane instead of incorrectly showing the orchestration-runtime diagnostics failure.
+- Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the domain-routing panel, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces the persisted event key for the latest AI-governance dispatch outcome, connecting outcome investigation to its underlying orchestration event record.
 - Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the outcome-event correlation label, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces the latest persisted orchestration snapshot and event correlation keys inside the runtime diagnostics panel, making specific runtime records directly traceable during investigation.

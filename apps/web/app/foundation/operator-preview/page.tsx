@@ -572,7 +572,7 @@ export default async function OperatorPreviewPage() {
                 <EmptyState message="No domains were returned for the sample tenant context." />
               )
             ) : (
-              <EmptyState message={`Runtime diagnostics are unavailable: ${formatReadFailure(readResults.runtimeDiagnostics)}.`} />
+              <EmptyState message={`Domain routing readiness is unavailable: ${formatReadFailure(readResults.domainRouting)}.`} />
             )}
           </Panel>
         </section>
