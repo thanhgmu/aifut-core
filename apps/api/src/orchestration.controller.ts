@@ -67,6 +67,12 @@ export class OrchestrationController {
         appCoordinationDrafts: true,
         dataflowDrafts: true,
         naturalLanguageBusinessSystemBlueprints: true,
+        businessSystemBlueprintPreview: {
+          endpoint: 'POST /orchestration/business-systems/draft-preview',
+          mode: 'preview-only',
+          externalActionsAllowed: false,
+          topLevelReviewSummary: true,
+        },
       },
       next: ORCHESTRATION_FOUNDATION_ROADMAP,
     };

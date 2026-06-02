@@ -120,6 +120,21 @@ describe('OrchestrationController', () => {
     jest.restoreAllMocks();
   });
 
+  it('should advertise natural-language business-system blueprint preview discovery', () => {
+    expect(controller.capabilities()).toMatchObject({
+      capability: 'orchestration',
+      planning: {
+        naturalLanguageBusinessSystemBlueprints: true,
+        businessSystemBlueprintPreview: {
+          endpoint: 'POST /orchestration/business-systems/draft-preview',
+          mode: 'preview-only',
+          externalActionsAllowed: false,
+          topLevelReviewSummary: true,
+        },
+      },
+    });
+  });
+
   it('should guard runtime history, diagnostics, and approval-history reads as operator controls', () => {
     const requirement = {
       minimumRole: MembershipRole.OPERATOR,
