@@ -1,4 +1,4 @@
-import { API_BASE, getJson, type AdapterInterfaceRegistryResponse, type HealthResponse } from "../../lib/runtime-data";
+import { API_BASE, getJson, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
 
 type LaneCard = {
   lane: string;
@@ -6,6 +6,64 @@ type LaneCard = {
   done: string[];
   doing: string[];
   eta: string;
+};
+
+type BusinessSystemBlueprintPreviewResponse = {
+  status?: string;
+  businessSystemBlueprint?: {
+    blueprintStatus?: string;
+    businessLifecycle?: {
+      phases?: Array<unknown>;
+    };
+    workflowGraph?: {
+      nodes?: Array<unknown>;
+      edges?: Array<unknown>;
+    };
+    appCoordination?: {
+      systemAssignments?: Array<unknown>;
+    };
+    dataflow?: {
+      edges?: Array<unknown>;
+    };
+    executionContractDraft?: {
+      unboundChildWorkflowDrafts?: Array<unknown>;
+      approvalContracts?: Array<unknown>;
+    };
+    reviewSummary?: {
+      status?: string;
+      activationAllowed?: boolean;
+      blockers?: string[];
+      nextActions?: Array<{
+        actionKey?: string;
+        actionOrder?: number;
+        actionStatus?: string;
+      }>;
+      decisionSummary?: {
+        configuredCount?: number;
+        unresolvedCount?: number;
+        deferredCount?: number;
+      };
+    };
+  };
+};
+
+type RootResponse = {
+  focus?: {
+    model?: string;
+  };
+};
+
+const SAMPLE_BLUEPRINT_REQUEST = {
+  tenantSlug: "acme",
+  workspaceSlug: "ops",
+  userEmail: "ops@acme.test",
+  naturalLanguageBrief:
+    "Build a Vietnam-first commerce operator system that finds products, validates suppliers, produces content, distributes campaigns, converts orders, fulfills customers, and feeds customer success evidence back into product discovery.",
+  constraints: ["low-starting-capital", "approval-before-customer-impact"],
+  preferredSystems: ["research-intelligence", "supplier-management", "content-workspace", "crm-commerce", "customer-support"],
+  businessObjects: ["product-candidate", "supplier", "content-asset", "lead", "order", "customer-feedback"],
+  priorities: ["time-to-first-sale", "operator-reviewability", "repeat-purchase-learning"],
+  lanes: ["research", "content", "sales", "fulfillment", "support"],
 };
 
 const lanes: LaneCard[] = [
@@ -70,23 +128,36 @@ const lanes: LaneCard[] = [
 ];
 
 async function getDashboardData() {
-  const [health, adapterInterfacesResponse, root] = await Promise.all([
+  const [health, adapterInterfacesResponse, root, blueprintPreviewResult] = await Promise.all([
     getJson<HealthResponse>("/health"),
-    getJson<any>("/connectors/adapter-interfaces"),
-    getJson<any>("/"),
+    getJson<{ adapterInterfaces?: AdapterInterfaceRegistryResponse }>("/connectors/adapter-interfaces"),
+    getJson<RootResponse>("/"),
+    postJsonResult<BusinessSystemBlueprintPreviewResponse>(
+      "/orchestration/business-systems/draft-preview",
+      SAMPLE_BLUEPRINT_REQUEST,
+    ),
   ]);
 
   const adapterInterfaces = adapterInterfacesResponse?.adapterInterfaces;
 
-  return { health, adapterInterfaces, root };
+  return { health, adapterInterfaces, root, blueprintPreviewResult };
 }
 
 export default async function DashboardPage() {
-  const { health, adapterInterfaces, root } = await getDashboardData();
+  const { health, adapterInterfaces, root, blueprintPreviewResult } = await getDashboardData();
   const interfaceCount = adapterInterfaces?.adapterInterfaces?.length ?? 0;
   const topInterfaces = Array.isArray(adapterInterfaces?.adapterInterfaces)
     ? adapterInterfaces.adapterInterfaces.slice(0, 3)
     : [];
+  const blueprint = blueprintPreviewResult.data?.businessSystemBlueprint;
+  const reviewSummary = blueprint?.reviewSummary;
+  const blueprintPhaseCount = blueprint?.businessLifecycle?.phases?.length ?? 0;
+  const blueprintNodeCount = blueprint?.workflowGraph?.nodes?.length ?? 0;
+  const blueprintEdgeCount = blueprint?.workflowGraph?.edges?.length ?? 0;
+  const blueprintAssignmentCount = blueprint?.appCoordination?.systemAssignments?.length ?? 0;
+  const blueprintDataflowCount = blueprint?.dataflow?.edges?.length ?? 0;
+  const childWorkflowCount = blueprint?.executionContractDraft?.unboundChildWorkflowDrafts?.length ?? 0;
+  const approvalContractCount = blueprint?.executionContractDraft?.approvalContracts?.length ?? 0;
 
   return (
     <main
@@ -133,6 +204,7 @@ export default async function DashboardPage() {
           <MetricCard title="API" value={health?.status ?? "unknown"} note={`db: ${health?.database ?? "unknown"}`} />
           <MetricCard title="Model" value={health?.platform?.model ?? root?.focus?.model ?? "C"} note="kernel-first control plane" />
           <MetricCard title="Adapter interfaces" value={String(interfaceCount)} note="visible proof of connector abstraction" />
+          <MetricCard title="Blueprint preview" value={blueprint?.blueprintStatus ?? "unavailable"} note={reviewSummary?.status ?? formatReadFailure(blueprintPreviewResult)} />
           <MetricCard title="Current theme" value="From narrative → product" note="docs + API + UI now connected" />
         </section>
 
@@ -162,6 +234,46 @@ export default async function DashboardPage() {
         </section>
 
         <section style={{ marginTop: 28 }}>
+          <Panel title="Natural-language business blueprint preview">
+            {blueprint ? (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <MetricCard title="Lifecycle phases" value={String(blueprintPhaseCount)} note="closed-loop business flow" />
+                  <MetricCard title="Graph" value={`${blueprintNodeCount}/${blueprintEdgeCount}`} note="nodes / edges" />
+                  <MetricCard title="System assignments" value={String(blueprintAssignmentCount)} note={`${blueprintDataflowCount} dataflow edges`} />
+                  <MetricCard title="Runtime bindings" value={String(childWorkflowCount)} note="child workflow drafts unbound" />
+                  <MetricCard title="Approval contracts" value={String(approvalContractCount)} note="manual review before activation" />
+                  <MetricCard title="Activation" value={reviewSummary?.activationAllowed ? "Allowed" : "Blocked"} note={reviewSummary?.status ?? "review required"} />
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: 18, fontWeight: 800 }}>Operator setup queue</div>
+                  <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>
+                    Configured {reviewSummary?.decisionSummary?.configuredCount ?? 0} / unresolved {reviewSummary?.decisionSummary?.unresolvedCount ?? 0} / deferred {reviewSummary?.decisionSummary?.deferredCount ?? 0}
+                  </div>
+                  <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
+                    {(reviewSummary?.nextActions ?? []).slice(0, 4).map((action) => (
+                      <div key={action.actionKey} style={{ color: "#dfe6ff", lineHeight: 1.6 }}>
+                        {action.actionOrder ?? "-"} / {action.actionKey ?? "unknown-action"} / {action.actionStatus ?? "required"}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "grid", gap: 6, marginTop: 14, color: "#9fb0ff", fontSize: 13 }}>
+                    {(reviewSummary?.blockers ?? []).map((blocker) => (
+                      <div key={blocker}>blocked: {blocker}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "#c8d2ff" }}>
+                Blueprint preview is unavailable: {formatReadFailure(blueprintPreviewResult)}.
+              </div>
+            )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
           <Panel title="Live local endpoints">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
               {[
@@ -170,6 +282,7 @@ export default async function DashboardPage() {
                 `${API_BASE}/connectors/adapter-interfaces`,
                 `${API_BASE}/connectors/adapter-contracts`,
                 `${API_BASE}/connectors/templates`,
+                `${API_BASE}/orchestration/business-systems/draft-preview`,
               ].map((href) => (
                 <a
                   key={href}
@@ -214,6 +327,10 @@ export default async function DashboardPage() {
       </div>
     </main>
   );
+}
+
+function formatReadFailure(result: JsonResult<unknown>) {
+  return result.error ?? (result.status ? `HTTP ${result.status}` : "read unavailable");
 }
 
 function MetricCard({ title, value, note }: { title: string; value: string; note: string }) {

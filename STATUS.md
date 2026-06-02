@@ -22,7 +22,8 @@ Last updated: 2026-06-03
 - The platform root endpoint navigation now links directly to the orchestration natural-language business-system blueprint preview endpoint.
 - The API docs now include a natural-language business blueprint preview usage example with request fields, render-first response fields, and the preview-only safety contract.
 - The API docs index now links the blueprint preview guide and repeats the preview-only rendering boundary for client implementers.
-- `main` is synchronized with `origin/main`; latest functional checkpoint makes the natural-language business blueprint preview guide discoverable from `docs/api`.
+- The Web UI dashboard now calls the natural-language business blueprint preview endpoint with a sample operator brief and renders the review-gated lifecycle, graph, runtime-binding, approval-contract, blocker, and setup-queue summary.
+- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces the natural-language business blueprint preview summary in the Web UI dashboard.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -118,6 +119,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- The Web UI dashboard now surfaces a live natural-language business blueprint preview summary from `/orchestration/business-systems/draft-preview`, including lifecycle phase count, workflow graph shape, system assignments, dataflow edges, unbound child-workflow drafts, approval contracts, activation status, blockers, and ordered setup actions.
+- Verification passed: web typecheck, web production build, live production API health `200`, live blueprint preview proof with `draft-review-required` / `blocked-pending-configuration`, HQ dashboard route render `200` with the blueprint preview label and blocked setup state, and clean `3000` teardown.
 - The platform root endpoint navigation now includes `/orchestration/business-systems/draft-preview`, making natural-language business-system blueprint preview discoverable from the API root as well as `/orchestration/capabilities`.
 - Verification passed: targeted app/orchestration tests `89/89`, API build, and full API Jest `26/26` suites and `371/371` tests.
 - `GET /orchestration/capabilities` now advertises the natural-language blueprint preview endpoint, preview-only mode, disabled external actions, and top-level review-summary availability.

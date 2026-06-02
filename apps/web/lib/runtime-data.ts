@@ -70,3 +70,39 @@ export async function getJsonResult<T>(path: string): Promise<JsonResult<T>> {
     };
   }
 }
+
+export async function postJsonResult<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<JsonResult<T>> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      return {
+        data: null,
+        status: res.status,
+        error: `HTTP ${res.status}`,
+      };
+    }
+
+    return {
+      data: (await res.json()) as T,
+      status: res.status,
+      error: null,
+    };
+  } catch {
+    return {
+      data: null,
+      status: null,
+      error: "API unreachable",
+    };
+  }
+}
