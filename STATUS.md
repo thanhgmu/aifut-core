@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces HQ orchestration runtime scope bindings using existing diagnostics truth.
+- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces HQ orchestration runtime correlation keys using existing diagnostics truth.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `f305fb3` feat(web): surface runtime scope bindings in HQ
 - `0291a25` feat(web): surface runtime history counts in HQ
 - `35a0262` fix(web): report runtime diagnostics read failure
 - `a03a4dc` feat(web): surface runtime event status in HQ
@@ -74,6 +75,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now surfaces the latest persisted orchestration snapshot and event correlation keys inside the runtime diagnostics panel, making specific runtime records directly traceable during investigation.
+- Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with both correlation-key labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces the persisted orchestration diagnostics tenant and workspace scope bindings directly inside the runtime panel, making backend runtime isolation context visible to operators.
 - Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with tenant and workspace scope labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces persisted orchestration snapshot and event counts directly inside the runtime diagnostics panel, keeping investigation context visible where operators inspect progression.
