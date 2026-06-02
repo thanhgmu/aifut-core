@@ -992,6 +992,14 @@ export class OrchestrationService {
         workspaceSlug: input.workspaceSlug,
         planId,
         objective,
+        approvalContracts: appCoordination.operatorCheckpoints.map(
+          (checkpoint) => ({
+            checkpointKey: checkpoint.checkpointKey,
+            approverRole: 'operator',
+            escalationMode: 'manual-review',
+            required: true,
+          }),
+        ),
       }),
       contextScope: {
         tenantSlug: input.tenantSlug,
