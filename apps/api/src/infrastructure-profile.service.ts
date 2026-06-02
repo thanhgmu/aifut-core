@@ -237,6 +237,11 @@ export class InfrastructureProfileService {
       },
     });
 
+    const visibleDomains = domains.map((domain) => ({
+      ...domain,
+      readiness: evaluateTenantDomainReadiness(domain),
+    }));
+
     return {
       capability: 'integrations',
       status: 'resolved',
@@ -246,10 +251,16 @@ export class InfrastructureProfileService {
           slug: tenant.slug,
           name: tenant.name,
         },
-        domains: domains.map((domain) => ({
-          ...domain,
-          readiness: evaluateTenantDomainReadiness(domain),
-        })),
+        summary: {
+          domainCount: visibleDomains.length,
+          routeReadyDomainCount: visibleDomains.filter(
+            (domain) => domain.readiness.routeReady,
+          ).length,
+          attentionRequiredDomainCount: visibleDomains.filter(
+            (domain) => !domain.readiness.routeReady,
+          ).length,
+        },
+        domains: visibleDomains,
         recommendations: [
           'declare-primary-subdomain-or-custom-domain',
           'attach-dns-target-and-certificate-status',

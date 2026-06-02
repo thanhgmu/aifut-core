@@ -208,6 +208,11 @@ type DomainRoutingResponse = {
       slug?: string;
       name?: string;
     };
+    summary?: {
+      domainCount?: number;
+      routeReadyDomainCount?: number;
+      attentionRequiredDomainCount?: number;
+    };
     domains?: Array<{
       id?: string;
       hostname?: string;
@@ -305,7 +310,10 @@ export default async function OperatorPreviewPage() {
     ? aiUsageSummary.summary.recentEvents
     : [];
   const domains = Array.isArray(domainRouting?.routing?.domains) ? domainRouting.routing.domains : [];
-  const routeReadyDomainCount = domains.filter((domain) => domain.readiness?.routeReady).length;
+  const routeReadyDomainCount = domainRouting?.routing?.summary?.routeReadyDomainCount
+    ?? domains.filter((domain) => domain.readiness?.routeReady).length;
+  const attentionRequiredDomainCount = domainRouting?.routing?.summary?.attentionRequiredDomainCount
+    ?? domains.filter((domain) => !domain.readiness?.routeReady).length;
   const failedReads = Object.entries(readResults).filter(([, result]) => !result.data);
 
   return (
@@ -338,7 +346,7 @@ export default async function OperatorPreviewPage() {
           <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
           <MetricCard title="Approval replays" value={String(approvalHistory?.approvalHistory?.count ?? 0)} note="persisted approval-dispatch resumes" />
           <MetricCard title="AI usage" value={formatTokenCount(aiUsageSummary?.summary?.totals?.totalTokens)} note={`${formatCost(aiUsageSummary?.summary?.totals?.effectiveCost)} effective cost`} />
-          <MetricCard title="Domain routes" value={`${routeReadyDomainCount}/${domains.length}`} note="ready routes from shared evaluator" />
+          <MetricCard title="Domain routes" value={`${routeReadyDomainCount}/${domains.length}`} note={`${attentionRequiredDomainCount} need attention`} />
           <MetricCard title="HQ reads" value={failedReads.length === 0 ? "Healthy" : `${failedReads.length} unavailable`} note={failedReads.length === 0 ? "all preview reads returned data" : "inspect bounded read status below"} />
           <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
         </section>

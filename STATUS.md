@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint adds route-ready and attention-required domain counts to integration control-plane reads.
+- `main` is synchronized with `origin/main`; latest functional checkpoint adds route-ready and attention-required domain summary visibility to the HQ domain-routing surface.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `38729a9` feat(api): summarize control-plane domain readiness
 - `e36ec2d` feat(api): expose control-plane domain readiness
 - `2cfd9b8` feat(api): expose topology domain readiness
 - `c52e1b2` feat(web): surface AI usage ledger in HQ
@@ -63,6 +64,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `GET /integrations/domain-routing` now returns route-ready and attention-required domain counts from the shared readiness evaluator, and Web UI HQ surfaces the bounded attention count while retaining a local fallback.
+- Verification passed: targeted infrastructure profile spec `3/3`, API build, full API Jest `26/26` suites and `363/363` tests, web typecheck, web production build, PostgreSQL runtime verifier `ok: true`, live domain-routing summary proof with `4` visible domains split into `2` route-ready and `2` attention-required domains, HQ route render `200` with the attention count, and clean `3000` / `3002` teardown.
 - `GET /integrations/control-plane` now summarizes visible route-ready and attention-required domain counts from the same shared readiness diagnostics returned per domain.
 - Verification passed: targeted integration control-plane service spec `3/3`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, live production API health `200`, live control-plane summary proof with `4` visible domains split into `2` route-ready and `2` attention-required domains, and clean port `3002` teardown.
 - `GET /integrations/control-plane` now enriches visible domains with readiness from the shared `evaluateTenantDomainReadiness(...)` evaluator.

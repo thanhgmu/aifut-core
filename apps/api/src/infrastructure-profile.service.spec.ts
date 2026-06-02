@@ -193,6 +193,11 @@ describe('InfrastructureProfileService', () => {
         ],
       },
     });
+    expect(result.routing.summary).toEqual({
+      domainCount: 1,
+      routeReadyDomainCount: 0,
+      attentionRequiredDomainCount: 1,
+    });
   });
 
   it('should expose friendly workspace bindings in storage routing policy', async () => {
