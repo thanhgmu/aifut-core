@@ -20,7 +20,8 @@ Last updated: 2026-06-03
 - The orchestration controller contract test now locks top-level blueprint review-summary visibility so API refactors cannot silently drop activation blockers or ordered setup work.
 - Orchestration capability discovery now advertises the natural-language blueprint preview endpoint, preview-only execution mode, disabled external actions, and top-level review-summary availability.
 - The platform root endpoint navigation now links directly to the orchestration natural-language business-system blueprint preview endpoint.
-- `main` is synchronized with `origin/main`; latest functional checkpoint links the orchestration blueprint preview endpoint from platform root discovery.
+- The API docs now include a natural-language business blueprint preview usage example with request fields, render-first response fields, and the preview-only safety contract.
+- `main` is synchronized with `origin/main`; latest functional checkpoint documents how clients should call and render the natural-language business blueprint preview safely.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -231,6 +232,7 @@ Last updated: 2026-06-03
 - The local sample context now matches seeded runtime truth: `ops@acme.test` and `plan:acme:ops:live-runtime`.
 
 ## Verification
+- Latest docs/API discovery slice: targeted app/orchestration specs `89/89` and API build passing.
 - Latest orchestration blueprint runtime-binding slice: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests passing.
 - Targeted verification: `npm test -- --runInBand audit-events.service.spec.ts orchestration.controller.spec.ts` passing (`32/32`).
 - API build and web production build passing.
@@ -244,7 +246,7 @@ Last updated: 2026-06-03
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Continue the smallest low-collision AI-governance visibility or orchestration runtime-binding slice in Web UI HQ.
+1. Continue the smallest low-collision orchestration runtime-binding or AI-governance visibility checkpoint.
 2. Keep domain lifecycle runtime-read contracts aligned across domain-routing, infrastructure-profile, topology, and storage policy surfaces.
 
 ## One-command approved replay proof
