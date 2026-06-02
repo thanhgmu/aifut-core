@@ -17,6 +17,7 @@ Last updated: 2026-06-03
 - Blueprint activation-readiness summaries now translate unresolved blockers into an ordered operator checklist for runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
 - Blueprint activation-readiness summaries now distinguish configured, unresolved, and intentionally deferred decisions so operators can inspect setup state at a glance.
 - Natural-language blueprint previews now surface a top-level review summary with activation status, blockers, ordered setup work, and decision counts without forcing consumers to inspect nested execution-contract details.
+- Natural-language blueprint previews now expose a runtime-binding setup queue in both top-level review summaries and activation-readiness details so clients can render one setup row per unbound lifecycle workflow.
 - The orchestration controller contract test now locks top-level blueprint review-summary visibility so API refactors cannot silently drop activation blockers or ordered setup work.
 - Orchestration capability discovery now advertises the natural-language blueprint preview endpoint, preview-only execution mode, disabled external actions, and top-level review-summary availability.
 - The platform root endpoint navigation now links directly to the orchestration natural-language business-system blueprint preview endpoint.
@@ -119,6 +120,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Natural-language blueprint previews now publish a runtime-binding setup queue for each unbound lifecycle workflow, including workflow key, suggested system boundary, approval checkpoint, setup status, and the blocker each row resolves.
+- Verification passed: targeted orchestration service tests `55/55`, API build, and full API Jest `26/26` suites and `371/371` tests.
 - The Web UI dashboard now surfaces a live natural-language business blueprint preview summary from `/orchestration/business-systems/draft-preview`, including lifecycle phase count, workflow graph shape, system assignments, dataflow edges, unbound child-workflow drafts, approval contracts, activation status, blockers, and ordered setup actions.
 - Verification passed: web typecheck, web production build, live production API health `200`, live blueprint preview proof with `draft-review-required` / `blocked-pending-configuration`, HQ dashboard route render `200` with the blueprint preview label and blocked setup state, and clean `3000` teardown.
 - The platform root endpoint navigation now includes `/orchestration/business-systems/draft-preview`, making natural-language business-system blueprint preview discoverable from the API root as well as `/orchestration/capabilities`.

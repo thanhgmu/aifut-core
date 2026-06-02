@@ -86,6 +86,7 @@ Client surfaces should render these `businessSystemBlueprint` fields first:
 - `reviewSummary.status`: whether the draft can be activated yet.
 - `reviewSummary.blockers`: missing runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
 - `reviewSummary.nextActions`: ordered setup checklist for the operator.
+- `reviewSummary.runtimeBindingSetupQueue`: per-workflow setup rows for assigning each lifecycle phase to a configured runtime and system boundary.
 - `reviewSummary.decisions`: counts of configured, unresolved, and intentionally deferred setup decisions.
 - `executionPolicy.mode`: expected to remain `preview-only`.
 - `executionPolicy.externalActionsAllowed`: expected to remain `false`.
@@ -95,6 +96,7 @@ Client surfaces should render these `businessSystemBlueprint` fields first:
 - `appCoordination.systemAssignments`: suggested app/system boundaries that still require review.
 - `dataflow.edges`: business-object movement between phases, without final source-of-truth claims.
 - `executionContractDraft.activationReadiness`: detailed activation blockers and setup state.
+- `executionContractDraft.activationReadiness.runtimeBindingSetupQueue`: the same runtime-binding setup queue with workflow, system-boundary, approval-checkpoint, and blocker-resolution metadata.
 
 ## Safety Contract
 

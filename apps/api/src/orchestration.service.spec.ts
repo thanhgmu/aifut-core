@@ -503,6 +503,96 @@ describe('OrchestrationService', () => {
               actionOrder: 4,
             },
           ],
+          runtimeBindingSetupQueue: [
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:market-discovery',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 1,
+              workflowKey: 'market-discovery',
+              systemBoundaryKey: 'research-intelligence',
+              approvalCheckpointKey: null,
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:supplier-validation',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 2,
+              workflowKey: 'supplier-validation',
+              systemBoundaryKey: 'supplier-management',
+              approvalCheckpointKey: 'approve-supplier-selection',
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:go-to-market-planning',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 3,
+              workflowKey: 'go-to-market-planning',
+              systemBoundaryKey: 'campaign-planning',
+              approvalCheckpointKey: null,
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:content-production',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 4,
+              workflowKey: 'content-production',
+              systemBoundaryKey: 'content-workspace',
+              approvalCheckpointKey: 'approve-content-release',
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:channel-distribution',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 5,
+              workflowKey: 'channel-distribution',
+              systemBoundaryKey: 'channel-publishing',
+              approvalCheckpointKey: null,
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:sales-conversion',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 6,
+              workflowKey: 'sales-conversion',
+              systemBoundaryKey: 'crm-commerce',
+              approvalCheckpointKey: null,
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:operations-fulfillment',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 7,
+              workflowKey: 'operations-fulfillment',
+              systemBoundaryKey: 'order-fulfillment',
+              approvalCheckpointKey: 'review-fulfillment-exceptions',
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+            {
+              setupKey:
+                'plan:acme:ops:draft:runtime-binding:customer-success',
+              actionKey: 'assign-runtime-binding',
+              actionOrder: 8,
+              workflowKey: 'customer-success',
+              systemBoundaryKey: 'customer-support',
+              approvalCheckpointKey: null,
+              setupStatus: 'required',
+              resolvesBlocker: 'runtime-bindings-unassigned',
+            },
+          ],
           decisionSummary: {
             configuredCount: 1,
             configuredDecisionKeys: ['approval-contracts-defined'],
@@ -548,6 +638,61 @@ describe('OrchestrationService', () => {
           { actionKey: 'configure-approval-channels', actionOrder: 2 },
           { actionKey: 'assign-source-of-truth', actionOrder: 3 },
           { actionKey: 'define-sync-policies', actionOrder: 4 },
+        ],
+        runtimeBindingSetupQueue: [
+          {
+            setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
+            workflowKey: 'market-discovery',
+            systemBoundaryKey: 'research-intelligence',
+            approvalCheckpointKey: null,
+          },
+          {
+            setupKey:
+              'plan:acme:ops:draft:runtime-binding:supplier-validation',
+            workflowKey: 'supplier-validation',
+            systemBoundaryKey: 'supplier-management',
+            approvalCheckpointKey: 'approve-supplier-selection',
+          },
+          {
+            setupKey:
+              'plan:acme:ops:draft:runtime-binding:go-to-market-planning',
+            workflowKey: 'go-to-market-planning',
+            systemBoundaryKey: 'campaign-planning',
+            approvalCheckpointKey: null,
+          },
+          {
+            setupKey:
+              'plan:acme:ops:draft:runtime-binding:content-production',
+            workflowKey: 'content-production',
+            systemBoundaryKey: 'content-workspace',
+            approvalCheckpointKey: 'approve-content-release',
+          },
+          {
+            setupKey:
+              'plan:acme:ops:draft:runtime-binding:channel-distribution',
+            workflowKey: 'channel-distribution',
+            systemBoundaryKey: 'channel-publishing',
+            approvalCheckpointKey: null,
+          },
+          {
+            setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+            workflowKey: 'sales-conversion',
+            systemBoundaryKey: 'crm-commerce',
+            approvalCheckpointKey: null,
+          },
+          {
+            setupKey:
+              'plan:acme:ops:draft:runtime-binding:operations-fulfillment',
+            workflowKey: 'operations-fulfillment',
+            systemBoundaryKey: 'order-fulfillment',
+            approvalCheckpointKey: 'review-fulfillment-exceptions',
+          },
+          {
+            setupKey: 'plan:acme:ops:draft:runtime-binding:customer-success',
+            workflowKey: 'customer-success',
+            systemBoundaryKey: 'customer-support',
+            approvalCheckpointKey: null,
+          },
         ],
         decisionSummary: {
           configuredCount: 1,

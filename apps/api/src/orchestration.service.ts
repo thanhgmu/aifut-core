@@ -1021,6 +1021,8 @@ export class OrchestrationService {
           executionContractDraft.activationReadiness.activationAllowed,
         blockers: executionContractDraft.activationReadiness.blockers,
         nextActions: executionContractDraft.activationReadiness.nextActions,
+        runtimeBindingSetupQueue:
+          executionContractDraft.activationReadiness.runtimeBindingSetupQueue,
         decisionSummary:
           executionContractDraft.activationReadiness.decisionSummary,
       },
@@ -1110,6 +1112,18 @@ export class OrchestrationService {
     const sourceOfTruthAssignmentCount =
       input.activationReadiness?.sourceOfTruthAssignmentCount ?? 0;
     const syncPolicyCount = input.activationReadiness?.syncPolicyCount ?? 0;
+    const runtimeBindingSetupQueue = unboundChildWorkflowDrafts.map(
+      (draft, index) => ({
+        setupKey: `${input.planId}:runtime-binding:${draft.workflowKey}`,
+        actionKey: 'assign-runtime-binding',
+        actionOrder: index + 1,
+        workflowKey: draft.workflowKey,
+        systemBoundaryKey: draft.systemBoundaryKey,
+        approvalCheckpointKey: draft.approvalCheckpointKey || null,
+        setupStatus: 'required',
+        resolvesBlocker: 'runtime-bindings-unassigned',
+      }),
+    );
     const activationBlockers = [
       ...(unboundChildWorkflowDrafts.length > 0
         ? ['runtime-bindings-unassigned']
@@ -1195,6 +1209,7 @@ export class OrchestrationService {
         activationAllowed: false,
         blockers: activationBlockers,
         nextActions: activationNextActions,
+        runtimeBindingSetupQueue,
         decisionSummary: {
           configuredCount: configuredDecisionKeys.length,
           configuredDecisionKeys,
