@@ -992,6 +992,16 @@ export class OrchestrationService {
         workspaceSlug: input.workspaceSlug,
         planId,
         objective,
+        unboundChildWorkflowDrafts: appCoordination.systemAssignments.map(
+          (assignment) => ({
+            workflowKey: assignment.phaseKey,
+            systemBoundaryKey: assignment.systemBoundaryKey,
+            approvalCheckpointKey:
+              appCoordination.operatorCheckpoints.find(
+                (checkpoint) => checkpoint.phaseKey === assignment.phaseKey,
+              )?.checkpointKey,
+          }),
+        ),
         approvalContracts: appCoordination.operatorCheckpoints.map(
           (checkpoint) => ({
             checkpointKey: checkpoint.checkpointKey,
@@ -1028,6 +1038,11 @@ export class OrchestrationService {
       approvalRequired?: boolean;
       approvalCheckpointKey?: string;
     }>;
+    unboundChildWorkflowDrafts?: Array<{
+      workflowKey?: string;
+      systemBoundaryKey?: string;
+      approvalCheckpointKey?: string;
+    }>;
     approvalContracts?: Array<{
       checkpointKey?: string;
       approverRole?: string;
@@ -1055,6 +1070,14 @@ export class OrchestrationService {
     const childWorkflowContracts = this.normalizeChildWorkflowContracts(
       input.childWorkflowContracts,
     );
+    const unboundChildWorkflowDrafts = (input.unboundChildWorkflowDrafts ?? [])
+      .map((draft) => ({
+        workflowKey: draft.workflowKey?.trim() ?? '',
+        systemBoundaryKey: draft.systemBoundaryKey?.trim() ?? '',
+        approvalCheckpointKey: draft.approvalCheckpointKey?.trim() ?? '',
+        runtimeBindingStatus: 'unassigned',
+      }))
+      .filter((draft) => draft.workflowKey && draft.systemBoundaryKey);
     const approvalContracts = this.normalizeApprovalContracts(
       input.approvalContracts,
     );
@@ -1074,6 +1097,7 @@ export class OrchestrationService {
       executionModes,
       runtimeBindings,
       childWorkflowContracts,
+      unboundChildWorkflowDrafts,
       approvalContracts,
       escalationContracts,
       rollbackContracts,
@@ -1084,6 +1108,7 @@ export class OrchestrationService {
           (binding) => binding.approvalRequired,
         ).length,
         childWorkflowContractCount: childWorkflowContracts.length,
+        unboundChildWorkflowDraftCount: unboundChildWorkflowDrafts.length,
         approvalRequiredChildWorkflowCount: childWorkflowContracts.filter(
           (contract) => contract.approvalRequired,
         ).length,

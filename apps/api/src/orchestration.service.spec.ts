@@ -410,6 +410,46 @@ describe('OrchestrationService', () => {
         objective: 'Find and validate a product for Vietnam.',
         runtimeBindings: [],
         childWorkflowContracts: [],
+        unboundChildWorkflowDrafts: [
+          {
+            workflowKey: 'market-discovery',
+            systemBoundaryKey: 'research-intelligence',
+            approvalCheckpointKey: '',
+            runtimeBindingStatus: 'unassigned',
+          },
+          {
+            workflowKey: 'supplier-validation',
+            systemBoundaryKey: 'supplier-management',
+            approvalCheckpointKey: 'approve-supplier-selection',
+            runtimeBindingStatus: 'unassigned',
+          },
+          {
+            workflowKey: 'go-to-market-planning',
+            systemBoundaryKey: 'campaign-planning',
+          },
+          {
+            workflowKey: 'content-production',
+            systemBoundaryKey: 'content-workspace',
+            approvalCheckpointKey: 'approve-content-release',
+          },
+          {
+            workflowKey: 'channel-distribution',
+            systemBoundaryKey: 'channel-publishing',
+          },
+          {
+            workflowKey: 'sales-conversion',
+            systemBoundaryKey: 'crm-commerce',
+          },
+          {
+            workflowKey: 'operations-fulfillment',
+            systemBoundaryKey: 'order-fulfillment',
+            approvalCheckpointKey: 'review-fulfillment-exceptions',
+          },
+          {
+            workflowKey: 'customer-success',
+            systemBoundaryKey: 'customer-support',
+          },
+        ],
         approvalContracts: [
           {
             checkpointKey: 'approve-supplier-selection',
@@ -438,6 +478,7 @@ describe('OrchestrationService', () => {
         draftSummary: {
           runtimeBindingCount: 0,
           childWorkflowContractCount: 0,
+          unboundChildWorkflowDraftCount: 8,
           approvalContractCount: 3,
           requiredApprovalContractCount: 3,
           escalationContractCount: 0,
@@ -466,6 +507,7 @@ describe('OrchestrationService', () => {
       executionModes: [],
       runtimeBindings: [],
       childWorkflowContracts: [],
+      unboundChildWorkflowDrafts: [],
       approvalContracts: [],
       escalationContracts: [],
       rollbackContracts: [],
@@ -474,6 +516,7 @@ describe('OrchestrationService', () => {
         runtimeBindingCount: 0,
         approvalRequiredRuntimeBindingCount: 0,
         childWorkflowContractCount: 0,
+        unboundChildWorkflowDraftCount: 0,
         approvalRequiredChildWorkflowCount: 0,
         childWorkflowCheckpointCount: 0,
         approvalContractCount: 0,
@@ -717,6 +760,7 @@ describe('OrchestrationService', () => {
       childWorkflowContractCount: 2,
       approvalRequiredChildWorkflowCount: 1,
       childWorkflowCheckpointCount: 1,
+      unboundChildWorkflowDraftCount: 0,
       approvalContractCount: 2,
       requiredApprovalContractCount: 1,
       escalationContractCount: 1,
