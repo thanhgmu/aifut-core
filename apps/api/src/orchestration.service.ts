@@ -1010,6 +1010,10 @@ export class OrchestrationService {
             required: true,
           }),
         ),
+        activationReadiness: {
+          sourceOfTruthAssignmentCount: 0,
+          syncPolicyCount: 0,
+        },
       }),
       contextScope: {
         tenantSlug: input.tenantSlug,
@@ -1064,6 +1068,10 @@ export class OrchestrationService {
       strategy?: string;
       preserveArtifacts?: boolean;
     }>;
+    activationReadiness?: {
+      sourceOfTruthAssignmentCount?: number;
+      syncPolicyCount?: number;
+    };
   }) {
     const executionModes = this.normalizeStringList(input.executionModes);
     const runtimeBindings = this.normalizeRuntimeBindings(input.runtimeBindings);
@@ -1087,6 +1095,24 @@ export class OrchestrationService {
     const rollbackContracts = this.normalizeRollbackContracts(
       input.rollbackContracts,
     );
+    const missingApprovalChannelCount = approvalContracts.filter(
+      (contract) => contract.required && !contract.channel,
+    ).length;
+    const sourceOfTruthAssignmentCount =
+      input.activationReadiness?.sourceOfTruthAssignmentCount ?? 0;
+    const syncPolicyCount = input.activationReadiness?.syncPolicyCount ?? 0;
+    const activationBlockers = [
+      ...(unboundChildWorkflowDrafts.length > 0
+        ? ['runtime-bindings-unassigned']
+        : []),
+      ...(missingApprovalChannelCount > 0
+        ? ['approval-channels-unassigned']
+        : []),
+      ...(sourceOfTruthAssignmentCount === 0
+        ? ['source-of-truth-assignments-unresolved']
+        : []),
+      ...(syncPolicyCount === 0 ? ['sync-policies-unresolved'] : []),
+    ];
 
     return {
       planId: input.planId,
@@ -1101,6 +1127,18 @@ export class OrchestrationService {
       approvalContracts,
       escalationContracts,
       rollbackContracts,
+      activationReadiness: {
+        status:
+          activationBlockers.length > 0
+            ? 'blocked-pending-configuration'
+            : 'ready-for-activation-review',
+        activationAllowed: false,
+        blockers: activationBlockers,
+        missingRuntimeBindingCount: unboundChildWorkflowDrafts.length,
+        missingApprovalChannelCount,
+        sourceOfTruthAssignmentCount,
+        syncPolicyCount,
+      },
       draftSummary: {
         executionModeCount: executionModes.length,
         runtimeBindingCount: runtimeBindings.length,

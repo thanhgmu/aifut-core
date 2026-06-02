@@ -475,6 +475,20 @@ describe('OrchestrationService', () => {
         ],
         escalationContracts: [],
         rollbackContracts: [],
+        activationReadiness: {
+          status: 'blocked-pending-configuration',
+          activationAllowed: false,
+          blockers: [
+            'runtime-bindings-unassigned',
+            'approval-channels-unassigned',
+            'source-of-truth-assignments-unresolved',
+            'sync-policies-unresolved',
+          ],
+          missingRuntimeBindingCount: 8,
+          missingApprovalChannelCount: 3,
+          sourceOfTruthAssignmentCount: 0,
+          syncPolicyCount: 0,
+        },
         draftSummary: {
           runtimeBindingCount: 0,
           childWorkflowContractCount: 0,
@@ -511,6 +525,18 @@ describe('OrchestrationService', () => {
       approvalContracts: [],
       escalationContracts: [],
       rollbackContracts: [],
+      activationReadiness: {
+        status: 'blocked-pending-configuration',
+        activationAllowed: false,
+        blockers: [
+          'source-of-truth-assignments-unresolved',
+          'sync-policies-unresolved',
+        ],
+        missingRuntimeBindingCount: 0,
+        missingApprovalChannelCount: 0,
+        sourceOfTruthAssignmentCount: 0,
+        syncPolicyCount: 0,
+      },
       draftSummary: {
         executionModeCount: 0,
         runtimeBindingCount: 0,
