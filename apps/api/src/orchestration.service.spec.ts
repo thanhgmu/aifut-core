@@ -164,6 +164,57 @@ describe('OrchestrationService', () => {
     });
   });
 
+  it('should compose a preview-only business system blueprint from natural language', () => {
+    const result = service.buildBusinessSystemBlueprintDraft({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      naturalLanguageBrief: '  Find and validate a product for Vietnam.  ',
+      constraints: [' low-starting-capital ', 'low-starting-capital'],
+      preferredSystems: [' n8n ', 'nexovaflow'],
+      businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
+      priorities: [' cost ', 'time-to-first-sale'],
+      lanes: ['research', 'content', 'sales', 'support'],
+    });
+
+    expect(result).toMatchObject({
+      blueprintStatus: 'draft-review-required',
+      intentSurface: 'natural-language',
+      executionPolicy: {
+        mode: 'preview-only',
+        externalActionsAllowed: false,
+        approvalRequiredBeforeActivation: true,
+      },
+      roadmapDraft: {
+        id: 'draft:acme:ops:roadmap',
+        sourceKind: 'natural-language',
+        contentPreview: 'Find and validate a product for Vietnam.',
+      },
+      interpretation: {
+        hints: ['low-starting-capital'],
+      },
+      parentWorkflowPlan: {
+        id: 'plan:acme:ops:draft',
+        constraints: ['low-starting-capital'],
+      },
+      appCoordination: {
+        preferredSystems: ['n8n', 'nexovaflow'],
+      },
+      dataflow: {
+        businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
+      },
+      optimizationSummary: {
+        priorities: ['cost', 'time-to-first-sale'],
+      },
+      workflowGraph: {
+        lanes: ['research', 'content', 'sales', 'support'],
+      },
+      contextScope: {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+      },
+    });
+  });
+
   it('should build an execution contract draft with normalized defaults', () => {
     const result = service.buildExecutionContractDraft({
       tenantSlug: 'acme',

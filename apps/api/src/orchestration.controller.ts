@@ -66,6 +66,7 @@ export class OrchestrationController {
         parentWorkflowDrafts: true,
         appCoordinationDrafts: true,
         dataflowDrafts: true,
+        naturalLanguageBusinessSystemBlueprints: true,
       },
       next: ORCHESTRATION_FOUNDATION_ROADMAP,
     };
@@ -124,6 +125,67 @@ export class OrchestrationController {
         'roadmap-interpretation',
         'parent-workflow-draft',
         'optimization-summary',
+      ],
+    };
+  }
+
+  @Post('business-systems/draft-preview')
+  async draftBusinessSystemBlueprint(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      naturalLanguageBrief?: string;
+      constraints?: string[];
+      preferredSystems?: string[];
+      businessObjects?: string[];
+      priorities?: string[];
+      lanes?: string[];
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
+  ) {
+    const context = await this.resolveActorContext({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'business-system-blueprint-drafted',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      businessSystemBlueprint:
+        this.orchestration.buildBusinessSystemBlueprintDraft({
+          tenantSlug: context.tenant.slug,
+          workspaceSlug: context.activeWorkspace?.slug,
+          naturalLanguageBrief: body.naturalLanguageBrief,
+          constraints: body.constraints,
+          preferredSystems: body.preferredSystems,
+          businessObjects: body.businessObjects,
+          priorities: body.priorities,
+          lanes: body.lanes,
+        }),
+      next: [
+        'review-business-assumptions',
+        'collect-missing-inputs',
+        'approve-parent-workflow-draft',
       ],
     };
   }

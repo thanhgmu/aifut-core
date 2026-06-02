@@ -717,6 +717,87 @@ export class OrchestrationService {
     };
   }
 
+  buildBusinessSystemBlueprintDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    naturalLanguageBrief?: string;
+    constraints?: string[];
+    preferredSystems?: string[];
+    businessObjects?: string[];
+    priorities?: string[];
+    lanes?: string[];
+  }) {
+    const objective =
+      input.naturalLanguageBrief?.trim() ||
+      'Design a reviewable end-to-end business system from the user brief.';
+    const roadmapDraft = this.buildRoadmapDraft({
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      sourceKind: 'natural-language',
+      title: 'Natural-language business system blueprint',
+      content: objective,
+    });
+    const parentWorkflowPlan = this.buildParentWorkflowPlan({
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      roadmapDraftId: roadmapDraft.id,
+      objective,
+      constraints: input.constraints,
+    });
+    const planId = parentWorkflowPlan.id;
+
+    return {
+      blueprintStatus: 'draft-review-required',
+      intentSurface: 'natural-language',
+      executionPolicy: {
+        mode: 'preview-only',
+        externalActionsAllowed: false,
+        approvalRequiredBeforeActivation: true,
+      },
+      roadmapDraft,
+      interpretation: this.buildRoadmapInterpretation({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        roadmapDraftId: roadmapDraft.id,
+        objective,
+        hints: input.constraints,
+      }),
+      parentWorkflowPlan,
+      appCoordination: this.buildAppCoordinationDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
+        objective,
+        preferredSystems: input.preferredSystems,
+      }),
+      dataflow: this.buildDataflowModelDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
+        objective,
+        businessObjects: input.businessObjects,
+      }),
+      optimizationSummary: this.buildOptimizationSummaryDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
+        objective,
+        priorities: input.priorities,
+      }),
+      workflowGraph: this.buildWorkflowGraphDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
+        objective,
+        lanes: input.lanes,
+      }),
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
+
   buildExecutionContractDraft(input: {
     tenantSlug: string;
     workspaceSlug?: string | null;

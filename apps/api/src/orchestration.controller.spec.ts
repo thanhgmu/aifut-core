@@ -21,6 +21,7 @@ describe('OrchestrationController', () => {
     buildDataflowModelDraft: jest.Mock;
     buildOptimizationSummaryDraft: jest.Mock;
     buildWorkflowGraphDraft: jest.Mock;
+    buildBusinessSystemBlueprintDraft: jest.Mock;
     buildExecutionContractDraft: jest.Mock;
     submitExecutionContract: jest.Mock;
     materializeExecutionRuntime: jest.Mock;
@@ -56,6 +57,7 @@ describe('OrchestrationController', () => {
       buildDataflowModelDraft: jest.fn(),
       buildOptimizationSummaryDraft: jest.fn(),
       buildWorkflowGraphDraft: jest.fn(),
+      buildBusinessSystemBlueprintDraft: jest.fn(),
       buildExecutionContractDraft: jest.fn(),
       submitExecutionContract: jest.fn(),
       materializeExecutionRuntime: jest.fn(),
@@ -518,6 +520,70 @@ describe('OrchestrationController', () => {
         tenant: { slug: 'acme' },
         activeWorkspace: { slug: 'ops' },
       },
+    });
+  });
+
+  it('should draft a review-gated business system blueprint from natural language', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildBusinessSystemBlueprintDraft.mockReturnValue({
+      blueprintStatus: 'draft-review-required',
+      intentSurface: 'natural-language',
+      executionPolicy: {
+        mode: 'preview-only',
+        externalActionsAllowed: false,
+        approvalRequiredBeforeActivation: true,
+      },
+    });
+
+    const result = await controller.draftBusinessSystemBlueprint(
+      {
+        naturalLanguageBrief: 'Find and validate a product for Vietnam.',
+        constraints: ['low-starting-capital'],
+        preferredSystems: ['n8n', 'nexovaflow'],
+        businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
+        priorities: ['cost', 'time-to-first-sale'],
+        lanes: ['research', 'content', 'sales', 'support'],
+      },
+      'acme',
+      'ops@acme.test',
+      'ops',
+      'ops.acme.test',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(orchestration.buildBusinessSystemBlueprintDraft).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      naturalLanguageBrief: 'Find and validate a product for Vietnam.',
+      constraints: ['low-starting-capital'],
+      preferredSystems: ['n8n', 'nexovaflow'],
+      businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
+      priorities: ['cost', 'time-to-first-sale'],
+      lanes: ['research', 'content', 'sales', 'support'],
+    });
+    expect(result).toMatchObject({
+      status: 'business-system-blueprint-drafted',
+      businessSystemBlueprint: {
+        blueprintStatus: 'draft-review-required',
+        executionPolicy: {
+          mode: 'preview-only',
+          externalActionsAllowed: false,
+          approvalRequiredBeforeActivation: true,
+        },
+      },
+      next: [
+        'review-business-assumptions',
+        'collect-missing-inputs',
+        'approve-parent-workflow-draft',
+      ],
     });
   });
 
