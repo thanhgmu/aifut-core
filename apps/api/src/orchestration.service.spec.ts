@@ -198,6 +198,42 @@ describe('OrchestrationService', () => {
       },
       appCoordination: {
         preferredSystems: ['n8n', 'nexovaflow'],
+        systemAssignments: [
+          {
+            phaseKey: 'market-discovery',
+            systemBoundaryKey: 'research-intelligence',
+            assignmentStatus: 'review-required',
+            connectorActivationAllowed: false,
+          },
+          {
+            phaseKey: 'supplier-validation',
+            systemBoundaryKey: 'supplier-management',
+          },
+          {
+            phaseKey: 'go-to-market-planning',
+            systemBoundaryKey: 'campaign-planning',
+          },
+          {
+            phaseKey: 'content-production',
+            systemBoundaryKey: 'content-workspace',
+          },
+          {
+            phaseKey: 'channel-distribution',
+            systemBoundaryKey: 'channel-publishing',
+          },
+          {
+            phaseKey: 'sales-conversion',
+            systemBoundaryKey: 'crm-commerce',
+          },
+          {
+            phaseKey: 'operations-fulfillment',
+            systemBoundaryKey: 'order-fulfillment',
+          },
+          {
+            phaseKey: 'customer-success',
+            systemBoundaryKey: 'customer-support',
+          },
+        ],
       },
       dataflow: {
         businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],

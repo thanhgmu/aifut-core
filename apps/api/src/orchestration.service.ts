@@ -623,7 +623,21 @@ export class OrchestrationService {
     planId: string;
     objective?: string;
     preferredSystems?: string[];
+    lifecyclePhases?: Array<{
+      phaseKey: string;
+    }>;
   }) {
+    const systemBoundaryByPhaseKey = new Map([
+      ['market-discovery', 'research-intelligence'],
+      ['supplier-validation', 'supplier-management'],
+      ['go-to-market-planning', 'campaign-planning'],
+      ['content-production', 'content-workspace'],
+      ['channel-distribution', 'channel-publishing'],
+      ['sales-conversion', 'crm-commerce'],
+      ['operations-fulfillment', 'order-fulfillment'],
+      ['customer-success', 'customer-support'],
+    ]);
+
     return {
       planId: input.planId,
       coordinationStatus: 'draft',
@@ -631,7 +645,13 @@ export class OrchestrationService {
         input.objective?.trim() ||
         'Assign workflow steps to the leanest viable mix of first-party modules and connected systems.',
       preferredSystems: this.normalizeStringList(input.preferredSystems),
-      systemAssignments: [],
+      systemAssignments: (input.lifecyclePhases ?? []).map((phase) => ({
+        phaseKey: phase.phaseKey,
+        systemBoundaryKey:
+          systemBoundaryByPhaseKey.get(phase.phaseKey) ?? 'operator-workspace',
+        assignmentStatus: 'review-required',
+        connectorActivationAllowed: false,
+      })),
       connectorRecommendations: [],
       operatorCheckpoints: [],
       contextScope: {
@@ -868,6 +888,7 @@ export class OrchestrationService {
         planId,
         objective,
         preferredSystems: input.preferredSystems,
+        lifecyclePhases: businessLifecycle.phases,
       }),
       dataflow: this.buildDataflowModelDraft({
         tenantSlug: input.tenantSlug,

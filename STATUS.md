@@ -7,7 +7,8 @@ Last updated: 2026-06-02
 - Preview blueprints keep external actions disabled and require approval before activation; their execution-contract draft makes unresolved runtime bindings, child workflows, approval checkpoints, escalations, and rollback contracts visible before runtime submission.
 - Natural-language blueprint previews now include a reviewable closed-loop business lifecycle from market discovery and supplier validation through content, distribution, sales, fulfillment, and customer-success feedback.
 - Blueprint workflow graphs now project the same closed-loop lifecycle into renderable phase nodes and transition edges, including the customer-success feedback edge back to market discovery.
-- `main` is synchronized with `origin/main`; latest functional checkpoint projects the reviewable closed-loop business lifecycle into renderable workflow graph nodes and edges.
+- Blueprint application-coordination drafts now map lifecycle phases onto review-required system boundaries without claiming installed connectors or allowing automatic connector activation.
+- `main` is synchronized with `origin/main`; latest functional checkpoint maps the reviewable closed-loop business lifecycle onto bounded application-coordination assignments.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -17,6 +18,7 @@ Last updated: 2026-06-02
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `ad9f850` feat(api): project lifecycle workflow graph
 - `2bffa7f` feat(api): draft closed-loop business lifecycle
 - `d50fff3` feat(api): bind blueprint execution contract draft
 - `b3d20ae` feat(api): draft natural language business blueprints
@@ -89,6 +91,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Natural-language blueprint application-coordination drafts now map each lifecycle phase onto a bounded system boundary: research intelligence, supplier management, campaign planning, content workspace, channel publishing, CRM/commerce, fulfillment, and customer support. Every assignment remains review-required with connector activation disabled.
+- Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint workflow graphs now project the same eight-phase business lifecycle into renderable phase nodes and transition edges, including the customer-success feedback transition back into market discovery.
 - Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint previews now carry a reviewable eight-phase closed-loop business lifecycle: market discovery, supplier validation, go-to-market planning, content production, channel distribution, sales conversion, fulfillment operations, and customer success feeding evidence back into market discovery.
