@@ -1283,6 +1283,24 @@ describe('TenancyOperationsService', () => {
     });
   });
 
+  it('should reject malformed provider metadata before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        provider: 'https://providers.example.test/cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'edge.aifut.test',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toThrow('Invalid provider.');
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should trim dns target before persistence for managed active domains', async () => {
     prisma.tenantDomain.upsert.mockResolvedValue({
       id: 'domain_dns_target_trimmed',

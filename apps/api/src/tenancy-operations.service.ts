@@ -207,7 +207,7 @@ export class TenancyOperationsService {
     const provider =
       input.provider === undefined
         ? existingDomain?.provider ?? null
-        : this.normalizeOptional(input.provider);
+        : this.normalizeProvider(input.provider);
     const provisioningMode = this.normalizeProvisioningMode(
       input.provisioningMode === undefined
         ? existingDomain?.provisioningMode
@@ -698,6 +698,16 @@ export class TenancyOperationsService {
 
     if (normalized && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
       throw new BadRequestException('Invalid certificateStatus.');
+    }
+
+    return normalized;
+  }
+
+  private normalizeProvider(value?: string | null) {
+    const normalized = this.normalizeOptionalLowercase(value);
+
+    if (normalized && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
+      throw new BadRequestException('Invalid provider.');
     }
 
     return normalized;
