@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint expands HQ persisted-event runtime visibility using existing API truth.
+- `main` is synchronized with `origin/main`; latest functional checkpoint keeps HQ orchestration-runtime read failures bounded to the correct lane.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `a03a4dc` feat(web): surface runtime event status in HQ
 - `2642ab5` feat(web): surface runtime event timestamp in HQ
 - `dbbff8b` feat(web): expand AI usage ledger visibility
 - `b79bff9` fix(api): validate domain provider metadata
@@ -71,6 +72,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now reports bounded orchestration-runtime diagnostics read failures from the runtime lane instead of incorrectly showing the domain-routing read failure.
+- Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the runtime diagnostics panel, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces the latest persisted orchestration event runtime status separately from the snapshot runtime status, making runtime progression drift visible without redefining backend semantics.
 - Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the latest-event status label, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces the persisted timestamp for the latest orchestration-runtime event from the existing diagnostics summary, alongside the existing snapshot, event type, and runtime status visibility.
