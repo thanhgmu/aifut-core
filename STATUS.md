@@ -9,6 +9,7 @@ Last updated: 2026-06-02
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 - The Web UI HQ operator preview now surfaces the persisted latest orchestration snapshot timestamp separately from the latest event timestamp.
+- The Web UI HQ operator preview now renders the guarded orchestration diagnostics plan binding instead of relying only on client sample context.
 
 ## Landed recently
 - `756cfc9` feat(web): surface approval replay actor scope in HQ
@@ -80,6 +81,7 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now renders the guarded orchestration diagnostics `planId` with the sample plan only as a bounded fallback, keeping the operator-visible runtime binding tied to the API response.
 - Web UI HQ now surfaces the persisted latest orchestration snapshot timestamp separately from the latest event timestamp, making snapshot and event progression timing directly comparable during runtime investigation.
 - Verification passed: web typecheck, web production build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the latest snapshot recorded label, and clean `3000` / `3002` teardown.
 - Web UI HQ now keeps per-event AI usage attribution honest by surfacing actual and estimated costs separately in the usage-ledger timeline instead of collapsing them into a fallback value.

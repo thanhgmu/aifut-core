@@ -84,6 +84,7 @@ type RuntimeDiagnosticsResponse = {
   capability?: string;
   status?: string;
   runtimeDiagnostics?: {
+    planId?: string;
     historyStatus?: string;
     contextScope?: {
       tenantSlug?: string;
@@ -438,7 +439,7 @@ export default async function OperatorPreviewPage() {
           <Panel title="Execution runtime diagnostics">
             {runtimeDiagnostics?.runtimeDiagnostics ? (
               <div style={{ display: "grid", gap: 14 }}>
-                <DataPoint label="Plan" value={SAMPLE_OPERATOR_CONTEXT.planId} />
+                <DataPoint label="Plan" value={runtimeDiagnostics.runtimeDiagnostics.planId ?? SAMPLE_OPERATOR_CONTEXT.planId} />
                 <DataPoint label="Tenant scope" value={runtimeDiagnostics.runtimeDiagnostics.contextScope?.tenantSlug ?? "N/A"} />
                 <DataPoint label="Workspace scope" value={runtimeDiagnostics.runtimeDiagnostics.contextScope?.workspaceSlug ?? "tenant default"} />
                 <DataPoint label="Latest runtime status" value={runtimeSummary?.latestRuntimeStatus ?? "N/A"} />
