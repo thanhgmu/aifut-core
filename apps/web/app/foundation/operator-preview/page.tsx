@@ -585,9 +585,10 @@ export default async function OperatorPreviewPage() {
         <section style={{ marginTop: 18 }}>
           <Panel title="Recent approval-dispatch resumes">
             {approvalHistory?.approvalHistory ? (
-              approvalDispatchResumes.length > 0 ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {approvalDispatchResumes.map((entry, index) => (
+              <div style={{ display: "grid", gap: 10 }}>
+                <DataPoint label="Plan" value={approvalHistory.approvalHistory.planId ?? SAMPLE_OPERATOR_CONTEXT.planId} />
+                {approvalDispatchResumes.length > 0 ? (
+                  approvalDispatchResumes.map((entry, index) => (
                     <div key={entry.id ?? `${entry.targetId ?? "run"}-${index}`} style={timelineRowStyle}>
                       <div>
                         <div style={{ fontWeight: 700 }}>{entry.metadata?.runKey ?? entry.targetId ?? "Persisted run"}</div>
@@ -616,11 +617,11 @@ export default async function OperatorPreviewPage() {
                         {entry.metadata?.usageEventKey ? <div>usage: {entry.metadata.usageEventKey}</div> : null}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState message="No persisted approval-dispatch resumes were returned for the sample plan context." />
-              )
+                  ))
+                ) : (
+                  <EmptyState message="No persisted approval-dispatch resumes were returned for the sample plan context." />
+                )}
+              </div>
             ) : (
               <EmptyState message={`Approval replay history is unavailable: ${formatReadFailure(readResults.approvalHistory)}.`} />
             )}

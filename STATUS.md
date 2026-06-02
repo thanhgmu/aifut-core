@@ -10,6 +10,7 @@ Last updated: 2026-06-02
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 - The Web UI HQ operator preview now surfaces the persisted latest orchestration snapshot timestamp separately from the latest event timestamp.
 - The Web UI HQ operator preview now renders the guarded orchestration diagnostics plan binding instead of relying only on client sample context.
+- The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
 - `756cfc9` feat(web): surface approval replay actor scope in HQ
@@ -81,6 +82,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now renders the guarded approval replay history `planId` with the sample plan only as a bounded fallback, keeping approval-dispatch replay investigation tied to the API response.
+- Verification passed: web production build with TypeScript validation. The Web workspace has no standalone `typecheck` script.
 - Web UI HQ now renders the guarded orchestration diagnostics `planId` with the sample plan only as a bounded fallback, keeping the operator-visible runtime binding tied to the API response.
 - Web UI HQ now surfaces the persisted latest orchestration snapshot timestamp separately from the latest event timestamp, making snapshot and event progression timing directly comparable during runtime investigation.
 - Verification passed: web typecheck, web production build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with the latest snapshot recorded label, and clean `3000` / `3002` teardown.
