@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces HQ approval-replay actor scope using existing audit truth.
+- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces HQ AI-usage event trace context using existing governance-ledger truth.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `756cfc9` feat(web): surface approval replay actor scope in HQ
 - `221431b` fix(web): report domain routing read failure
 - `f8ecf2b` feat(web): surface AI outcome event key in HQ
 - `62747d4` feat(web): surface runtime correlation keys in HQ
@@ -78,6 +79,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now surfaces tenant scope plus persisted source and event-key trace context for each recent AI-governance usage-ledger event, connecting cost investigation to the underlying ledger record.
+- Verification passed: web typecheck, web production build, API build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, runtime-history schema verifier `ok: true`, usage API proof with `3` persisted events, HQ route render `200` with tenant scope, source, and event-key labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces persisted workspace and membership-role actor context for each approval-dispatch replay, making the authorization scope of resumed AI dispatches visible in the operator timeline.
 - Verification passed: web production build with TypeScript validation, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with approval-replay actor scope labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now reports bounded domain-routing readiness read failures from the domain lane instead of incorrectly showing the orchestration-runtime diagnostics failure.
@@ -165,8 +168,8 @@ Last updated: 2026-06-02
 - Known baseline: web lint still reports 15 pre-existing warnings outside the touched route.
 
 ## Next actions
-1. Keep domain lifecycle runtime-read contracts aligned across domain-routing, infrastructure-profile, topology, and storage policy surfaces.
-2. Continue narrow domain lifecycle verification or write-path hardening while keeping shared Prisma/auth/policy zones serialized.
+1. Continue the smallest low-collision AI-governance visibility or orchestration runtime-binding slice in Web UI HQ.
+2. Keep domain lifecycle runtime-read contracts aligned across domain-routing, infrastructure-profile, topology, and storage policy surfaces.
 
 ## One-command approved replay proof
 - Commit `6ffbb83` adds `npm run local:exercise-approved-replay --workspace apps/api`.
@@ -184,5 +187,3 @@ Last updated: 2026-06-02
 - Focused metadata coverage confirms all three read routes carry the intended policy contract.
 - Local PostgreSQL drift was corrected by applying committed migrations `20260521075800_add_runtime_snapshot_recorded_at` and `20260530184200_add_ai_governance_persistence`; `prisma migrate status`, `runtime-history:check`, and runtime verifier are green.
 - Verification: targeted `33/33`, full API Jest `24/24` suites and `321/321` tests, API build, and live guarded runtime history/diagnostics/approval-history reads all passing.
-2. Bind the approval replay diagnostics/history surfaces into the Web UI HQ control plane.
-3. Keep `lane/domain-governance-hardening` ready for the next low-collision verification/write-path slice.

@@ -512,6 +512,7 @@ export default async function OperatorPreviewPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
                   <DataPoint label="Feature" value={aiUsageSummary.summary.featureKey ?? "general"} />
                   <DataPoint label="Task" value={aiUsageSummary.summary.taskType ?? "general"} />
+                  <DataPoint label="Tenant scope" value={aiUsageSummary.summary.scope?.tenantSlug ?? "N/A"} />
                   <DataPoint label="Workspace scope" value={aiUsageSummary.summary.scope?.workspaceSlug ?? "tenant default"} />
                   <DataPoint label="Recent events" value={String(aiUsageEvents.length)} />
                   <DataPoint label="Total tokens" value={formatTokenCount(aiUsageSummary.summary.totals?.totalTokens)} />
@@ -533,6 +534,8 @@ export default async function OperatorPreviewPage() {
                         <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 680, textAlign: "right", lineHeight: 1.6 }}>
                           <div>{formatTokenCount(event.totalTokens)} tokens / {formatCost(event.actualCost ?? event.estimatedCost)}</div>
                           <div>{event.credentialMode ?? "unknown credential mode"} / {event.actorKey ?? "unknown actor"}</div>
+                          <div>source: {event.source ?? "unknown source"}</div>
+                          <div>event: {event.eventKey ?? "No event key recorded"}</div>
                         </div>
                       </div>
                     ))}
