@@ -208,6 +208,23 @@ describe('OrchestrationService', () => {
       workflowGraph: {
         lanes: ['research', 'content', 'sales', 'support'],
       },
+      executionContractDraft: {
+        planId: 'plan:acme:ops:draft',
+        executionContractStatus: 'draft',
+        objective: 'Find and validate a product for Vietnam.',
+        runtimeBindings: [],
+        childWorkflowContracts: [],
+        approvalContracts: [],
+        escalationContracts: [],
+        rollbackContracts: [],
+        draftSummary: {
+          runtimeBindingCount: 0,
+          childWorkflowContractCount: 0,
+          approvalContractCount: 0,
+          escalationContractCount: 0,
+          rollbackContractCount: 0,
+        },
+      },
       contextScope: {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',

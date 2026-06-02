@@ -791,6 +791,12 @@ export class OrchestrationService {
         objective,
         lanes: input.lanes,
       }),
+      executionContractDraft: this.buildExecutionContractDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
+        objective,
+      }),
       contextScope: {
         tenantSlug: input.tenantSlug,
         workspaceSlug: input.workspaceSlug ?? null,
