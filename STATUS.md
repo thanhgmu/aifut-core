@@ -7,6 +7,7 @@ Last updated: 2026-06-01
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
+- The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
 - `687ee24` fix(api): enforce storage policy hostname match
@@ -59,6 +60,8 @@ Last updated: 2026-06-01
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now consumes `GET /ai-governance/usage-summary` for the sample orchestration runtime without redefining backend contracts.
+- Verification passed: web typecheck, web production build, live production API health `200`, HQ route `200` with AI usage ledger render, and clean `3000` / `3002` teardown.
 - Tenant infrastructure profile integration reads now preserve friendly workspace binding labels alongside raw connection scope IDs.
 - Verification passed: targeted infrastructure profile spec `3/3`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, truthful empty-integration live profile proof, and clean port `3002` teardown.
 - Connector commercialization reads now preserve friendly workspace binding labels for scoped dependency connections.

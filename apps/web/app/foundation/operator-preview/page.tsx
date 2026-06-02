@@ -166,6 +166,39 @@ type ApprovalHistoryResponse = {
   next?: string[];
 };
 
+type AiUsageSummaryResponse = {
+  capability?: string;
+  status?: string;
+  summary?: {
+    scope?: {
+      tenantSlug?: string;
+      workspaceSlug?: string | null;
+    };
+    featureKey?: string;
+    taskType?: string;
+    totals?: {
+      totalTokens?: number;
+      actualCost?: number;
+      estimatedCost?: number;
+      effectiveCost?: number;
+    };
+    recentEvents?: Array<{
+      eventKey?: string;
+      actorKey?: string;
+      providerKey?: string;
+      modelKey?: string;
+      credentialMode?: string;
+      executionLane?: string;
+      totalTokens?: number;
+      actualCost?: number;
+      estimatedCost?: number;
+      status?: string;
+      source?: string;
+      occurredAt?: string | null;
+    }>;
+  };
+};
+
 type DomainRoutingResponse = {
   capability?: string;
   status?: string;
@@ -209,7 +242,7 @@ async function getOperatorPreviewData() {
     userEmail: SAMPLE_OPERATOR_CONTEXT.userEmail,
   });
 
-  const [health, connectionHealth, runtimeDiagnostics, approvalHistory, domainRouting] = await Promise.all([
+  const [health, connectionHealth, runtimeDiagnostics, approvalHistory, aiUsageSummary, domainRouting] = await Promise.all([
     getJsonResult<HealthResponse>("/health"),
     getJsonResult<ConnectionHealthResponse>(
       `/integrations/connections/health-timeline?${new URLSearchParams({
@@ -226,6 +259,14 @@ async function getOperatorPreviewData() {
         limit: "6",
       }).toString()}`,
     ),
+    getJsonResult<AiUsageSummaryResponse>(
+      `/ai-governance/usage-summary?${new URLSearchParams({
+        ...Object.fromEntries(params.entries()),
+        featureKey: "orchestration-runtime",
+        taskType: "dispatch-run",
+        take: "6",
+      }).toString()}`,
+    ),
     getJsonResult<DomainRoutingResponse>(
       `/integrations/domain-routing?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}`,
     ),
@@ -236,19 +277,21 @@ async function getOperatorPreviewData() {
     connectionHealth: connectionHealth.data,
     runtimeDiagnostics: runtimeDiagnostics.data,
     approvalHistory: approvalHistory.data,
+    aiUsageSummary: aiUsageSummary.data,
     domainRouting: domainRouting.data,
     readResults: {
       health,
       connectionHealth,
       runtimeDiagnostics,
       approvalHistory,
+      aiUsageSummary,
       domainRouting,
     },
   };
 }
 
 export default async function OperatorPreviewPage() {
-  const { health, connectionHealth, runtimeDiagnostics, approvalHistory, domainRouting, readResults } = await getOperatorPreviewData();
+  const { health, connectionHealth, runtimeDiagnostics, approvalHistory, aiUsageSummary, domainRouting, readResults } = await getOperatorPreviewData();
   const healthSummary = connectionHealth?.healthSummary;
   const timeline = Array.isArray(connectionHealth?.healthTimeline)
     ? connectionHealth.healthTimeline.slice(-4).reverse()
@@ -257,6 +300,9 @@ export default async function OperatorPreviewPage() {
   const aiGovernanceOutcomes = runtimeDiagnostics?.runtimeDiagnostics?.recentAiGovernanceOutcomes;
   const approvalDispatchResumes = Array.isArray(approvalHistory?.approvalHistory?.approvalDispatchResumes)
     ? approvalHistory.approvalHistory.approvalDispatchResumes
+    : [];
+  const aiUsageEvents = Array.isArray(aiUsageSummary?.summary?.recentEvents)
+    ? aiUsageSummary.summary.recentEvents
     : [];
   const domains = Array.isArray(domainRouting?.routing?.domains) ? domainRouting.routing.domains : [];
   const routeReadyDomainCount = domains.filter((domain) => domain.readiness?.routeReady).length;
@@ -281,6 +327,7 @@ export default async function OperatorPreviewPage() {
             <LinkButton href={`${API_BASE}/integrations/connections/health-timeline?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&connectionSlug=${SAMPLE_OPERATOR_CONTEXT.connectionSlug}`}>Health timeline API</LinkButton>
             <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/diagnostics?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}`}>Runtime diagnostics API</LinkButton>
             <LinkButton href={`${API_BASE}/orchestration/plans/${SAMPLE_OPERATOR_CONTEXT.planId}/execution-runtime/approval-history?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&limit=6`}>Approval history API</LinkButton>
+            <LinkButton href={`${API_BASE}/ai-governance/usage-summary?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}&workspaceSlug=${SAMPLE_OPERATOR_CONTEXT.workspaceSlug}&userEmail=${encodeURIComponent(SAMPLE_OPERATOR_CONTEXT.userEmail)}&featureKey=orchestration-runtime&taskType=dispatch-run&take=6`}>AI usage API</LinkButton>
             <LinkButton href={`${API_BASE}/integrations/domain-routing?tenantSlug=${SAMPLE_OPERATOR_CONTEXT.tenantSlug}`}>Domain routing API</LinkButton>
           </div>
         </div>
@@ -290,6 +337,7 @@ export default async function OperatorPreviewPage() {
           <MetricCard title="Connection status" value={connectionHealth?.connection?.status ?? "unavailable"} note={connectionHealth?.connection?.provider ?? "No provider surfaced"} />
           <MetricCard title="Operator alert" value={healthSummary?.shouldAlertOperator ? "Attention" : "Stable / none"} note={`repeat failures: ${healthSummary?.repeatFailureCount ?? 0}`} />
           <MetricCard title="Approval replays" value={String(approvalHistory?.approvalHistory?.count ?? 0)} note="persisted approval-dispatch resumes" />
+          <MetricCard title="AI usage" value={formatTokenCount(aiUsageSummary?.summary?.totals?.totalTokens)} note={`${formatCost(aiUsageSummary?.summary?.totals?.effectiveCost)} effective cost`} />
           <MetricCard title="Domain routes" value={`${routeReadyDomainCount}/${domains.length}`} note="ready routes from shared evaluator" />
           <MetricCard title="HQ reads" value={failedReads.length === 0 ? "Healthy" : `${failedReads.length} unavailable`} note={failedReads.length === 0 ? "all preview reads returned data" : "inspect bounded read status below"} />
           <MetricCard title="Runtime history" value={runtimeDiagnostics?.runtimeDiagnostics?.historyStatus ?? "unknown"} note={`${runtimeSummary?.snapshotCount ?? 0} snapshots • ${runtimeSummary?.eventCount ?? 0} events`} />
@@ -430,6 +478,44 @@ export default async function OperatorPreviewPage() {
               </div>
             ) : (
               <EmptyState message={`Runtime diagnostics are unavailable: ${formatReadFailure(readResults.runtimeDiagnostics)}.`} />
+            )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 18 }}>
+          <Panel title="AI governance usage ledger">
+            {aiUsageSummary?.summary ? (
+              <div style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <DataPoint label="Feature" value={aiUsageSummary.summary.featureKey ?? "general"} />
+                  <DataPoint label="Task" value={aiUsageSummary.summary.taskType ?? "general"} />
+                  <DataPoint label="Total tokens" value={formatTokenCount(aiUsageSummary.summary.totals?.totalTokens)} />
+                  <DataPoint label="Effective cost" value={formatCost(aiUsageSummary.summary.totals?.effectiveCost)} />
+                </div>
+
+                {aiUsageEvents.length > 0 ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {aiUsageEvents.map((event, index) => (
+                      <div key={event.eventKey ?? `usage-${index}`} style={timelineRowStyle}>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{event.executionLane ?? "unknown lane"} / {event.status ?? "unknown status"}</div>
+                          <div style={{ color: "#9fb0ff", fontSize: 13 }}>
+                            {event.providerKey ?? "unknown provider"} / {event.modelKey ?? "unknown model"} / {formatDate(event.occurredAt)}
+                          </div>
+                        </div>
+                        <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 680, textAlign: "right", lineHeight: 1.6 }}>
+                          <div>{formatTokenCount(event.totalTokens)} tokens / {formatCost(event.actualCost ?? event.estimatedCost)}</div>
+                          <div>{event.credentialMode ?? "unknown credential mode"} / {event.actorKey ?? "unknown actor"}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="No persisted AI usage events were returned for the sample orchestration runtime." />
+                )}
+              </div>
+            ) : (
+              <EmptyState message={`AI governance usage summary is unavailable: ${formatReadFailure(readResults.aiUsageSummary)}.`} />
             )}
           </Panel>
         </section>
@@ -576,6 +662,14 @@ function formatDate(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatTokenCount(value?: number) {
+  return (value ?? 0).toLocaleString("en-US");
+}
+
+function formatCost(value?: number) {
+  return `$${(value ?? 0).toFixed(4)}`;
 }
 
 function formatDetail(detail?: Record<string, unknown>) {
