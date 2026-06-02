@@ -532,7 +532,7 @@ export default async function OperatorPreviewPage() {
                           </div>
                         </div>
                         <div style={{ color: "#c8d2ff", fontSize: 13, maxWidth: 680, textAlign: "right", lineHeight: 1.6 }}>
-                          <div>{formatTokenCount(event.totalTokens)} tokens / {formatCost(event.actualCost ?? event.estimatedCost)}</div>
+                          <div>{formatTokenCount(event.totalTokens)} tokens / actual {formatCost(event.actualCost)} / estimated {formatCost(event.estimatedCost)}</div>
                           <div>{event.credentialMode ?? "unknown credential mode"} / {event.actorKey ?? "unknown actor"}</div>
                           <div>source: {event.source ?? "unknown source"}</div>
                           <div>event: {event.eventKey ?? "No event key recorded"}</div>

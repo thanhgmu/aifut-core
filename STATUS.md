@@ -79,6 +79,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now keeps per-event AI usage attribution honest by surfacing actual and estimated costs separately in the usage-ledger timeline instead of collapsing them into a fallback value.
+- Verification passed: web typecheck, web production build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, runtime-history schema verifier `ok: true`, HQ route render `200` with actual and estimated cost labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces tenant scope plus persisted source and event-key trace context for each recent AI-governance usage-ledger event, connecting cost investigation to the underlying ledger record.
 - Verification passed: web typecheck, web production build, API build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, runtime-history schema verifier `ok: true`, usage API proof with `3` persisted events, HQ route render `200` with tenant scope, source, and event-key labels, and clean `3000` / `3002` teardown.
 - Web UI HQ now surfaces persisted workspace and membership-role actor context for each approval-dispatch replay, making the authorization scope of resumed AI dispatches visible in the operator timeline.
