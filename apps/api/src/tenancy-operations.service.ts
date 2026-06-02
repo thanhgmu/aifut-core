@@ -199,7 +199,7 @@ export class TenancyOperationsService {
       input.dnsTarget === undefined
         ? existingDomain?.dnsTarget ?? null
         : this.normalizeDnsTarget(input.dnsTarget);
-    const certificateStatus = this.normalizeOptionalLowercase(
+    const certificateStatus = this.normalizeCertificateStatus(
       input.certificateStatus === undefined
         ? existingDomain?.certificateStatus
         : input.certificateStatus,
@@ -688,6 +688,16 @@ export class TenancyOperationsService {
       normalized !== 'affiliate-managed'
     ) {
       throw new BadRequestException('Invalid provisioningMode.');
+    }
+
+    return normalized;
+  }
+
+  private normalizeCertificateStatus(value?: string | null) {
+    const normalized = this.normalizeOptionalLowercase(value);
+
+    if (normalized && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
+      throw new BadRequestException('Invalid certificateStatus.');
     }
 
     return normalized;

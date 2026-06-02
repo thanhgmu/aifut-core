@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint rejects unknown domain provisioning modes before persistence.
+- `main` is synchronized with `origin/main`; latest functional checkpoint rejects malformed domain certificate metadata before persistence.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `2360f55` fix(api): validate domain provisioning modes
 - `717cb6e` fix(api): validate domain dns targets
 - `03b009b` feat(web): surface domain attention summary in HQ
 - `38729a9` feat(api): summarize control-plane domain readiness
@@ -66,6 +67,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Domain writes now normalize certificate status metadata as bounded kebab-case tokens, rejecting URL-shaped or free-form values with `Invalid certificateStatus.` before persistence while preserving future provider lifecycle extensibility.
+- Verification passed: targeted tenancy operations spec `80/80`, API build, full API Jest `26/26` suites and `367/367` tests, PostgreSQL runtime verifier `ok: true` before and after the rejected live write, live production API health `200`, live malformed certificate status rejection `400`, and clean port `3002` teardown.
 - Domain writes now accept only the existing `managed` and `affiliate-managed` provisioning modes, rejecting unknown values with bounded `Invalid provisioningMode.` errors before persistence.
 - Verification passed: targeted tenancy operations spec `79/79`, API build, full API Jest `26/26` suites and `366/366` tests, PostgreSQL runtime verifier `ok: true` before and after the rejected live write, live production API health `200`, live unknown provisioning mode rejection `400`, and clean port `3002` teardown.
 - Domain writes now normalize DNS targets as hostnames and reject URL-shaped, IP-literal, or otherwise malformed targets with bounded `Invalid dnsTarget.` errors before persistence.

@@ -1128,6 +1128,21 @@ describe('TenancyOperationsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should reject malformed certificate status metadata before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'pending.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.DEGRADED,
+        certificateStatus: 'https://certificates.example.test/pending',
+      }),
+    ).rejects.toThrow('Invalid certificateStatus.');
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should reject active affiliate domains without certificate metadata', async () => {
     await expect(
       service.upsertDomain({
