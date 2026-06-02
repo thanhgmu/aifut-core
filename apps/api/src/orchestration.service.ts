@@ -667,6 +667,11 @@ export class OrchestrationService {
     planId: string;
     objective?: string;
     businessObjects?: string[];
+    lifecyclePhases?: Array<{
+      phaseKey: string;
+      outputKeys: string[];
+      nextPhaseKey: string;
+    }>;
   }) {
     return {
       planId: input.planId,
@@ -675,7 +680,15 @@ export class OrchestrationService {
         input.objective?.trim() ||
         'Model the leanest safe data movement across systems, approvals, and source-of-truth boundaries.',
       businessObjects: this.normalizeStringList(input.businessObjects),
-      edges: [],
+      edges: (input.lifecyclePhases ?? []).flatMap((phase) =>
+        phase.outputKeys.map((outputKey) => ({
+          edgeKey: `${phase.phaseKey}:${outputKey}->${phase.nextPhaseKey}`,
+          fromPhaseKey: phase.phaseKey,
+          toPhaseKey: phase.nextPhaseKey,
+          businessObjectKey: outputKey,
+          edgeStatus: 'review-required',
+        })),
+      ),
       syncPolicies: [],
       sourceOfTruthAssignments: [],
       contextScope: {
@@ -896,6 +909,7 @@ export class OrchestrationService {
         planId,
         objective,
         businessObjects: input.businessObjects,
+        lifecyclePhases: businessLifecycle.phases,
       }),
       optimizationSummary: this.buildOptimizationSummaryDraft({
         tenantSlug: input.tenantSlug,

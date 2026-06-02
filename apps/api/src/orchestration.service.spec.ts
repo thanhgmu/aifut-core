@@ -237,6 +237,23 @@ describe('OrchestrationService', () => {
       },
       dataflow: {
         businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
+        edges: expect.arrayContaining([
+          expect.objectContaining({
+            edgeKey:
+              'market-discovery:product-candidate-shortlist->supplier-validation',
+            fromPhaseKey: 'market-discovery',
+            toPhaseKey: 'supplier-validation',
+            businessObjectKey: 'product-candidate-shortlist',
+            edgeStatus: 'review-required',
+          }),
+          expect.objectContaining({
+            edgeKey: 'customer-success:customer-feedback->market-discovery',
+            fromPhaseKey: 'customer-success',
+            toPhaseKey: 'market-discovery',
+            businessObjectKey: 'customer-feedback',
+            edgeStatus: 'review-required',
+          }),
+        ]),
       },
       optimizationSummary: {
         priorities: ['cost', 'time-to-first-sale'],
