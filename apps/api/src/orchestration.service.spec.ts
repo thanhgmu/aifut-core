@@ -484,6 +484,25 @@ describe('OrchestrationService', () => {
             'source-of-truth-assignments-unresolved',
             'sync-policies-unresolved',
           ],
+          nextActions: [
+            {
+              actionKey: 'assign-runtime-bindings',
+              actionOrder: 1,
+              actionStatus: 'required',
+            },
+            {
+              actionKey: 'configure-approval-channels',
+              actionOrder: 2,
+            },
+            {
+              actionKey: 'assign-source-of-truth',
+              actionOrder: 3,
+            },
+            {
+              actionKey: 'define-sync-policies',
+              actionOrder: 4,
+            },
+          ],
           missingRuntimeBindingCount: 8,
           missingApprovalChannelCount: 3,
           sourceOfTruthAssignmentCount: 0,
@@ -531,6 +550,17 @@ describe('OrchestrationService', () => {
         blockers: [
           'source-of-truth-assignments-unresolved',
           'sync-policies-unresolved',
+        ],
+        nextActions: [
+          {
+            actionKey: 'assign-source-of-truth',
+            actionOrder: 3,
+            actionStatus: 'required',
+          },
+          {
+            actionKey: 'define-sync-policies',
+            actionOrder: 4,
+          },
         ],
         missingRuntimeBindingCount: 0,
         missingApprovalChannelCount: 0,

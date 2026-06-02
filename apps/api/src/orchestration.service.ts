@@ -1113,6 +1113,48 @@ export class OrchestrationService {
         : []),
       ...(syncPolicyCount === 0 ? ['sync-policies-unresolved'] : []),
     ];
+    const activationNextActions = [
+      ...(unboundChildWorkflowDrafts.length > 0
+        ? [
+            {
+              actionKey: 'assign-runtime-bindings',
+              actionOrder: 1,
+              actionStatus: 'required',
+              reason: 'Bind each lifecycle workflow draft to a configured runtime and system connection.',
+            },
+          ]
+        : []),
+      ...(missingApprovalChannelCount > 0
+        ? [
+            {
+              actionKey: 'configure-approval-channels',
+              actionOrder: 2,
+              actionStatus: 'required',
+              reason: 'Choose delivery channels for required operator approvals.',
+            },
+          ]
+        : []),
+      ...(sourceOfTruthAssignmentCount === 0
+        ? [
+            {
+              actionKey: 'assign-source-of-truth',
+              actionOrder: 3,
+              actionStatus: 'required',
+              reason: 'Select the authoritative system for lifecycle business objects.',
+            },
+          ]
+        : []),
+      ...(syncPolicyCount === 0
+        ? [
+            {
+              actionKey: 'define-sync-policies',
+              actionOrder: 4,
+              actionStatus: 'required',
+              reason: 'Define how approved business-object updates synchronize across system boundaries.',
+            },
+          ]
+        : []),
+    ];
 
     return {
       planId: input.planId,
@@ -1134,6 +1176,7 @@ export class OrchestrationService {
             : 'ready-for-activation-review',
         activationAllowed: false,
         blockers: activationBlockers,
+        nextActions: activationNextActions,
         missingRuntimeBindingCount: unboundChildWorkflowDrafts.length,
         missingApprovalChannelCount,
         sourceOfTruthAssignmentCount,

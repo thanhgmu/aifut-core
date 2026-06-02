@@ -14,7 +14,8 @@ Last updated: 2026-06-03
 - Blueprint execution-contract drafts now project lifecycle operator checkpoints into required manual-review approval contracts while leaving approval delivery channels unassigned until runtime configuration.
 - Blueprint execution-contract drafts now list unbound child-workflow drafts for every lifecycle phase, preserving suggested system boundaries and related approval checkpoints while keeping runtime bindings explicitly unassigned.
 - Blueprint execution-contract drafts now expose an activation-readiness summary with bounded blockers for missing runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
-- `main` is synchronized with `origin/main`; latest functional checkpoint exposes bounded activation-readiness blockers for natural-language execution-contract drafts.
+- Blueprint activation-readiness summaries now translate unresolved blockers into an ordered operator checklist for runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
+- `main` is synchronized with `origin/main`; latest functional checkpoint translates activation blockers into an ordered operator configuration checklist.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -24,6 +25,7 @@ Last updated: 2026-06-03
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `31f29e1` feat(api): summarize blueprint activation readiness
 - `ec289b5` feat(api): draft unbound lifecycle workflows
 - `4c833c8` feat(api): project lifecycle approval contracts
 - `7f6bd4b` feat(api): expose lifecycle KPI definitions
@@ -103,6 +105,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Natural-language blueprint activation-readiness summaries now translate bounded blockers into an ordered operator checklist: assign runtime bindings, configure approval channels, assign source-of-truth systems, and define synchronization policies.
+- Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint execution-contract drafts now expose bounded activation-readiness blockers for missing runtime bindings, approval channels, source-of-truth assignments, and synchronization policies while keeping activation explicitly disabled.
 - Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint execution-contract drafts now list eight unbound child-workflow drafts, preserving each lifecycle phase's suggested system boundary and related approval checkpoint while explicitly keeping runtime bindings unassigned.
