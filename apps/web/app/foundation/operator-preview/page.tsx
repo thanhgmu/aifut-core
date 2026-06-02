@@ -85,6 +85,10 @@ type RuntimeDiagnosticsResponse = {
   status?: string;
   runtimeDiagnostics?: {
     historyStatus?: string;
+    contextScope?: {
+      tenantSlug?: string;
+      workspaceSlug?: string | null;
+    };
     diagnosticsSummary?: {
       snapshotCount?: number;
       eventCount?: number;
@@ -435,6 +439,8 @@ export default async function OperatorPreviewPage() {
             {runtimeDiagnostics?.runtimeDiagnostics ? (
               <div style={{ display: "grid", gap: 14 }}>
                 <DataPoint label="Plan" value={SAMPLE_OPERATOR_CONTEXT.planId} />
+                <DataPoint label="Tenant scope" value={runtimeDiagnostics.runtimeDiagnostics.contextScope?.tenantSlug ?? "N/A"} />
+                <DataPoint label="Workspace scope" value={runtimeDiagnostics.runtimeDiagnostics.contextScope?.workspaceSlug ?? "tenant default"} />
                 <DataPoint label="Latest runtime status" value={runtimeSummary?.latestRuntimeStatus ?? "N/A"} />
                 <DataPoint label="Latest snapshot type" value={runtimeSummary?.latestSnapshotType ?? "N/A"} />
                 <DataPoint label="Latest event type" value={runtimeSummary?.latestEventType ?? "N/A"} />
