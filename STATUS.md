@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint adds shared domain readiness diagnostics to current topology reads.
+- `main` is synchronized with `origin/main`; latest functional checkpoint adds shared domain readiness diagnostics to integration control-plane reads.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `2cfd9b8` feat(api): expose topology domain readiness
 - `c52e1b2` feat(web): surface AI usage ledger in HQ
 - `687ee24` fix(api): enforce storage policy hostname match
 - `53b3cee` fix(api): enforce topology read hostname match
@@ -61,6 +62,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- `GET /integrations/control-plane` now enriches visible domains with readiness from the shared `evaluateTenantDomainReadiness(...)` evaluator.
+- Verification passed: targeted integration control-plane service spec `3/3`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, live production API health `200`, live integration control-plane readiness proof, and clean port `3002` teardown.
 - `GET /tenancy/current` now enriches visible topology domains with readiness from the shared `evaluateTenantDomainReadiness(...)` evaluator.
 - Verification passed: targeted tenancy controller spec `45/45`, API build, full API Jest `26/26` suites and `363/363` tests, PostgreSQL runtime verifier `ok: true`, live production API health `200`, live current-topology readiness proof, and clean port `3002` teardown.
 - Web UI HQ now consumes `GET /ai-governance/usage-summary` for the sample orchestration runtime without redefining backend contracts.

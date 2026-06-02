@@ -6,6 +6,7 @@ import {
 import { PrismaService } from './prisma.service';
 import { CONNECTOR_REGISTRY_FOUNDATION } from './connectors.constants';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
+import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 const NEXOVAFLOW_AUTOMATION_OPTION = {
   key: 'nexovaflow.automation',
@@ -53,6 +54,10 @@ export class IntegrationControlPlaneService {
             kind: true,
             status: true,
             isPrimary: true,
+            provider: true,
+            provisioningMode: true,
+            dnsTarget: true,
+            certificateStatus: true,
             workspaceId: true,
             workspace: {
               select: {
@@ -311,6 +316,7 @@ export class IntegrationControlPlaneService {
         status: domain.status,
         isPrimary: domain.isPrimary,
         workspace: domain.workspace,
+        readiness: evaluateTenantDomainReadiness(domain),
       })),
       storagePolicies: effectiveStoragePolicies.map(({ key, workspace, effective }) => ({
         key,
