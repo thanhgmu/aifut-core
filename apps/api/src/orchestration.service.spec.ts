@@ -208,6 +208,30 @@ describe('OrchestrationService', () => {
       workflowGraph: {
         lanes: ['research', 'content', 'sales', 'support'],
       },
+      businessLifecycle: {
+        planId: 'plan:acme:ops:draft',
+        lifecycleStatus: 'draft-review-required',
+        loopMode: 'closed-loop',
+        phases: [
+          { phaseKey: 'market-discovery' },
+          { phaseKey: 'supplier-validation' },
+          { phaseKey: 'go-to-market-planning' },
+          { phaseKey: 'content-production' },
+          { phaseKey: 'channel-distribution' },
+          { phaseKey: 'sales-conversion' },
+          { phaseKey: 'operations-fulfillment' },
+          {
+            phaseKey: 'customer-success',
+            nextPhaseKey: 'market-discovery',
+          },
+        ],
+        feedbackLoops: [
+          {
+            fromPhaseKey: 'customer-success',
+            toPhaseKey: 'market-discovery',
+          },
+        ],
+      },
       executionContractDraft: {
         planId: 'plan:acme:ops:draft',
         executionContractStatus: 'draft',

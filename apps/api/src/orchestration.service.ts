@@ -717,6 +717,83 @@ export class OrchestrationService {
     };
   }
 
+  buildBusinessLifecycleDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId: string;
+  }) {
+    return {
+      planId: input.planId,
+      lifecycleStatus: 'draft-review-required',
+      loopMode: 'closed-loop',
+      phases: [
+        {
+          phaseKey: 'market-discovery',
+          objective: 'Identify and rank product opportunities.',
+          outputKeys: ['product-candidate-shortlist'],
+          nextPhaseKey: 'supplier-validation',
+        },
+        {
+          phaseKey: 'supplier-validation',
+          objective: 'Validate sourcing, margin, fulfillment, and risk assumptions.',
+          outputKeys: ['validated-supplier-options', 'unit-economics-draft'],
+          nextPhaseKey: 'go-to-market-planning',
+        },
+        {
+          phaseKey: 'go-to-market-planning',
+          objective: 'Define audience, offer, channel, goals, and measurement.',
+          outputKeys: ['go-to-market-plan', 'measurement-plan'],
+          nextPhaseKey: 'content-production',
+        },
+        {
+          phaseKey: 'content-production',
+          objective: 'Draft, review, and approve content assets.',
+          outputKeys: ['approved-content-assets'],
+          nextPhaseKey: 'channel-distribution',
+        },
+        {
+          phaseKey: 'channel-distribution',
+          objective: 'Publish approved assets and capture demand signals.',
+          outputKeys: ['campaign-events', 'lead-captures'],
+          nextPhaseKey: 'sales-conversion',
+        },
+        {
+          phaseKey: 'sales-conversion',
+          objective: 'Qualify leads, close orders, and record attribution.',
+          outputKeys: ['qualified-leads', 'orders', 'revenue-attribution'],
+          nextPhaseKey: 'operations-fulfillment',
+        },
+        {
+          phaseKey: 'operations-fulfillment',
+          objective: 'Coordinate order fulfillment and operating exceptions.',
+          outputKeys: ['fulfillment-events', 'operating-exceptions'],
+          nextPhaseKey: 'customer-success',
+        },
+        {
+          phaseKey: 'customer-success',
+          objective: 'Support customers and feed evidence into the next iteration.',
+          outputKeys: ['customer-feedback', 'repeat-purchase-signals'],
+          nextPhaseKey: 'market-discovery',
+        },
+      ],
+      feedbackLoops: [
+        {
+          fromPhaseKey: 'customer-success',
+          toPhaseKey: 'market-discovery',
+          signalKeys: [
+            'customer-feedback',
+            'repeat-purchase-signals',
+            'refund-reasons',
+          ],
+        },
+      ],
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
+
   buildBusinessSystemBlueprintDraft(input: {
     tenantSlug: string;
     workspaceSlug?: string | null;
@@ -790,6 +867,11 @@ export class OrchestrationService {
         planId,
         objective,
         lanes: input.lanes,
+      }),
+      businessLifecycle: this.buildBusinessLifecycleDraft({
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        planId,
       }),
       executionContractDraft: this.buildExecutionContractDraft({
         tenantSlug: input.tenantSlug,
