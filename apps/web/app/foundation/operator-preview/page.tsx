@@ -600,6 +600,11 @@ export default async function OperatorPreviewPage() {
                           by {entry.metadata?.approval?.approvedBy ?? entry.user?.email ?? "unknown actor"}
                           {entry.metadata?.approval?.note ? ` / ${entry.metadata.approval.note}` : ""}
                         </div>
+                        <div>
+                          workspace {entry.metadata?.actorContext?.workspaceSlug ?? "tenant default"}
+                          {" / "}
+                          role {entry.metadata?.actorContext?.membershipRole ?? "unknown role"}
+                        </div>
                         {entry.metadata?.governanceDecision?.approvalReason ? (
                           <div>{entry.metadata.governanceDecision.approvalReason}</div>
                         ) : null}
