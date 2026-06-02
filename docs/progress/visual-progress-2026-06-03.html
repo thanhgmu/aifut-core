@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIFUT Visual Progress - 2026-06-03</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #62708a;
+        --line: #dbe2ee;
+        --bg: #f7f9fc;
+        --panel: #ffffff;
+        --input: #e8f3ff;
+        --process: #eef8ed;
+        --review: #fff4df;
+        --risk: #ffe9e4;
+        --done: #2f7d57;
+        --accent: #315fbb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 44px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 20px;
+        align-items: end;
+        padding: 18px 0 22px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 34px;
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.55;
+        max-width: 760px;
+      }
+
+      .stamp {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 12px 14px;
+        min-width: 230px;
+      }
+
+      .stamp b {
+        display: block;
+        font-size: 13px;
+      }
+
+      .stamp span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        margin: 20px 0;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .metric-value {
+        font-size: 28px;
+        font-weight: 760;
+        line-height: 1;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+        margin-top: 8px;
+      }
+
+      section {
+        margin-top: 18px;
+      }
+
+      .section-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      h2 {
+        font-size: 18px;
+        letter-spacing: 0;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 9px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        background: #fff;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid rgba(23, 32, 51, 0.15);
+      }
+
+      .two {
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .step {
+        min-height: 116px;
+      }
+
+      .step strong {
+        display: block;
+        font-size: 14px;
+        line-height: 1.25;
+      }
+
+      .step small {
+        display: block;
+        color: var(--muted);
+        margin-top: 8px;
+        line-height: 1.45;
+      }
+
+      .bar-row {
+        display: grid;
+        grid-template-columns: 140px minmax(0, 1fr) 46px;
+        gap: 10px;
+        align-items: center;
+        font-size: 13px;
+        margin: 10px 0;
+      }
+
+      .bar {
+        height: 11px;
+        border-radius: 999px;
+        background: #edf1f7;
+        overflow: hidden;
+      }
+
+      .bar i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+      }
+
+      ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 13px;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 940px) {
+        header,
+        .two {
+          grid-template-columns: 1fr;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .timeline {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        main {
+          width: min(100vw - 20px, 1180px);
+          padding-top: 16px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .metric-value {
+          font-size: 24px;
+        }
+
+        .bar-row {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>AIFUT progress, made visible</h1>
+          <p class="subtitle">
+            Current local-first state: natural-language business blueprinting has moved from idea
+            to API contract, docs, tests, and a dashboard preview surface.
+          </p>
+        </div>
+        <div class="stamp">
+          <b>Repo tip: 7ebbe53</b>
+          <span>feat(web): surface blueprint preview on dashboard</span>
+          <span>Generated: 2026-06-03 06:24 GMT+7</span>
+        </div>
+      </header>
+
+      <section class="grid metrics">
+        <div class="card">
+          <div class="metric-value">25</div>
+          <div class="metric-label">commits since local-first checkpoint 756cfc9</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">19</div>
+          <div class="metric-label">commits since natural-language blueprint checkpoint b3d20ae</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">1,172</div>
+          <div class="metric-label">insertions in the blueprint/UI delta</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">11</div>
+          <div class="metric-label">files changed across API, Web, docs, and status</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">200</div>
+          <div class="metric-label">live API health response on localhost:3002</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">blocked</div>
+          <div class="metric-label">activation is intentionally gated pending configuration</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Closed-loop business blueprint</h2>
+          <span class="badge">preview-only, no external actions</span>
+        </div>
+        <svg viewBox="0 0 1120 430" role="img" aria-label="AIFUT closed loop business blueprint diagram">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#63718a"></path>
+            </marker>
+          </defs>
+
+          <path d="M 162 88 H 235" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 374 88 H 447" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 586 88 H 659" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 798 88 H 871" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 950 126 V 184 H 162" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 162 240 H 235" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 374 240 H 447" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 586 240 H 659" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 798 240 H 972 V 55 H 1046 V 88 H 1010" stroke="#63718a" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+
+          <g>
+            <rect x="32" y="46" width="130" height="80" rx="8" fill="#e8f3ff" stroke="#9fc7ee"></rect>
+            <text x="97" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Market</text>
+            <text x="97" y="100" text-anchor="middle" font-size="13" fill="#46546a">discovery</text>
+          </g>
+          <g>
+            <rect x="244" y="46" width="130" height="80" rx="8" fill="#eef8ed" stroke="#aad6af"></rect>
+            <text x="309" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Supplier</text>
+            <text x="309" y="100" text-anchor="middle" font-size="13" fill="#46546a">validation</text>
+          </g>
+          <g>
+            <rect x="456" y="46" width="130" height="80" rx="8" fill="#eef8ed" stroke="#aad6af"></rect>
+            <text x="521" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Content</text>
+            <text x="521" y="100" text-anchor="middle" font-size="13" fill="#46546a">production</text>
+          </g>
+          <g>
+            <rect x="668" y="46" width="130" height="80" rx="8" fill="#eef8ed" stroke="#aad6af"></rect>
+            <text x="733" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Campaign</text>
+            <text x="733" y="100" text-anchor="middle" font-size="13" fill="#46546a">distribution</text>
+          </g>
+          <g>
+            <rect x="880" y="46" width="130" height="80" rx="8" fill="#fff4df" stroke="#e3bf75"></rect>
+            <text x="945" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Sales</text>
+            <text x="945" y="100" text-anchor="middle" font-size="13" fill="#46546a">conversion</text>
+          </g>
+          <g>
+            <rect x="32" y="196" width="130" height="84" rx="8" fill="#eef8ed" stroke="#aad6af"></rect>
+            <text x="97" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Order</text>
+            <text x="97" y="251" text-anchor="middle" font-size="13" fill="#46546a">operations</text>
+          </g>
+          <g>
+            <rect x="244" y="196" width="130" height="84" rx="8" fill="#fff4df" stroke="#e3bf75"></rect>
+            <text x="309" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Fulfillment</text>
+            <text x="309" y="251" text-anchor="middle" font-size="13" fill="#46546a">exceptions</text>
+          </g>
+          <g>
+            <rect x="456" y="196" width="130" height="84" rx="8" fill="#eef8ed" stroke="#aad6af"></rect>
+            <text x="521" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Customer</text>
+            <text x="521" y="251" text-anchor="middle" font-size="13" fill="#46546a">success</text>
+          </g>
+          <g>
+            <rect x="668" y="196" width="130" height="84" rx="8" fill="#e8f3ff" stroke="#9fc7ee"></rect>
+            <text x="733" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#172033">Feedback</text>
+            <text x="733" y="251" text-anchor="middle" font-size="13" fill="#46546a">learning loop</text>
+          </g>
+
+          <g>
+            <rect x="80" y="334" width="230" height="54" rx="8" fill="#ffe9e4" stroke="#e5a294"></rect>
+            <text x="195" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#172033">Runtime bindings</text>
+            <text x="195" y="375" text-anchor="middle" font-size="12" fill="#46546a">8 child workflows unassigned</text>
+          </g>
+          <g>
+            <rect x="350" y="334" width="230" height="54" rx="8" fill="#ffe9e4" stroke="#e5a294"></rect>
+            <text x="465" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#172033">Approval channels</text>
+            <text x="465" y="375" text-anchor="middle" font-size="12" fill="#46546a">3 manual-review contracts</text>
+          </g>
+          <g>
+            <rect x="620" y="334" width="230" height="54" rx="8" fill="#ffe9e4" stroke="#e5a294"></rect>
+            <text x="735" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#172033">Source of truth</text>
+            <text x="735" y="375" text-anchor="middle" font-size="12" fill="#46546a">15 dataflow edges need policy</text>
+          </g>
+          <g>
+            <rect x="890" y="334" width="160" height="54" rx="8" fill="#fff4df" stroke="#e3bf75"></rect>
+            <text x="970" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#172033">Activation</text>
+            <text x="970" y="375" text-anchor="middle" font-size="12" fill="#46546a">not allowed yet</text>
+          </g>
+        </svg>
+        <div class="legend">
+          <span><i class="swatch" style="background: var(--input)"></i>intent and learning</span>
+          <span><i class="swatch" style="background: var(--process)"></i>draft workflow phase</span>
+          <span><i class="swatch" style="background: var(--review)"></i>manual review checkpoint</span>
+          <span><i class="swatch" style="background: var(--risk)"></i>activation blocker</span>
+        </div>
+      </section>
+
+      <section class="grid two">
+        <div class="card">
+          <div class="section-title">
+            <h2>Development timeline</h2>
+            <span class="badge">local-first lane</span>
+          </div>
+          <div class="timeline">
+            <div class="card step">
+              <strong>756cfc9</strong>
+              <small>Local runtime verified: API, Web, dashboard, operator preview, PostgreSQL.</small>
+            </div>
+            <div class="card step">
+              <strong>b3d20ae</strong>
+              <small>Natural language becomes a business-system blueprint endpoint.</small>
+            </div>
+            <div class="card step">
+              <strong>2bffa7f to ec289b5</strong>
+              <small>Lifecycle, graph, app boundaries, dataflow, KPIs, approvals, child drafts.</small>
+            </div>
+            <div class="card step">
+              <strong>6193444 to 5e1ae3b</strong>
+              <small>Review summary, capability discovery, API navigation, docs guide.</small>
+            </div>
+            <div class="card step">
+              <strong>7ebbe53</strong>
+              <small>Web dashboard renders blueprint preview and blocker summary.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">
+            <h2>From idea to usable product surface</h2>
+            <span class="badge">honest state</span>
+          </div>
+          <div class="bar-row">
+            <span>Internal operator MVP</span>
+            <div class="bar"><i style="width: 64%"></i></div>
+            <span>64%</span>
+          </div>
+          <div class="bar-row">
+            <span>Demo / early-user MVP</span>
+            <div class="bar"><i style="width: 54%"></i></div>
+            <span>54%</span>
+          </div>
+          <div class="bar-row">
+            <span>First revenue MVP</span>
+            <div class="bar"><i style="width: 40%"></i></div>
+            <span>40%</span>
+          </div>
+          <div class="bar-row">
+            <span>Scale / reseller layer</span>
+            <div class="bar"><i style="width: 25%"></i></div>
+            <span>25%</span>
+          </div>
+          <ul>
+            <li>Best proof: natural-language intent now maps to lifecycle, graph, systems, dataflow, approvals, and blockers.</li>
+            <li>Biggest gap: actual runtime bindings and operator setup flows still need to be resolved before activation.</li>
+            <li>Correct safety posture: the platform is useful for planning, but refuses unsafe automatic execution.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>What changed in this slice</h2>
+          <span class="badge">b3d20ae..7ebbe53</span>
+        </div>
+        <ul>
+          <li>API orchestration service/controller gained the natural-language business blueprint preview contract.</li>
+          <li>Tests expanded to lock lifecycle, review summary, setup decisions, and controller visibility.</li>
+          <li>API root and docs now advertise the preview endpoint and safety boundary.</li>
+          <li>Web dashboard now renders the preview so progress is visible outside raw API JSON.</li>
+        </ul>
+        <p class="footer-note">
+          Source of numbers: git history and live localhost API response captured on 2026-06-03.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
