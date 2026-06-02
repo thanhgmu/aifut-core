@@ -171,7 +171,30 @@ describe('OrchestrationService', () => {
       edges: [],
       overlays: {
         approvals: [],
-        kpis: [],
+        kpis: [
+          {
+            metricKey: 'validated-product-candidate-count',
+            phaseKey: 'market-discovery',
+            metricStatus: 'definition-review-required',
+            measurementKind: 'count',
+          },
+          {
+            metricKey: 'approved-content-asset-count',
+            phaseKey: 'content-production',
+          },
+          {
+            metricKey: 'lead-to-order-conversion-rate',
+            phaseKey: 'sales-conversion',
+          },
+          {
+            metricKey: 'fulfilled-order-rate',
+            phaseKey: 'operations-fulfillment',
+          },
+          {
+            metricKey: 'repeat-purchase-signal-count',
+            phaseKey: 'customer-success',
+          },
+        ],
       },
       contextScope: {
         tenantSlug: 'acme',
@@ -328,6 +351,31 @@ describe('OrchestrationService', () => {
             {
               checkpointKey: 'review-fulfillment-exceptions',
               phaseKey: 'operations-fulfillment',
+            },
+          ],
+          kpis: [
+            {
+              metricKey: 'validated-product-candidate-count',
+              phaseKey: 'market-discovery',
+              metricStatus: 'definition-review-required',
+              measurementKind: 'count',
+            },
+            {
+              metricKey: 'approved-content-asset-count',
+              phaseKey: 'content-production',
+            },
+            {
+              metricKey: 'lead-to-order-conversion-rate',
+              phaseKey: 'sales-conversion',
+              measurementKind: 'ratio',
+            },
+            {
+              metricKey: 'fulfilled-order-rate',
+              phaseKey: 'operations-fulfillment',
+            },
+            {
+              metricKey: 'repeat-purchase-signal-count',
+              phaseKey: 'customer-success',
             },
           ],
         },

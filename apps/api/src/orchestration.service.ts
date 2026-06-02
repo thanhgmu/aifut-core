@@ -762,6 +762,38 @@ export class OrchestrationService {
     }>;
   }) {
     const lifecyclePhases = input.lifecyclePhases ?? [];
+    const kpis = [
+      {
+        metricKey: 'validated-product-candidate-count',
+        phaseKey: 'market-discovery',
+        metricStatus: 'definition-review-required',
+        measurementKind: 'count',
+      },
+      {
+        metricKey: 'approved-content-asset-count',
+        phaseKey: 'content-production',
+        metricStatus: 'definition-review-required',
+        measurementKind: 'count',
+      },
+      {
+        metricKey: 'lead-to-order-conversion-rate',
+        phaseKey: 'sales-conversion',
+        metricStatus: 'definition-review-required',
+        measurementKind: 'ratio',
+      },
+      {
+        metricKey: 'fulfilled-order-rate',
+        phaseKey: 'operations-fulfillment',
+        metricStatus: 'definition-review-required',
+        measurementKind: 'ratio',
+      },
+      {
+        metricKey: 'repeat-purchase-signal-count',
+        phaseKey: 'customer-success',
+        metricStatus: 'definition-review-required',
+        measurementKind: 'count',
+      },
+    ];
 
     return {
       planId: input.planId,
@@ -784,7 +816,7 @@ export class OrchestrationService {
       })),
       overlays: {
         approvals: input.operatorCheckpoints ?? [],
-        kpis: [],
+        kpis,
       },
       contextScope: {
         tenantSlug: input.tenantSlug,
