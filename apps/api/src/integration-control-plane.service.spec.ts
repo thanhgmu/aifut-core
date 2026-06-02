@@ -256,6 +256,8 @@ describe('IntegrationControlPlaneService', () => {
         operatorPlane: {
           connectedSystems: 1,
           domainCount: 2,
+          routeReadyDomainCount: 1,
+          attentionRequiredDomainCount: 1,
           storagePolicyCount: 2,
         },
         commercialization: {

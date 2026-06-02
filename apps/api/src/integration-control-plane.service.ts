@@ -142,6 +142,10 @@ export class IntegrationControlPlaneService {
           (domain) => !domain.workspaceId || domain.workspaceId === activeWorkspace.id,
         )
       : tenant.domains;
+    const visibleDomains = filteredDomains.map((domain) => ({
+      ...domain,
+      readiness: evaluateTenantDomainReadiness(domain),
+    }));
 
     const filteredPolicies = activeWorkspace
       ? tenant.storagePolicies.filter(
@@ -262,7 +266,13 @@ export class IntegrationControlPlaneService {
         operatorPlane: {
           connectedSystems: filteredConnections.length,
           workspaceCount: tenant.workspaces.length,
-          domainCount: filteredDomains.length,
+          domainCount: visibleDomains.length,
+          routeReadyDomainCount: visibleDomains.filter(
+            (domain) => domain.readiness.routeReady,
+          ).length,
+          attentionRequiredDomainCount: visibleDomains.filter(
+            (domain) => !domain.readiness.routeReady,
+          ).length,
           storagePolicyCount: filteredPolicies.length,
         },
         commercialization: {
@@ -310,13 +320,13 @@ export class IntegrationControlPlaneService {
           },
         },
       },
-      domains: filteredDomains.map((domain) => ({
+      domains: visibleDomains.map((domain) => ({
         hostname: domain.hostname,
         kind: domain.kind,
         status: domain.status,
         isPrimary: domain.isPrimary,
         workspace: domain.workspace,
-        readiness: evaluateTenantDomainReadiness(domain),
+        readiness: domain.readiness,
       })),
       storagePolicies: effectiveStoragePolicies.map(({ key, workspace, effective }) => ({
         key,
