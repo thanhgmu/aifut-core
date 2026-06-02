@@ -537,6 +537,21 @@ describe('OrchestrationController', () => {
         externalActionsAllowed: false,
         approvalRequiredBeforeActivation: true,
       },
+      reviewSummary: {
+        status: 'blocked-pending-configuration',
+        activationAllowed: false,
+        blockers: [
+          'runtime-bindings-unassigned',
+          'approval-channels-unassigned',
+        ],
+        nextActions: [
+          {
+            actionKey: 'assign-runtime-bindings',
+            actionOrder: 1,
+            actionStatus: 'required',
+          },
+        ],
+      },
     });
 
     const result = await controller.draftBusinessSystemBlueprint(
@@ -577,6 +592,21 @@ describe('OrchestrationController', () => {
           mode: 'preview-only',
           externalActionsAllowed: false,
           approvalRequiredBeforeActivation: true,
+        },
+        reviewSummary: {
+          status: 'blocked-pending-configuration',
+          activationAllowed: false,
+          blockers: [
+            'runtime-bindings-unassigned',
+            'approval-channels-unassigned',
+          ],
+          nextActions: [
+            {
+              actionKey: 'assign-runtime-bindings',
+              actionOrder: 1,
+              actionStatus: 'required',
+            },
+          ],
         },
       },
       next: [
