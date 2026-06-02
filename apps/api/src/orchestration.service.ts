@@ -1155,6 +1155,15 @@ export class OrchestrationService {
           ]
         : []),
     ];
+    const configuredDecisionKeys = [
+      ...(approvalContracts.length > 0 ? ['approval-contracts-defined'] : []),
+    ];
+    const deferredDecisionKeys = [
+      ...(escalationContracts.length === 0
+        ? ['escalation-contracts-deferred']
+        : []),
+      ...(rollbackContracts.length === 0 ? ['rollback-contracts-deferred'] : []),
+    ];
 
     return {
       planId: input.planId,
@@ -1177,6 +1186,14 @@ export class OrchestrationService {
         activationAllowed: false,
         blockers: activationBlockers,
         nextActions: activationNextActions,
+        decisionSummary: {
+          configuredCount: configuredDecisionKeys.length,
+          configuredDecisionKeys,
+          unresolvedCount: activationBlockers.length,
+          unresolvedDecisionKeys: activationBlockers,
+          deferredCount: deferredDecisionKeys.length,
+          deferredDecisionKeys,
+        },
         missingRuntimeBindingCount: unboundChildWorkflowDrafts.length,
         missingApprovalChannelCount,
         sourceOfTruthAssignmentCount,

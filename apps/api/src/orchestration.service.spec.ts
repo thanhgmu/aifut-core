@@ -503,6 +503,22 @@ describe('OrchestrationService', () => {
               actionOrder: 4,
             },
           ],
+          decisionSummary: {
+            configuredCount: 1,
+            configuredDecisionKeys: ['approval-contracts-defined'],
+            unresolvedCount: 4,
+            unresolvedDecisionKeys: [
+              'runtime-bindings-unassigned',
+              'approval-channels-unassigned',
+              'source-of-truth-assignments-unresolved',
+              'sync-policies-unresolved',
+            ],
+            deferredCount: 2,
+            deferredDecisionKeys: [
+              'escalation-contracts-deferred',
+              'rollback-contracts-deferred',
+            ],
+          },
           missingRuntimeBindingCount: 8,
           missingApprovalChannelCount: 3,
           sourceOfTruthAssignmentCount: 0,
@@ -562,6 +578,20 @@ describe('OrchestrationService', () => {
             actionOrder: 4,
           },
         ],
+        decisionSummary: {
+          configuredCount: 0,
+          configuredDecisionKeys: [],
+          unresolvedCount: 2,
+          unresolvedDecisionKeys: [
+            'source-of-truth-assignments-unresolved',
+            'sync-policies-unresolved',
+          ],
+          deferredCount: 2,
+          deferredDecisionKeys: [
+            'escalation-contracts-deferred',
+            'rollback-contracts-deferred',
+          ],
+        },
         missingRuntimeBindingCount: 0,
         missingApprovalChannelCount: 0,
         sourceOfTruthAssignmentCount: 0,
