@@ -3,13 +3,14 @@
 Last updated: 2026-06-02
 
 ## Current repo reality
-- `main` is synchronized with `origin/main`; latest functional checkpoint rejects malformed domain provider metadata before persistence.
+- `main` is synchronized with `origin/main`; latest functional checkpoint expands HQ AI-governance ledger visibility using existing API truth.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
 - The Web UI HQ operator preview now reads the guarded AI-governance usage ledger and surfaces orchestration-runtime token totals, effective cost, and recent persisted execution events.
 
 ## Landed recently
+- `b79bff9` fix(api): validate domain provider metadata
 - `dc4f653` fix(api): validate domain certificate metadata
 - `2360f55` fix(api): validate domain provisioning modes
 - `717cb6e` fix(api): validate domain dns targets
@@ -68,6 +69,8 @@ Last updated: 2026-06-02
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Web UI HQ now surfaces AI-governance workspace scope, returned recent-event count, actual cost, estimated cost, and effective cost from the existing guarded usage-ledger response without inventing unavailable token breakdowns.
+- Verification passed: web typecheck, web production build, live production API health `200`, PostgreSQL runtime verifier `ok: true`, HQ route render `200` with all expanded ledger labels, and clean `3000` / `3002` teardown.
 - Domain writes now normalize provider metadata as bounded lowercase kebab-case identifiers, rejecting URL-shaped or free-form values with `Invalid provider.` before persistence while keeping provider vocabulary extensible.
 - Verification passed: targeted tenancy operations spec `81/81`, API build, full API Jest `26/26` suites and `368/368` tests, PostgreSQL runtime verifier `ok: true` before and after the rejected live write, live production API health `200`, live malformed provider rejection `400`, and clean port `3002` teardown.
 - Domain writes now normalize certificate status metadata as bounded kebab-case tokens, rejecting URL-shaped or free-form values with `Invalid certificateStatus.` before persistence while preserving future provider lifecycle extensibility.

@@ -497,7 +497,11 @@ export default async function OperatorPreviewPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
                   <DataPoint label="Feature" value={aiUsageSummary.summary.featureKey ?? "general"} />
                   <DataPoint label="Task" value={aiUsageSummary.summary.taskType ?? "general"} />
+                  <DataPoint label="Workspace scope" value={aiUsageSummary.summary.scope?.workspaceSlug ?? "tenant default"} />
+                  <DataPoint label="Recent events" value={String(aiUsageEvents.length)} />
                   <DataPoint label="Total tokens" value={formatTokenCount(aiUsageSummary.summary.totals?.totalTokens)} />
+                  <DataPoint label="Actual cost" value={formatCost(aiUsageSummary.summary.totals?.actualCost)} />
+                  <DataPoint label="Estimated cost" value={formatCost(aiUsageSummary.summary.totals?.estimatedCost)} />
                   <DataPoint label="Effective cost" value={formatCost(aiUsageSummary.summary.totals?.effectiveCost)} />
                 </div>
 
