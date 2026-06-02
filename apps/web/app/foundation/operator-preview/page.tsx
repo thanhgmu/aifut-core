@@ -444,6 +444,7 @@ export default async function OperatorPreviewPage() {
                 <DataPoint label="Latest runtime status" value={runtimeSummary?.latestRuntimeStatus ?? "N/A"} />
                 <DataPoint label="Latest snapshot type" value={runtimeSummary?.latestSnapshotType ?? "N/A"} />
                 <DataPoint label="Latest snapshot key" value={runtimeDiagnostics.runtimeDiagnostics.latestSnapshot?.snapshotKey ?? "N/A"} />
+                <DataPoint label="Latest snapshot recorded" value={formatDate(runtimeDiagnostics.runtimeDiagnostics.latestSnapshot?.recordedAt)} />
                 <DataPoint label="Latest event type" value={runtimeSummary?.latestEventType ?? "N/A"} />
                 <DataPoint label="Latest event key" value={runtimeDiagnostics.runtimeDiagnostics.latestEvent?.eventKey ?? "N/A"} />
                 <DataPoint label="Latest event status" value={runtimeDiagnostics.runtimeDiagnostics.latestEvent?.runtimeStatus ?? "N/A"} />
