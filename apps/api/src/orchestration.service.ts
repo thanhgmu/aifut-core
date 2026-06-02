@@ -943,6 +943,33 @@ export class OrchestrationService {
       preferredSystems: input.preferredSystems,
       lifecyclePhases: businessLifecycle.phases,
     });
+    const executionContractDraft = this.buildExecutionContractDraft({
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      planId,
+      objective,
+      unboundChildWorkflowDrafts: appCoordination.systemAssignments.map(
+        (assignment) => ({
+          workflowKey: assignment.phaseKey,
+          systemBoundaryKey: assignment.systemBoundaryKey,
+          approvalCheckpointKey: appCoordination.operatorCheckpoints.find(
+            (checkpoint) => checkpoint.phaseKey === assignment.phaseKey,
+          )?.checkpointKey,
+        }),
+      ),
+      approvalContracts: appCoordination.operatorCheckpoints.map(
+        (checkpoint) => ({
+          checkpointKey: checkpoint.checkpointKey,
+          approverRole: 'operator',
+          escalationMode: 'manual-review',
+          required: true,
+        }),
+      ),
+      activationReadiness: {
+        sourceOfTruthAssignmentCount: 0,
+        syncPolicyCount: 0,
+      },
+    });
 
     return {
       blueprintStatus: 'draft-review-required',
@@ -987,34 +1014,16 @@ export class OrchestrationService {
         operatorCheckpoints: appCoordination.operatorCheckpoints,
       }),
       businessLifecycle,
-      executionContractDraft: this.buildExecutionContractDraft({
-        tenantSlug: input.tenantSlug,
-        workspaceSlug: input.workspaceSlug,
-        planId,
-        objective,
-        unboundChildWorkflowDrafts: appCoordination.systemAssignments.map(
-          (assignment) => ({
-            workflowKey: assignment.phaseKey,
-            systemBoundaryKey: assignment.systemBoundaryKey,
-            approvalCheckpointKey:
-              appCoordination.operatorCheckpoints.find(
-                (checkpoint) => checkpoint.phaseKey === assignment.phaseKey,
-              )?.checkpointKey,
-          }),
-        ),
-        approvalContracts: appCoordination.operatorCheckpoints.map(
-          (checkpoint) => ({
-            checkpointKey: checkpoint.checkpointKey,
-            approverRole: 'operator',
-            escalationMode: 'manual-review',
-            required: true,
-          }),
-        ),
-        activationReadiness: {
-          sourceOfTruthAssignmentCount: 0,
-          syncPolicyCount: 0,
-        },
-      }),
+      executionContractDraft,
+      reviewSummary: {
+        status: executionContractDraft.activationReadiness.status,
+        activationAllowed:
+          executionContractDraft.activationReadiness.activationAllowed,
+        blockers: executionContractDraft.activationReadiness.blockers,
+        nextActions: executionContractDraft.activationReadiness.nextActions,
+        decisionSummary:
+          executionContractDraft.activationReadiness.decisionSummary,
+      },
       contextScope: {
         tenantSlug: input.tenantSlug,
         workspaceSlug: input.workspaceSlug ?? null,

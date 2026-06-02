@@ -534,6 +534,27 @@ describe('OrchestrationService', () => {
           rollbackContractCount: 0,
         },
       },
+      reviewSummary: {
+        status: 'blocked-pending-configuration',
+        activationAllowed: false,
+        blockers: [
+          'runtime-bindings-unassigned',
+          'approval-channels-unassigned',
+          'source-of-truth-assignments-unresolved',
+          'sync-policies-unresolved',
+        ],
+        nextActions: [
+          { actionKey: 'assign-runtime-bindings', actionOrder: 1 },
+          { actionKey: 'configure-approval-channels', actionOrder: 2 },
+          { actionKey: 'assign-source-of-truth', actionOrder: 3 },
+          { actionKey: 'define-sync-policies', actionOrder: 4 },
+        ],
+        decisionSummary: {
+          configuredCount: 1,
+          unresolvedCount: 4,
+          deferredCount: 2,
+        },
+      },
       contextScope: {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',

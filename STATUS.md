@@ -16,7 +16,8 @@ Last updated: 2026-06-03
 - Blueprint execution-contract drafts now expose an activation-readiness summary with bounded blockers for missing runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
 - Blueprint activation-readiness summaries now translate unresolved blockers into an ordered operator checklist for runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
 - Blueprint activation-readiness summaries now distinguish configured, unresolved, and intentionally deferred decisions so operators can inspect setup state at a glance.
-- `main` is synchronized with `origin/main`; latest functional checkpoint distinguishes configured, unresolved, and intentionally deferred blueprint setup decisions.
+- Natural-language blueprint previews now surface a top-level review summary with activation status, blockers, ordered setup work, and decision counts without forcing consumers to inspect nested execution-contract details.
+- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces blueprint activation review state at the top-level preview boundary.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -26,6 +27,7 @@ Last updated: 2026-06-03
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `d6bc969` feat(api): summarize blueprint setup decisions
 - `c295501` feat(api): guide blueprint activation setup
 - `31f29e1` feat(api): summarize blueprint activation readiness
 - `ec289b5` feat(api): draft unbound lifecycle workflows
@@ -107,6 +109,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Natural-language blueprint previews now expose a top-level review summary with activation status, bounded blockers, ordered setup work, and configured/unresolved/deferred decision counts sourced from the execution-contract readiness summary.
+- Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint activation-readiness summaries now distinguish configured, unresolved, and intentionally deferred decisions, keeping setup state inspectable without pretending deferred escalation or rollback contracts are already configured.
 - Verification passed: targeted orchestration tests `87/87`, API build, and full API Jest `26/26` suites and `370/370` tests.
 - Natural-language blueprint activation-readiness summaries now translate bounded blockers into an ordered operator checklist: assign runtime bindings, configure approval channels, assign source-of-truth systems, and define synchronization policies.
