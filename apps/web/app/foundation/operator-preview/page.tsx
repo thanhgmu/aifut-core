@@ -468,6 +468,9 @@ export default async function OperatorPreviewPage() {
                           <MutedLine>
                             Run: {aiGovernanceOutcomes.latestOutcome.runKey ?? "No run key recorded"}
                           </MutedLine>
+                          <MutedLine>
+                            Event: {aiGovernanceOutcomes.latestOutcome.eventKey ?? "No event key recorded"}
+                          </MutedLine>
                         </>
                       ) : (
                         <MutedLine>No persisted AI dispatch outcomes were returned for this sample plan.</MutedLine>
