@@ -1297,6 +1297,42 @@ describe('TenancyOperationsService', () => {
     });
   });
 
+  it('should reject URL-shaped dns targets before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: 'https://edge.aifut.test/tenant-route',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toThrow('Invalid dnsTarget.');
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
+  it('should reject IP literal dns targets before persistence', async () => {
+    await expect(
+      service.upsertDomain({
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        hostname: 'ops.acme.test',
+        kind: TenantDomainKind.CUSTOM,
+        status: TenantDomainStatus.ACTIVE,
+        provider: 'cloudflare',
+        provisioningMode: 'managed',
+        dnsTarget: '127.0.0.1',
+        certificateStatus: 'issued',
+      }),
+    ).rejects.toThrow('Invalid dnsTarget.');
+
+    expect(prisma.tenantDomain.upsert).not.toHaveBeenCalled();
+  });
+
   it('should surface non-route-ready governance for degraded custom domains without managed provisioning metadata', async () => {
     prisma.tenantDomain.upsert.mockResolvedValue({
       id: 'domain_degraded_custom_1',

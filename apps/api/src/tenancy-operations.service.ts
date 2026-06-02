@@ -198,7 +198,7 @@ export class TenancyOperationsService {
     const dnsTarget =
       input.dnsTarget === undefined
         ? existingDomain?.dnsTarget ?? null
-        : this.normalizeOptional(input.dnsTarget);
+        : this.normalizeDnsTarget(input.dnsTarget);
     const certificateStatus = this.normalizeOptionalLowercase(
       input.certificateStatus === undefined
         ? existingDomain?.certificateStatus
@@ -659,6 +659,24 @@ export class TenancyOperationsService {
   private normalizeOptionalLowercase(value?: string | null) {
     const normalized = this.normalizeOptional(value);
     return normalized ? normalized.toLowerCase() : null;
+  }
+
+  private normalizeDnsTarget(value?: string | null) {
+    const normalized = this.normalizeOptional(value);
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (/[/,:]/.test(normalized)) {
+      throw new BadRequestException('Invalid dnsTarget.');
+    }
+
+    try {
+      return normalizeTenantDomainHostname(normalized);
+    } catch {
+      throw new BadRequestException('Invalid dnsTarget.');
+    }
   }
 
   private normalizeOptionalUppercase(value?: string | null) {
