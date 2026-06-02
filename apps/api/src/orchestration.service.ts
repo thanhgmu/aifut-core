@@ -637,6 +637,26 @@ export class OrchestrationService {
       ['operations-fulfillment', 'order-fulfillment'],
       ['customer-success', 'customer-support'],
     ]);
+    const operatorCheckpoints = [
+      {
+        checkpointKey: 'approve-supplier-selection',
+        phaseKey: 'supplier-validation',
+        checkpointStatus: 'review-required',
+        reason: 'Confirm sourcing, unit economics, and fulfillment risk before launch planning.',
+      },
+      {
+        checkpointKey: 'approve-content-release',
+        phaseKey: 'content-production',
+        checkpointStatus: 'review-required',
+        reason: 'Approve customer-facing assets before any channel publication.',
+      },
+      {
+        checkpointKey: 'review-fulfillment-exceptions',
+        phaseKey: 'operations-fulfillment',
+        checkpointStatus: 'review-required',
+        reason: 'Review operating exceptions before customer-impacting remediation.',
+      },
+    ];
 
     return {
       planId: input.planId,
@@ -653,7 +673,7 @@ export class OrchestrationService {
         connectorActivationAllowed: false,
       })),
       connectorRecommendations: [],
-      operatorCheckpoints: [],
+      operatorCheckpoints,
       contextScope: {
         tenantSlug: input.tenantSlug,
         workspaceSlug: input.workspaceSlug ?? null,
@@ -734,6 +754,12 @@ export class OrchestrationService {
       objective: string;
       nextPhaseKey: string;
     }>;
+    operatorCheckpoints?: Array<{
+      checkpointKey: string;
+      phaseKey: string;
+      checkpointStatus: string;
+      reason: string;
+    }>;
   }) {
     const lifecyclePhases = input.lifecyclePhases ?? [];
 
@@ -757,7 +783,7 @@ export class OrchestrationService {
         edgeType: 'business-lifecycle-transition',
       })),
       overlays: {
-        approvals: [],
+        approvals: input.operatorCheckpoints ?? [],
         kpis: [],
       },
       contextScope: {
@@ -877,6 +903,14 @@ export class OrchestrationService {
       workspaceSlug: input.workspaceSlug,
       planId,
     });
+    const appCoordination = this.buildAppCoordinationDraft({
+      tenantSlug: input.tenantSlug,
+      workspaceSlug: input.workspaceSlug,
+      planId,
+      objective,
+      preferredSystems: input.preferredSystems,
+      lifecyclePhases: businessLifecycle.phases,
+    });
 
     return {
       blueprintStatus: 'draft-review-required',
@@ -895,14 +929,7 @@ export class OrchestrationService {
         hints: input.constraints,
       }),
       parentWorkflowPlan,
-      appCoordination: this.buildAppCoordinationDraft({
-        tenantSlug: input.tenantSlug,
-        workspaceSlug: input.workspaceSlug,
-        planId,
-        objective,
-        preferredSystems: input.preferredSystems,
-        lifecyclePhases: businessLifecycle.phases,
-      }),
+      appCoordination,
       dataflow: this.buildDataflowModelDraft({
         tenantSlug: input.tenantSlug,
         workspaceSlug: input.workspaceSlug,
@@ -925,6 +952,7 @@ export class OrchestrationService {
         objective,
         lanes: input.lanes,
         lifecyclePhases: businessLifecycle.phases,
+        operatorCheckpoints: appCoordination.operatorCheckpoints,
       }),
       businessLifecycle,
       executionContractDraft: this.buildExecutionContractDraft({

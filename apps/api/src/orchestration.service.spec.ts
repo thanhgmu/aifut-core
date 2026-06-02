@@ -83,7 +83,23 @@ describe('OrchestrationService', () => {
       preferredSystems: [],
       systemAssignments: [],
       connectorRecommendations: [],
-      operatorCheckpoints: [],
+      operatorCheckpoints: [
+        {
+          checkpointKey: 'approve-supplier-selection',
+          phaseKey: 'supplier-validation',
+          checkpointStatus: 'review-required',
+        },
+        {
+          checkpointKey: 'approve-content-release',
+          phaseKey: 'content-production',
+          checkpointStatus: 'review-required',
+        },
+        {
+          checkpointKey: 'review-fulfillment-exceptions',
+          phaseKey: 'operations-fulfillment',
+          checkpointStatus: 'review-required',
+        },
+      ],
       contextScope: {
         tenantSlug: 'acme',
         workspaceSlug: 'ops',
@@ -234,6 +250,23 @@ describe('OrchestrationService', () => {
             systemBoundaryKey: 'customer-support',
           },
         ],
+        operatorCheckpoints: [
+          {
+            checkpointKey: 'approve-supplier-selection',
+            phaseKey: 'supplier-validation',
+            checkpointStatus: 'review-required',
+          },
+          {
+            checkpointKey: 'approve-content-release',
+            phaseKey: 'content-production',
+            checkpointStatus: 'review-required',
+          },
+          {
+            checkpointKey: 'review-fulfillment-exceptions',
+            phaseKey: 'operations-fulfillment',
+            checkpointStatus: 'review-required',
+          },
+        ],
       },
       dataflow: {
         businessObjects: ['product-candidate', 'supplier', 'lead', 'order'],
@@ -282,6 +315,22 @@ describe('OrchestrationService', () => {
             toNodeKey: 'market-discovery',
           }),
         ]),
+        overlays: {
+          approvals: [
+            {
+              checkpointKey: 'approve-supplier-selection',
+              phaseKey: 'supplier-validation',
+            },
+            {
+              checkpointKey: 'approve-content-release',
+              phaseKey: 'content-production',
+            },
+            {
+              checkpointKey: 'review-fulfillment-exceptions',
+              phaseKey: 'operations-fulfillment',
+            },
+          ],
+        },
       },
       businessLifecycle: {
         planId: 'plan:acme:ops:draft',
