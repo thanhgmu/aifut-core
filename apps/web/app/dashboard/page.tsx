@@ -61,6 +61,49 @@ type BusinessSystemBlueprintPreviewResponse = {
   };
 };
 
+type RuntimeBindingSetupQueueItem = NonNullable<
+  NonNullable<
+    NonNullable<
+      BusinessSystemBlueprintPreviewResponse["businessSystemBlueprint"]
+    >["reviewSummary"]
+  >["runtimeBindingSetupQueue"]
+>[number];
+
+type RuntimeBindingSetupPreviewResponse = {
+  status?: string;
+  runtimeBindingSetupReview?: {
+    setupKey?: string | null;
+    setupMode?: string;
+    reviewStatus?: string;
+    previewOnly?: boolean;
+    externalActionsAllowed?: boolean;
+    activationAllowed?: boolean;
+    blockers?: string[];
+    nextActions?: Array<{
+      actionKey?: string;
+      actionStatus?: string;
+      reason?: string;
+      missingInputKeys?: string[];
+      invalidInputKeys?: string[];
+    }>;
+    candidateRuntimeBinding?: {
+      planId?: string;
+      workflowKey?: string;
+      systemBoundaryKey?: string;
+      runtimeKey?: string;
+      connectionKey?: string;
+      triggerMode?: string;
+      approvalCheckpointKey?: string | null;
+    };
+    inputSummary?: {
+      requiredCount?: number;
+      providedCount?: number;
+      missingInputKeys?: string[];
+      invalidInputKeys?: string[];
+    };
+  };
+};
+
 type RootResponse = {
   focus?: {
     model?: string;
@@ -153,12 +196,53 @@ async function getDashboardData() {
   ]);
 
   const adapterInterfaces = adapterInterfacesResponse?.adapterInterfaces;
+  const runtimeBindingSetupPreviewResult = await getRuntimeBindingSetupPreviewResult(blueprintPreviewResult);
 
-  return { health, adapterInterfaces, root, blueprintPreviewResult };
+  return { health, adapterInterfaces, root, blueprintPreviewResult, runtimeBindingSetupPreviewResult };
+}
+
+async function getRuntimeBindingSetupPreviewResult(
+  blueprintPreviewResult: JsonResult<BusinessSystemBlueprintPreviewResponse>,
+): Promise<JsonResult<RuntimeBindingSetupPreviewResponse>> {
+  const setupCandidate =
+    blueprintPreviewResult.data?.businessSystemBlueprint?.reviewSummary?.runtimeBindingSetupQueue?.[0];
+
+  if (!setupCandidate) {
+    return {
+      data: null,
+      status: null,
+      error: "No setup candidate available",
+    };
+  }
+
+  return postJsonResult<RuntimeBindingSetupPreviewResponse>(
+    "/orchestration/business-systems/runtime-binding-setup-preview",
+    buildRuntimeBindingSetupCandidate(setupCandidate),
+  );
+}
+
+function buildRuntimeBindingSetupCandidate(setup: RuntimeBindingSetupQueueItem) {
+  const workflowKey = setup.workflowKey ?? "workflow-draft";
+  const systemBoundaryKey = setup.systemBoundaryKey ?? "system-boundary";
+
+  return {
+    tenantSlug: SAMPLE_BLUEPRINT_REQUEST.tenantSlug,
+    workspaceSlug: SAMPLE_BLUEPRINT_REQUEST.workspaceSlug,
+    userEmail: SAMPLE_BLUEPRINT_REQUEST.userEmail,
+    planId: "plan:acme:ops:business-system-blueprint",
+    setupKey: setup.setupKey,
+    workflowKey,
+    systemBoundaryKey,
+    runtimeKey: `runtime:${systemBoundaryKey}`,
+    connectionKey: `connection:${systemBoundaryKey}:operator-draft`,
+    triggerMode: "manual-review",
+    approvalCheckpointKey: setup.approvalCheckpointKey ?? null,
+  };
 }
 
 export default async function DashboardPage() {
-  const { health, adapterInterfaces, root, blueprintPreviewResult } = await getDashboardData();
+  const { health, adapterInterfaces, root, blueprintPreviewResult, runtimeBindingSetupPreviewResult } =
+    await getDashboardData();
   const interfaceCount = adapterInterfaces?.adapterInterfaces?.length ?? 0;
   const topInterfaces = Array.isArray(adapterInterfaces?.adapterInterfaces)
     ? adapterInterfaces.adapterInterfaces.slice(0, 3)
@@ -173,6 +257,7 @@ export default async function DashboardPage() {
   const childWorkflowCount = blueprint?.executionContractDraft?.unboundChildWorkflowDrafts?.length ?? 0;
   const approvalContractCount = blueprint?.executionContractDraft?.approvalContracts?.length ?? 0;
   const runtimeBindingSetupQueue = reviewSummary?.runtimeBindingSetupQueue ?? [];
+  const runtimeBindingSetupReview = runtimeBindingSetupPreviewResult.data?.runtimeBindingSetupReview;
 
   return (
     <main
@@ -300,6 +385,65 @@ export default async function DashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>Runtime binding setup review</div>
+                      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>
+                        Preview-only candidate generated from the first setup queue row.
+                      </div>
+                    </div>
+                    <span style={{ color: "#9fb0ff", fontSize: 12 }}>
+                      {runtimeBindingSetupReview?.reviewStatus ?? formatReadFailure(runtimeBindingSetupPreviewResult)}
+                    </span>
+                  </div>
+
+                  {runtimeBindingSetupReview ? (
+                    <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                        <MetricCard
+                          title="Inputs"
+                          value={`${runtimeBindingSetupReview.inputSummary?.providedCount ?? 0}/${runtimeBindingSetupReview.inputSummary?.requiredCount ?? 0}`}
+                          note="candidate fields supplied"
+                        />
+                        <MetricCard
+                          title="Activation"
+                          value={runtimeBindingSetupReview.activationAllowed ? "Allowed" : "Blocked"}
+                          note="preview review cannot activate"
+                        />
+                        <MetricCard
+                          title="External actions"
+                          value={runtimeBindingSetupReview.externalActionsAllowed ? "Allowed" : "Disabled"}
+                          note="no connector side effects"
+                        />
+                      </div>
+
+                      <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.6 }}>
+                        <div>Workflow: {runtimeBindingSetupReview.candidateRuntimeBinding?.workflowKey ?? "unassigned"}</div>
+                        <div>Boundary: {runtimeBindingSetupReview.candidateRuntimeBinding?.systemBoundaryKey ?? "unassigned"}</div>
+                        <div>Runtime: {runtimeBindingSetupReview.candidateRuntimeBinding?.runtimeKey ?? "unassigned"}</div>
+                        <div>Connection: {runtimeBindingSetupReview.candidateRuntimeBinding?.connectionKey ?? "unassigned"}</div>
+                        <div>Trigger: {runtimeBindingSetupReview.candidateRuntimeBinding?.triggerMode ?? "unassigned"}</div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: 6, color: "#9fb0ff", fontSize: 13 }}>
+                        {(runtimeBindingSetupReview.nextActions ?? []).map((action) => (
+                          <div key={action.actionKey}>
+                            next: {action.actionKey ?? "review"} / {action.actionStatus ?? "required"}
+                          </div>
+                        ))}
+                        {(runtimeBindingSetupReview.blockers ?? []).map((blocker) => (
+                          <div key={blocker}>blocked: {blocker}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 14, color: "#c8d2ff" }}>
+                      Setup review is unavailable: {formatReadFailure(runtimeBindingSetupPreviewResult)}.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div style={{ color: "#c8d2ff" }}>
@@ -319,6 +463,7 @@ export default async function DashboardPage() {
                 `${API_BASE}/connectors/adapter-contracts`,
                 `${API_BASE}/connectors/templates`,
                 `${API_BASE}/orchestration/business-systems/draft-preview`,
+                `${API_BASE}/orchestration/business-systems/runtime-binding-setup-preview`,
               ].map((href) => (
                 <a
                   key={href}
