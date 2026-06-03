@@ -1120,8 +1120,42 @@ export class OrchestrationService {
         workflowKey: draft.workflowKey,
         systemBoundaryKey: draft.systemBoundaryKey,
         approvalCheckpointKey: draft.approvalCheckpointKey || null,
+        setupMode: 'operator-review-required',
         setupStatus: 'required',
+        previewOnly: true,
         resolvesBlocker: 'runtime-bindings-unassigned',
+        requiredInputs: [
+          {
+            inputKey: 'runtimeKey',
+            inputType: 'runtime-binding',
+            required: true,
+            reason:
+              'Select the configured execution runtime that will own this lifecycle workflow.',
+          },
+          {
+            inputKey: 'connectionKey',
+            inputType: 'system-connection',
+            required: true,
+            reason:
+              'Bind the workflow to a reviewed connector or system connection for this boundary.',
+          },
+          {
+            inputKey: 'triggerMode',
+            inputType: 'enum',
+            required: true,
+            allowedValues: ['manual-review', 'scheduled', 'event-driven'],
+            reason:
+              'Choose how this workflow may start after the blueprint leaves preview mode.',
+          },
+          {
+            inputKey: 'approvalCheckpointKey',
+            inputType: 'approval-checkpoint',
+            required: Boolean(draft.approvalCheckpointKey),
+            reason: draft.approvalCheckpointKey
+              ? 'Confirm the operator approval checkpoint before customer-impacting execution.'
+              : 'Optional unless the operator adds a review checkpoint for this workflow.',
+          },
+        ],
       }),
     );
     const activationBlockers = [

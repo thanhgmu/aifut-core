@@ -38,6 +38,20 @@ type BusinessSystemBlueprintPreviewResponse = {
         actionOrder?: number;
         actionStatus?: string;
       }>;
+      runtimeBindingSetupQueue?: Array<{
+        setupKey?: string;
+        workflowKey?: string;
+        systemBoundaryKey?: string;
+        approvalCheckpointKey?: string | null;
+        setupMode?: string;
+        setupStatus?: string;
+        previewOnly?: boolean;
+        requiredInputs?: Array<{
+          inputKey?: string;
+          inputType?: string;
+          required?: boolean;
+        }>;
+      }>;
       decisionSummary?: {
         configuredCount?: number;
         unresolvedCount?: number;
@@ -158,6 +172,7 @@ export default async function DashboardPage() {
   const blueprintDataflowCount = blueprint?.dataflow?.edges?.length ?? 0;
   const childWorkflowCount = blueprint?.executionContractDraft?.unboundChildWorkflowDrafts?.length ?? 0;
   const approvalContractCount = blueprint?.executionContractDraft?.approvalContracts?.length ?? 0;
+  const runtimeBindingSetupQueue = reviewSummary?.runtimeBindingSetupQueue ?? [];
 
   return (
     <main
@@ -255,6 +270,27 @@ export default async function DashboardPage() {
                     {(reviewSummary?.nextActions ?? []).slice(0, 4).map((action) => (
                       <div key={action.actionKey} style={{ color: "#dfe6ff", lineHeight: 1.6 }}>
                         {action.actionOrder ?? "-"} / {action.actionKey ?? "unknown-action"} / {action.actionStatus ?? "required"}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                    {runtimeBindingSetupQueue.slice(0, 4).map((setup) => (
+                      <div key={setup.setupKey ?? setup.workflowKey} style={{
+                        padding: 12,
+                        borderRadius: 10,
+                        background: "rgba(255,255,255,0.035)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                          <strong>{setup.workflowKey ?? "workflow"}</strong>
+                          <span style={{ color: "#9fb0ff", fontSize: 12 }}>{setup.setupMode ?? setup.setupStatus ?? "required"}</span>
+                        </div>
+                        <div style={{ marginTop: 6, color: "#c8d2ff", fontSize: 13 }}>
+                          Boundary: {setup.systemBoundaryKey ?? "unassigned"}{setup.approvalCheckpointKey ? ` / approval: ${setup.approvalCheckpointKey}` : ""}
+                        </div>
+                        <div style={{ marginTop: 8, color: "#9fb0ff", fontSize: 12 }}>
+                          Inputs: {(setup.requiredInputs ?? []).map((input) => `${input.inputKey}${input.required ? "*" : ""}`).join(", ") || "pending"}
+                        </div>
                       </div>
                     ))}
                   </div>

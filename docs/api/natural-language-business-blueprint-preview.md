@@ -87,6 +87,8 @@ Client surfaces should render these `businessSystemBlueprint` fields first:
 - `reviewSummary.blockers`: missing runtime bindings, approval channels, source-of-truth assignments, and synchronization policies.
 - `reviewSummary.nextActions`: ordered setup checklist for the operator.
 - `reviewSummary.runtimeBindingSetupQueue`: per-workflow setup rows for assigning each lifecycle phase to a configured runtime and system boundary.
+- `reviewSummary.runtimeBindingSetupQueue[].requiredInputs`: operator-facing setup inputs that must be collected before a row can move beyond preview, including runtime key, connection key, trigger mode, and approval checkpoint confirmation when relevant.
+- `reviewSummary.runtimeBindingSetupQueue[].previewOnly`: expected to remain `true`; these rows describe setup work and must not be treated as executable automation commands.
 - `reviewSummary.decisions`: counts of configured, unresolved, and intentionally deferred setup decisions.
 - `executionPolicy.mode`: expected to remain `preview-only`.
 - `executionPolicy.externalActionsAllowed`: expected to remain `false`.

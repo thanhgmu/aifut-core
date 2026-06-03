@@ -3,6 +3,7 @@
 Last updated: 2026-06-03
 
 ## Current repo reality
+- Blueprint runtime-binding setup queue rows now expose operator-facing setup inputs (`runtimeKey`, `connectionKey`, `triggerMode`, and approval-checkpoint confirmation), remain explicitly preview-only, and render in the Web UI dashboard so the blocker starts becoming a concrete setup form contract.
 - Natural-language business-system draft previews now compose one review-gated blueprint across roadmap, interpretation, parent workflow, application coordination, dataflow, optimization, workflow graph, and a plan-bound execution-contract draft.
 - Preview blueprints keep external actions disabled and require approval before activation; their execution-contract draft makes unresolved runtime bindings, child workflows, approval checkpoints, escalations, and rollback contracts visible before runtime submission.
 - Natural-language blueprint previews now include a reviewable closed-loop business lifecycle from market discovery and supplier validation through content, distribution, sales, fulfillment, and customer-success feedback.
@@ -120,6 +121,8 @@ Last updated: 2026-06-03
 - `c1b5eb0` docs(roadmap): add wave 2 lane board
 
 ## Latest verified checkpoint
+- Blueprint runtime-binding setup queue rows now carry `setupMode: operator-review-required`, `previewOnly: true`, and required operator input descriptors for runtime, connection, trigger mode, and approval checkpoint confirmation. The Web UI dashboard renders the first queue rows with their required inputs.
+- Verification passed: targeted orchestration service tests `55/55`, API build, full API Jest `26/26` suites and `371/371` tests, web typecheck, web production build, live API health `200`, live blueprint preview proof with `requiredInputs`, and dashboard route render `200` with `runtimeKey*` and `connectionKey*`.
 - Natural-language blueprint previews now publish a runtime-binding setup queue for each unbound lifecycle workflow, including workflow key, suggested system boundary, approval checkpoint, setup status, and the blocker each row resolves.
 - Verification passed: targeted orchestration service tests `55/55`, API build, and full API Jest `26/26` suites and `371/371` tests.
 - The Web UI dashboard now surfaces a live natural-language business blueprint preview summary from `/orchestration/business-systems/draft-preview`, including lifecycle phase count, workflow graph shape, system assignments, dataflow edges, unbound child-workflow drafts, approval contracts, activation status, blockers, and ordered setup actions.

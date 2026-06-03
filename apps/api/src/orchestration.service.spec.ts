@@ -705,6 +705,50 @@ describe('OrchestrationService', () => {
         workspaceSlug: 'ops',
       },
     });
+    expect(
+      result.reviewSummary.runtimeBindingSetupQueue[0],
+    ).toMatchObject({
+      setupMode: 'operator-review-required',
+      previewOnly: true,
+      requiredInputs: [
+        {
+          inputKey: 'runtimeKey',
+          inputType: 'runtime-binding',
+          required: true,
+        },
+        {
+          inputKey: 'connectionKey',
+          inputType: 'system-connection',
+          required: true,
+        },
+        {
+          inputKey: 'triggerMode',
+          inputType: 'enum',
+          required: true,
+          allowedValues: ['manual-review', 'scheduled', 'event-driven'],
+        },
+        {
+          inputKey: 'approvalCheckpointKey',
+          inputType: 'approval-checkpoint',
+          required: false,
+        },
+      ],
+    });
+    expect(
+      result.reviewSummary.runtimeBindingSetupQueue[1],
+    ).toMatchObject({
+      workflowKey: 'supplier-validation',
+      approvalCheckpointKey: 'approve-supplier-selection',
+      requiredInputs: [
+        {},
+        {},
+        {},
+        {
+          inputKey: 'approvalCheckpointKey',
+          required: true,
+        },
+      ],
+    });
   });
 
   it('should build an execution contract draft with normalized defaults', () => {
