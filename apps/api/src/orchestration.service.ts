@@ -1285,6 +1285,96 @@ export class OrchestrationService {
     };
   }
 
+  buildRuntimeBindingSetupReviewDraft(input: {
+    tenantSlug: string;
+    workspaceSlug?: string | null;
+    planId?: string;
+    setupKey?: string;
+    workflowKey?: string;
+    systemBoundaryKey?: string;
+    runtimeKey?: string;
+    connectionKey?: string;
+    triggerMode?: string;
+    approvalCheckpointKey?: string | null;
+  }) {
+    const allowedTriggerModes = ['manual-review', 'scheduled', 'event-driven'];
+    const planId = input.planId?.trim() ?? '';
+    const workflowKey = input.workflowKey?.trim() ?? '';
+    const systemBoundaryKey = input.systemBoundaryKey?.trim() ?? '';
+    const runtimeKey = input.runtimeKey?.trim() ?? '';
+    const connectionKey = input.connectionKey?.trim() ?? '';
+    const triggerMode = input.triggerMode?.trim() ?? '';
+    const setupKey =
+      input.setupKey?.trim() ||
+      (planId && workflowKey
+        ? `${planId}:runtime-binding:${workflowKey}`
+        : '');
+    const missingInputKeys = [
+      ...(!planId ? ['planId'] : []),
+      ...(!workflowKey ? ['workflowKey'] : []),
+      ...(!systemBoundaryKey ? ['systemBoundaryKey'] : []),
+      ...(!runtimeKey ? ['runtimeKey'] : []),
+      ...(!connectionKey ? ['connectionKey'] : []),
+      ...(!triggerMode ? ['triggerMode'] : []),
+    ];
+    const invalidInputKeys =
+      triggerMode && !allowedTriggerModes.includes(triggerMode)
+        ? ['triggerMode']
+        : [];
+    const blockers = [
+      ...missingInputKeys.map((key) => `missing-${key}`),
+      ...invalidInputKeys.map((key) => `invalid-${key}`),
+    ];
+
+    return {
+      setupKey: setupKey || null,
+      setupMode: 'operator-review-required',
+      reviewStatus:
+        blockers.length > 0 ? 'blocked-pending-inputs' : 'ready-for-operator-review',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      blockers,
+      nextActions:
+        blockers.length > 0
+          ? [
+              {
+                actionKey: 'complete-runtime-binding-inputs',
+                actionStatus: 'required',
+                missingInputKeys,
+                invalidInputKeys,
+              },
+            ]
+          : [
+              {
+                actionKey: 'operator-review-runtime-binding',
+                actionStatus: 'required',
+                reason:
+                  'Review the candidate runtime binding before submitting an activation-capable execution contract.',
+              },
+            ],
+      candidateRuntimeBinding: {
+        planId,
+        workflowKey,
+        systemBoundaryKey,
+        runtimeKey,
+        connectionKey,
+        triggerMode,
+        approvalCheckpointKey: input.approvalCheckpointKey?.trim() || null,
+      },
+      inputSummary: {
+        requiredCount: 6,
+        providedCount: 6 - missingInputKeys.length,
+        missingInputKeys,
+        invalidInputKeys,
+      },
+      contextScope: {
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug ?? null,
+      },
+    };
+  }
+
   submitExecutionContract(input: {
     tenantSlug: string;
     workspaceSlug?: string | null;

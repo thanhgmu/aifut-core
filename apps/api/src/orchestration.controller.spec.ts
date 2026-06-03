@@ -22,6 +22,7 @@ describe('OrchestrationController', () => {
     buildOptimizationSummaryDraft: jest.Mock;
     buildWorkflowGraphDraft: jest.Mock;
     buildBusinessSystemBlueprintDraft: jest.Mock;
+    buildRuntimeBindingSetupReviewDraft: jest.Mock;
     buildExecutionContractDraft: jest.Mock;
     submitExecutionContract: jest.Mock;
     materializeExecutionRuntime: jest.Mock;
@@ -58,6 +59,7 @@ describe('OrchestrationController', () => {
       buildOptimizationSummaryDraft: jest.fn(),
       buildWorkflowGraphDraft: jest.fn(),
       buildBusinessSystemBlueprintDraft: jest.fn(),
+      buildRuntimeBindingSetupReviewDraft: jest.fn(),
       buildExecutionContractDraft: jest.fn(),
       submitExecutionContract: jest.fn(),
       materializeExecutionRuntime: jest.fn(),
@@ -130,6 +132,8 @@ describe('OrchestrationController', () => {
           mode: 'preview-only',
           externalActionsAllowed: false,
           topLevelReviewSummary: true,
+          runtimeBindingSetupPreviewEndpoint:
+            'POST /orchestration/business-systems/runtime-binding-setup-preview',
         },
       },
     });
@@ -628,6 +632,79 @@ describe('OrchestrationController', () => {
         'review-business-assumptions',
         'collect-missing-inputs',
         'approve-parent-workflow-draft',
+      ],
+    });
+  });
+
+  it('should preview runtime-binding setup without activation', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildRuntimeBindingSetupReviewDraft.mockReturnValue({
+      reviewStatus: 'ready-for-operator-review',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      candidateRuntimeBinding: {
+        workflowKey: 'market-discovery',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      },
+    });
+
+    const result = await controller.previewBusinessSystemRuntimeBindingSetup(
+      {
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(
+      orchestration.buildRuntimeBindingSetupReviewDraft,
+    ).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      setupKey: undefined,
+      workflowKey: 'market-discovery',
+      systemBoundaryKey: 'research-intelligence',
+      runtimeKey: 'runtime:research',
+      connectionKey: 'conn:research',
+      triggerMode: 'manual-review',
+      approvalCheckpointKey: undefined,
+    });
+    expect(result).toMatchObject({
+      status: 'runtime-binding-setup-previewed',
+      runtimeBindingSetupReview: {
+        reviewStatus: 'ready-for-operator-review',
+        previewOnly: true,
+        externalActionsAllowed: false,
+        activationAllowed: false,
+      },
+      next: [
+        'review-runtime-binding-setup',
+        'configure-approval-channels',
+        'keep-preview-mode-until-activation-readiness-clears',
       ],
     });
   });

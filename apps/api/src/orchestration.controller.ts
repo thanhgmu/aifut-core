@@ -72,6 +72,8 @@ export class OrchestrationController {
           mode: 'preview-only',
           externalActionsAllowed: false,
           topLevelReviewSummary: true,
+          runtimeBindingSetupPreviewEndpoint:
+            'POST /orchestration/business-systems/runtime-binding-setup-preview',
         },
       },
       next: ORCHESTRATION_FOUNDATION_ROADMAP,
@@ -192,6 +194,71 @@ export class OrchestrationController {
         'review-business-assumptions',
         'collect-missing-inputs',
         'approve-parent-workflow-draft',
+      ],
+    };
+  }
+
+  @Post('business-systems/runtime-binding-setup-preview')
+  async previewBusinessSystemRuntimeBindingSetup(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      userEmail?: string;
+      workspaceSlug?: string;
+      planId?: string;
+      setupKey?: string;
+      workflowKey?: string;
+      systemBoundaryKey?: string;
+      runtimeKey?: string;
+      connectionKey?: string;
+      triggerMode?: string;
+      approvalCheckpointKey?: string | null;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+    @Headers('authorization') authorizationHeader?: string,
+  ) {
+    const context = await this.resolveActorContext({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery ?? body.tenantSlug,
+      userEmail: userEmailHeader ?? userEmailQuery ?? body.userEmail,
+      workspaceSlug:
+        workspaceSlugHeader ?? workspaceSlugQuery ?? body.workspaceSlug,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authorizationHeader,
+    });
+
+    return {
+      capability: 'orchestration',
+      status: 'runtime-binding-setup-previewed',
+      context: {
+        tenant: context.tenant,
+        activeWorkspace: context.activeWorkspace,
+        activeMembership: context.activeMembership,
+      },
+      runtimeBindingSetupReview:
+        this.orchestration.buildRuntimeBindingSetupReviewDraft({
+          tenantSlug: context.tenant.slug,
+          workspaceSlug: context.activeWorkspace?.slug,
+          planId: body.planId,
+          setupKey: body.setupKey,
+          workflowKey: body.workflowKey,
+          systemBoundaryKey: body.systemBoundaryKey,
+          runtimeKey: body.runtimeKey,
+          connectionKey: body.connectionKey,
+          triggerMode: body.triggerMode,
+          approvalCheckpointKey: body.approvalCheckpointKey,
+        }),
+      next: [
+        'review-runtime-binding-setup',
+        'configure-approval-channels',
+        'keep-preview-mode-until-activation-readiness-clears',
       ],
     };
   }

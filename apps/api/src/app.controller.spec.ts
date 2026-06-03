@@ -34,6 +34,7 @@ describe('AppController', () => {
           orchestration: [
             '/orchestration/capabilities',
             '/orchestration/business-systems/draft-preview',
+            '/orchestration/business-systems/runtime-binding-setup-preview',
             '/orchestration/roadmap',
           ],
         },

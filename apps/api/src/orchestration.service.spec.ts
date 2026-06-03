@@ -827,6 +827,75 @@ describe('OrchestrationService', () => {
     });
   });
 
+  it('should review runtime-binding setup inputs without activation', () => {
+    expect(
+      service.buildRuntimeBindingSetupReviewDraft({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      }),
+    ).toMatchObject({
+      setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
+      setupMode: 'operator-review-required',
+      reviewStatus: 'ready-for-operator-review',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      blockers: [],
+      candidateRuntimeBinding: {
+        planId: 'plan:acme:ops:draft',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      },
+      inputSummary: {
+        requiredCount: 6,
+        providedCount: 6,
+      },
+    });
+  });
+
+  it('should block runtime-binding setup preview when required inputs are missing or invalid', () => {
+    expect(
+      service.buildRuntimeBindingSetupReviewDraft({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        triggerMode: 'autonomous',
+      }),
+    ).toMatchObject({
+      reviewStatus: 'blocked-pending-inputs',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      blockers: ['missing-connectionKey', 'invalid-triggerMode'],
+      nextActions: [
+        {
+          actionKey: 'complete-runtime-binding-inputs',
+          actionStatus: 'required',
+          missingInputKeys: ['connectionKey'],
+          invalidInputKeys: ['triggerMode'],
+        },
+      ],
+      inputSummary: {
+        requiredCount: 6,
+        providedCount: 5,
+        missingInputKeys: ['connectionKey'],
+        invalidInputKeys: ['triggerMode'],
+      },
+    });
+  });
+
   it('should normalize duplicate and blank execution modes', () => {
     const result = service.buildExecutionContractDraft({
       tenantSlug: 'acme',

@@ -104,6 +104,14 @@ Client surfaces should render these `businessSystemBlueprint` fields first:
 
 Treat the preview as a draft contract, not a runnable automation.
 
+Candidate runtime-binding values can be reviewed through:
+
+```text
+POST /orchestration/business-systems/runtime-binding-setup-preview
+```
+
+That setup endpoint is also preview-only. It accepts candidate `planId`, `workflowKey`, `systemBoundaryKey`, `runtimeKey`, `connectionKey`, `triggerMode`, and optional `approvalCheckpointKey`, then returns whether the row is `ready-for-operator-review` or still `blocked-pending-inputs`. It never activates a workflow or dispatches an external action.
+
 Before activation, a client or operator must resolve:
 
 - Runtime bindings for each child workflow.
@@ -122,6 +130,7 @@ Natural-language request
 -> render reviewSummary first
 -> render lifecycle and workflow graph
 -> collect missing bindings and approval channels
+-> POST runtime-binding-setup-preview for each candidate binding
 -> ask operator to approve or revise
 -> submit a separate runtime plan only after readiness clears
 ```
