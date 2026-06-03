@@ -3,6 +3,7 @@
 Last updated: 2026-06-03
 
 ## Current repo reality
+- Web UI HQ now calls `POST /orchestration/business-systems/runtime-binding-setup-preview` from the dashboard, using the first blueprint setup queue row to render a preview-only runtime binding setup review with candidate runtime, connection, trigger, safety flags, input count, next action, and blocker visibility.
 - Natural-language blueprint runtime-binding setup now has a preview-only review endpoint: `POST /orchestration/business-systems/runtime-binding-setup-preview`. It accepts candidate runtime/connection/trigger inputs, returns ready-vs-blocked review state, and keeps activation/external actions disabled.
 - Blueprint runtime-binding setup queue rows now expose operator-facing setup inputs (`runtimeKey`, `connectionKey`, `triggerMode`, and approval-checkpoint confirmation), remain explicitly preview-only, and render in the Web UI dashboard so the blocker starts becoming a concrete setup form contract.
 - Natural-language business-system draft previews now compose one review-gated blueprint across roadmap, interpretation, parent workflow, application coordination, dataflow, optimization, workflow graph, and a plan-bound execution-contract draft.
@@ -26,7 +27,7 @@ Last updated: 2026-06-03
 - The API docs now include a natural-language business blueprint preview usage example with request fields, render-first response fields, and the preview-only safety contract.
 - The API docs index now links the blueprint preview guide and repeats the preview-only rendering boundary for client implementers.
 - The Web UI dashboard now calls the natural-language business blueprint preview endpoint with a sample operator brief and renders the review-gated lifecycle, graph, runtime-binding, approval-contract, blocker, and setup-queue summary.
-- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces the natural-language business blueprint preview summary in the Web UI dashboard.
+- `main` is synchronized with `origin/main`; latest functional checkpoint surfaces the runtime-binding setup review in the Web UI dashboard.
 - Wave 2 is active under `docs/roadmap/wave-2-lane-board.md`.
 - The narrow domain lane now enforces route-ready hostname context through actor resolution, guard boundaries, topology reads, and storage policy reads.
 - The Web UI HQ operator preview renders friendly workspace labels for domain bindings while preserving raw IDs as bounded fallback context.
@@ -36,6 +37,7 @@ Last updated: 2026-06-03
 - The Web UI HQ operator preview now renders the guarded approval replay history plan binding above persisted approval-dispatch resumes.
 
 ## Landed recently
+- `e70be62` feat(web): preview runtime binding setup in HQ
 - `49c65db` docs(api): add blueprint preview usage example
 - `db5042c` feat(api): advertise blueprint preview capability
 - `3158124` test(api): lock blueprint review summary response
