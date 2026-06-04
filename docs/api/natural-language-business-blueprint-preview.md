@@ -110,7 +110,68 @@ Candidate runtime-binding values can be reviewed through:
 POST /orchestration/business-systems/runtime-binding-setup-preview
 ```
 
-That setup endpoint is also preview-only. It accepts candidate `planId`, `workflowKey`, `systemBoundaryKey`, `runtimeKey`, `connectionKey`, `triggerMode`, and optional `approvalCheckpointKey`, then returns whether the row is `ready-for-operator-review` or still `blocked-pending-inputs`. It never activates a workflow or dispatches an external action.
+That setup endpoint is also preview-only. It lets an operator edit candidate runtime, connection, trigger, and optional approval-checkpoint values for a selected setup queue row, then refresh the review draft:
+
+```json
+{
+  "planId": "plan:acme:ops:business-system-blueprint",
+  "setupKey": "plan:acme:ops:business-system-blueprint:runtime-binding:market-discovery",
+  "workflowKey": "market-discovery",
+  "systemBoundaryKey": "research-intelligence",
+  "runtimeKey": "runtime:research-intelligence",
+  "connectionKey": "connection:research-intelligence:operator-draft",
+  "triggerMode": "manual-review",
+  "approvalCheckpointKey": "approve-market-research"
+}
+```
+
+Required review inputs are `planId`, `workflowKey`, `systemBoundaryKey`, `runtimeKey`, `connectionKey`, and `triggerMode`. Allowed trigger modes are `manual-review`, `scheduled`, and `event-driven`. `setupKey` and `approvalCheckpointKey` are optional.
+
+The response envelope contains `runtimeBindingSetupReview`. Render these fields for the operator:
+
+- `reviewStatus`: `ready-for-operator-review` when required inputs are present and valid, otherwise `blocked-pending-inputs`.
+- `candidateRuntimeBinding`: the normalized candidate values being reviewed.
+- `blockers`, `nextActions`, and `inputSummary`: missing or invalid input details and the required next review step.
+- `previewOnly`: always `true`.
+- `externalActionsAllowed`: always `false`.
+- `activationAllowed`: always `false`.
+
+Refreshing this preview does not activate a workflow, persist the candidate binding, or dispatch a connector or other external action. A `ready-for-operator-review` result means the candidate inputs can be reviewed; it is not an activation-ready or persisted runtime binding.
+
+## Setup Key Consistency
+
+Each setup queue row publishes a `setupKey` derived from its plan and workflow:
+
+```text
+{planId}:runtime-binding:{workflowKey}
+```
+
+When `planId` and `workflowKey` are present, the setup-preview response returns that derived value as `expectedSetupKey`.
+
+- If `setupKey` is omitted, the response uses `expectedSetupKey` as `setupKey`.
+- If a submitted `setupKey` matches `expectedSetupKey`, it can proceed through normal input review.
+- If a submitted `setupKey` conflicts with the supplied `planId` and `workflowKey`, the response preserves the submitted `setupKey`, returns the derived `expectedSetupKey`, sets `reviewStatus` to `blocked-pending-inputs`, and reports `invalid-setupKey` in `blockers` and `setupKey` in `inputSummary.invalidInputKeys`.
+
+Example mismatch response fields:
+
+```json
+{
+  "setupKey": "plan:acme:ops:business-system-blueprint:runtime-binding:sales-conversion",
+  "expectedSetupKey": "plan:acme:ops:business-system-blueprint:runtime-binding:market-discovery",
+  "reviewStatus": "blocked-pending-inputs",
+  "previewOnly": true,
+  "externalActionsAllowed": false,
+  "activationAllowed": false,
+  "blockers": [
+    "invalid-setupKey"
+  ],
+  "inputSummary": {
+    "invalidInputKeys": [
+      "setupKey"
+    ]
+  }
+}
+```
 
 Before activation, a client or operator must resolve:
 
@@ -130,9 +191,10 @@ Natural-language request
 -> render reviewSummary first
 -> render lifecycle and workflow graph
 -> collect missing bindings and approval channels
--> POST runtime-binding-setup-preview for each candidate binding
+-> let the operator edit candidate setup values
+-> POST runtime-binding-setup-preview to refresh each candidate review draft
 -> ask operator to approve or revise
 -> submit a separate runtime plan only after readiness clears
 ```
 
-This keeps AIFUT useful for business-system design while preventing accidental external actions from a single chat prompt.
+This keeps AIFUT useful for business-system design while preventing activation, persistence, or external actions from a blueprint or setup-preview request.
