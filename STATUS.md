@@ -1,6 +1,17 @@
 # STATUS
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
+
+## 2026-06-04 parallel recovery and operator-editable runtime setup checkpoint
+- Fresh root `npm ci` now runs Prisma Client generation automatically through the root `postinstall` script.
+- Safe dependency updates moved Next to `16.2.7`, the Nest 11 runtime/testing family to `11.1.24`, Nest CLI to `11.0.21`, Nest schematics to `11.1.0`, and Turbo to `2.9.16`.
+- Dependency audit improved from `17` findings including `6` high-severity findings to `5` moderate findings and `0` high-severity findings. The remaining Prisma/Next transitive findings only offer unsafe downgrade paths and remain explicitly deferred.
+- Web UI HQ now exposes an operator-editable runtime-binding preview draft. Operators can select among bounded setup queue rows, edit candidate runtime/connection/trigger/approval values, and refresh the existing preview endpoint without activation, persistence, or connector side effects.
+- Runtime-binding setup preview now rejects a submitted `setupKey` that conflicts with its `planId` and `workflowKey`, returns `expectedSetupKey`, and reports `invalid-setupKey` while preserving preview-only safety.
+- Parallel lanes converged without touching Prisma schema, migrations, auth/context, or shared policy primitives.
+- Verification passed: fresh `npm ci`, full API Jest `26/26` suites and `375/375` tests, full Turbo build, full Turbo typecheck, Prisma migration status, runtime-history schema check, local runtime verifier, live API health `200`, live dashboard `200` with the operator editor, and live mismatched setup-key rejection.
+- Local API and Web production runtimes are listening on `3002` and `3000`; PostgreSQL is listening on `5432`.
+- Resume next: deepen the preview-only runtime-binding review flow with bounded operator decision/review state before any persisted activation path.
 
 ## Current repo reality
 - Web UI HQ now calls `POST /orchestration/business-systems/runtime-binding-setup-preview` from the dashboard, using the first blueprint setup queue row to render a preview-only runtime binding setup review with candidate runtime, connection, trigger, safety flags, input count, next action, and blocker visibility.
