@@ -1304,11 +1304,10 @@ export class OrchestrationService {
     const runtimeKey = input.runtimeKey?.trim() ?? '';
     const connectionKey = input.connectionKey?.trim() ?? '';
     const triggerMode = input.triggerMode?.trim() ?? '';
-    const setupKey =
-      input.setupKey?.trim() ||
-      (planId && workflowKey
-        ? `${planId}:runtime-binding:${workflowKey}`
-        : '');
+    const submittedSetupKey = input.setupKey?.trim() ?? '';
+    const expectedSetupKey =
+      planId && workflowKey ? `${planId}:runtime-binding:${workflowKey}` : '';
+    const setupKey = submittedSetupKey || expectedSetupKey;
     const missingInputKeys = [
       ...(!planId ? ['planId'] : []),
       ...(!workflowKey ? ['workflowKey'] : []),
@@ -1317,10 +1316,16 @@ export class OrchestrationService {
       ...(!connectionKey ? ['connectionKey'] : []),
       ...(!triggerMode ? ['triggerMode'] : []),
     ];
-    const invalidInputKeys =
-      triggerMode && !allowedTriggerModes.includes(triggerMode)
+    const invalidInputKeys = [
+      ...(triggerMode && !allowedTriggerModes.includes(triggerMode)
         ? ['triggerMode']
-        : [];
+        : []),
+      ...(submittedSetupKey &&
+      expectedSetupKey &&
+      submittedSetupKey !== expectedSetupKey
+        ? ['setupKey']
+        : []),
+    ];
     const blockers = [
       ...missingInputKeys.map((key) => `missing-${key}`),
       ...invalidInputKeys.map((key) => `invalid-${key}`),
@@ -1328,6 +1333,7 @@ export class OrchestrationService {
 
     return {
       setupKey: setupKey || null,
+      expectedSetupKey: expectedSetupKey || null,
       setupMode: 'operator-review-required',
       reviewStatus:
         blockers.length > 0 ? 'blocked-pending-inputs' : 'ready-for-operator-review',

@@ -1,4 +1,5 @@
 import { API_BASE, getJson, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
+import { RuntimeBindingPreviewEditor } from "./runtime-binding-preview-editor";
 
 type LaneCard = {
   lane: string;
@@ -386,64 +387,11 @@ export default async function DashboardPage() {
                   </div>
                 </div>
 
-                <div style={cardStyle}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 800 }}>Runtime binding setup review</div>
-                      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>
-                        Preview-only candidate generated from the first setup queue row.
-                      </div>
-                    </div>
-                    <span style={{ color: "#9fb0ff", fontSize: 12 }}>
-                      {runtimeBindingSetupReview?.reviewStatus ?? formatReadFailure(runtimeBindingSetupPreviewResult)}
-                    </span>
-                  </div>
-
-                  {runtimeBindingSetupReview ? (
-                    <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                        <MetricCard
-                          title="Inputs"
-                          value={`${runtimeBindingSetupReview.inputSummary?.providedCount ?? 0}/${runtimeBindingSetupReview.inputSummary?.requiredCount ?? 0}`}
-                          note="candidate fields supplied"
-                        />
-                        <MetricCard
-                          title="Activation"
-                          value={runtimeBindingSetupReview.activationAllowed ? "Allowed" : "Blocked"}
-                          note="preview review cannot activate"
-                        />
-                        <MetricCard
-                          title="External actions"
-                          value={runtimeBindingSetupReview.externalActionsAllowed ? "Allowed" : "Disabled"}
-                          note="no connector side effects"
-                        />
-                      </div>
-
-                      <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.6 }}>
-                        <div>Workflow: {runtimeBindingSetupReview.candidateRuntimeBinding?.workflowKey ?? "unassigned"}</div>
-                        <div>Boundary: {runtimeBindingSetupReview.candidateRuntimeBinding?.systemBoundaryKey ?? "unassigned"}</div>
-                        <div>Runtime: {runtimeBindingSetupReview.candidateRuntimeBinding?.runtimeKey ?? "unassigned"}</div>
-                        <div>Connection: {runtimeBindingSetupReview.candidateRuntimeBinding?.connectionKey ?? "unassigned"}</div>
-                        <div>Trigger: {runtimeBindingSetupReview.candidateRuntimeBinding?.triggerMode ?? "unassigned"}</div>
-                      </div>
-
-                      <div style={{ display: "grid", gap: 6, color: "#9fb0ff", fontSize: 13 }}>
-                        {(runtimeBindingSetupReview.nextActions ?? []).map((action) => (
-                          <div key={action.actionKey}>
-                            next: {action.actionKey ?? "review"} / {action.actionStatus ?? "required"}
-                          </div>
-                        ))}
-                        {(runtimeBindingSetupReview.blockers ?? []).map((blocker) => (
-                          <div key={blocker}>blocked: {blocker}</div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: 14, color: "#c8d2ff" }}>
-                      Setup review is unavailable: {formatReadFailure(runtimeBindingSetupPreviewResult)}.
-                    </div>
-                  )}
-                </div>
+                <RuntimeBindingPreviewEditor
+                  queue={runtimeBindingSetupQueue}
+                  initialReview={runtimeBindingSetupReview}
+                  initialError={formatReadFailure(runtimeBindingSetupPreviewResult)}
+                />
               </div>
             ) : (
               <div style={{ color: "#c8d2ff" }}>

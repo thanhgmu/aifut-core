@@ -841,6 +841,8 @@ describe('OrchestrationService', () => {
       }),
     ).toMatchObject({
       setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
+      expectedSetupKey:
+        'plan:acme:ops:draft:runtime-binding:market-discovery',
       setupMode: 'operator-review-required',
       reviewStatus: 'ready-for-operator-review',
       previewOnly: true,
@@ -892,6 +894,45 @@ describe('OrchestrationService', () => {
         providedCount: 5,
         missingInputKeys: ['connectionKey'],
         invalidInputKeys: ['triggerMode'],
+      },
+    });
+  });
+
+  it('should block a runtime-binding setup key that does not match its plan and workflow', () => {
+    expect(
+      service.buildRuntimeBindingSetupReviewDraft({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      }),
+    ).toMatchObject({
+      setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+      expectedSetupKey:
+        'plan:acme:ops:draft:runtime-binding:market-discovery',
+      reviewStatus: 'blocked-pending-inputs',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      blockers: ['invalid-setupKey'],
+      nextActions: [
+        {
+          actionKey: 'complete-runtime-binding-inputs',
+          actionStatus: 'required',
+          missingInputKeys: [],
+          invalidInputKeys: ['setupKey'],
+        },
+      ],
+      inputSummary: {
+        requiredCount: 6,
+        providedCount: 6,
+        missingInputKeys: [],
+        invalidInputKeys: ['setupKey'],
       },
     });
   });
