@@ -15,6 +15,7 @@ type SetupQueueItem = {
 
 type SetupReview = {
   setupKey?: string | null;
+  expectedSetupKey?: string | null;
   reviewStatus?: string;
   previewOnly?: boolean;
   externalActionsAllowed?: boolean;
@@ -23,6 +24,9 @@ type SetupReview = {
   nextActions?: Array<{
     actionKey?: string;
     actionStatus?: string;
+    reason?: string;
+    missingInputKeys?: string[];
+    invalidInputKeys?: string[];
   }>;
   candidateRuntimeBinding?: {
     workflowKey?: string;
@@ -34,6 +38,8 @@ type SetupReview = {
   inputSummary?: {
     requiredCount?: number;
     providedCount?: number;
+    missingInputKeys?: string[];
+    invalidInputKeys?: string[];
   };
 };
 
@@ -209,15 +215,23 @@ export function RuntimeBindingPreviewEditor({
 
           <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.6 }}>
             <div>Review: {review.reviewStatus ?? "review required"}</div>
+            <div>Submitted setup key: {review.setupKey ?? "unassigned"}</div>
+            <div>Expected setup key: {review.expectedSetupKey ?? "unavailable"}</div>
             <div>Runtime: {review.candidateRuntimeBinding?.runtimeKey ?? "unassigned"}</div>
             <div>Connection: {review.candidateRuntimeBinding?.connectionKey ?? "unassigned"}</div>
             <div>Trigger: {review.candidateRuntimeBinding?.triggerMode ?? "unassigned"}</div>
           </div>
 
+          <InputGuidance
+            missingInputKeys={review.inputSummary?.missingInputKeys}
+            invalidInputKeys={review.inputSummary?.invalidInputKeys}
+          />
+
           <div style={{ display: "grid", gap: 6, color: "#9fb0ff", fontSize: 13 }}>
             {(review.nextActions ?? []).map((action) => (
               <div key={action.actionKey}>
                 next: {action.actionKey ?? "review"} / {action.actionStatus ?? "required"}
+                {action.reason ? ` / ${action.reason}` : ""}
               </div>
             ))}
             {(review.blockers ?? []).map((blocker) => (
@@ -282,6 +296,38 @@ function ReviewMetric({ title, value, note }: { title: string; value: string; no
       <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 8 }}>{title}</div>
       <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
       <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>{note}</div>
+    </div>
+  );
+}
+
+function InputGuidance({
+  missingInputKeys = [],
+  invalidInputKeys = [],
+}: {
+  missingInputKeys?: string[];
+  invalidInputKeys?: string[];
+}) {
+  if (missingInputKeys.length === 0 && invalidInputKeys.length === 0) {
+    return (
+      <div style={{ color: "#9fb0ff", fontSize: 13 }}>
+        Input guidance: all required inputs are present and valid for operator review.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...nestedCardStyle, display: "grid", gap: 8 }}>
+      <div style={{ fontSize: 12, color: "#9fb0ff", fontWeight: 700 }}>Input guidance</div>
+      {missingInputKeys.length > 0 ? (
+        <div style={{ color: "#dfe6ff", fontSize: 13 }}>
+          Missing required inputs: {missingInputKeys.join(", ")}
+        </div>
+      ) : null}
+      {invalidInputKeys.length > 0 ? (
+        <div style={{ color: "#dfe6ff", fontSize: 13 }}>
+          Invalid inputs: {invalidInputKeys.join(", ")}
+        </div>
+      ) : null}
     </div>
   );
 }
