@@ -709,6 +709,107 @@ describe('OrchestrationController', () => {
     });
   });
 
+  it('should surface mismatched runtime-binding setup key rejection without activation', async () => {
+    actorContext.resolve.mockResolvedValue({
+      tenant: { id: 'tenant_1', slug: 'acme' },
+      activeWorkspace: { id: 'ws_1', slug: 'ops' },
+      activeMembership: { role: 'ADMIN' },
+    });
+    orchestration.buildRuntimeBindingSetupReviewDraft.mockReturnValue({
+      setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+      expectedSetupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
+      reviewStatus: 'blocked-pending-inputs',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      blockers: ['invalid-setupKey'],
+      nextActions: [
+        {
+          actionKey: 'complete-runtime-binding-inputs',
+          actionStatus: 'required',
+          missingInputKeys: [],
+          invalidInputKeys: ['setupKey'],
+        },
+      ],
+      inputSummary: {
+        requiredCount: 6,
+        providedCount: 6,
+        missingInputKeys: [],
+        invalidInputKeys: ['setupKey'],
+      },
+    });
+
+    const result = await controller.previewBusinessSystemRuntimeBindingSetup(
+      {
+        tenantSlug: 'acme',
+        userEmail: 'ops@acme.test',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    expect(
+      orchestration.buildRuntimeBindingSetupReviewDraft,
+    ).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      planId: 'plan:acme:ops:draft',
+      setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+      workflowKey: 'market-discovery',
+      systemBoundaryKey: 'research-intelligence',
+      runtimeKey: 'runtime:research',
+      connectionKey: 'conn:research',
+      triggerMode: 'manual-review',
+      approvalCheckpointKey: undefined,
+    });
+    expect(result).toMatchObject({
+      status: 'runtime-binding-setup-previewed',
+      runtimeBindingSetupReview: {
+        setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
+        expectedSetupKey:
+          'plan:acme:ops:draft:runtime-binding:market-discovery',
+        reviewStatus: 'blocked-pending-inputs',
+        previewOnly: true,
+        externalActionsAllowed: false,
+        activationAllowed: false,
+        blockers: ['invalid-setupKey'],
+        nextActions: [
+          {
+            actionKey: 'complete-runtime-binding-inputs',
+            invalidInputKeys: ['setupKey'],
+          },
+        ],
+        inputSummary: {
+          invalidInputKeys: ['setupKey'],
+        },
+      },
+      next: [
+        'review-runtime-binding-setup',
+        'configure-approval-channels',
+        'keep-preview-mode-until-activation-readiness-clears',
+      ],
+    });
+    expect(orchestration.submitExecutionContract).not.toHaveBeenCalled();
+    expect(orchestration.materializeExecutionRuntime).not.toHaveBeenCalled();
+    expect(orchestration.dispatchExecutionRun).not.toHaveBeenCalled();
+  });
+
   it('should interpret a roadmap draft in tenant/workspace context', async () => {
     actorContext.resolve.mockResolvedValue({
       tenant: { id: 'tenant_1', slug: 'acme' },
