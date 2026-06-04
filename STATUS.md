@@ -3,13 +3,16 @@
 Last updated: 2026-06-04
 
 ## 2026-06-04 parallel recovery and operator-editable runtime setup checkpoint
+- Wave 2 makes preview review failures directly actionable: Web HQ now displays submitted versus expected setup keys, missing/invalid input guidance, and API-provided next-action reasons.
+- A focused controller contract test locks mismatched `setupKey` rejection and proves the preview path does not submit, materialize, or dispatch execution.
+- API documentation now describes the operator-editable setup-preview flow, `expectedSetupKey`, `invalid-setupKey`, and the no-activation/no-persistence/no-external-action boundary.
 - Fresh root `npm ci` now runs Prisma Client generation automatically through the root `postinstall` script.
 - Safe dependency updates moved Next to `16.2.7`, the Nest 11 runtime/testing family to `11.1.24`, Nest CLI to `11.0.21`, Nest schematics to `11.1.0`, and Turbo to `2.9.16`.
 - Dependency audit improved from `17` findings including `6` high-severity findings to `5` moderate findings and `0` high-severity findings. The remaining Prisma/Next transitive findings only offer unsafe downgrade paths and remain explicitly deferred.
 - Web UI HQ now exposes an operator-editable runtime-binding preview draft. Operators can select among bounded setup queue rows, edit candidate runtime/connection/trigger/approval values, and refresh the existing preview endpoint without activation, persistence, or connector side effects.
 - Runtime-binding setup preview now rejects a submitted `setupKey` that conflicts with its `planId` and `workflowKey`, returns `expectedSetupKey`, and reports `invalid-setupKey` while preserving preview-only safety.
 - Parallel lanes converged without touching Prisma schema, migrations, auth/context, or shared policy primitives.
-- Verification passed: fresh `npm ci`, full API Jest `26/26` suites and `375/375` tests, full Turbo build, full Turbo typecheck, Prisma migration status, runtime-history schema check, local runtime verifier, live API health `200`, live dashboard `200` with the operator editor, and live mismatched setup-key rejection.
+- Verification passed: fresh `npm ci`, full API Jest `26/26` suites and `376/376` tests, full Turbo build, full Turbo typecheck, Prisma migration status, runtime-history schema check, local runtime verifier, live API health `200`, live dashboard `200` with the operator editor, and live mismatched setup-key rejection.
 - Local API and Web production runtimes are listening on `3002` and `3000`; PostgreSQL is listening on `5432`.
 - Resume next: deepen the preview-only runtime-binding review flow with bounded operator decision/review state before any persisted activation path.
 
