@@ -642,19 +642,22 @@ export class OrchestrationService {
         checkpointKey: 'approve-supplier-selection',
         phaseKey: 'supplier-validation',
         checkpointStatus: 'review-required',
-        reason: 'Confirm sourcing, unit economics, and fulfillment risk before launch planning.',
+        reason:
+          'Confirm sourcing, unit economics, and fulfillment risk before launch planning.',
       },
       {
         checkpointKey: 'approve-content-release',
         phaseKey: 'content-production',
         checkpointStatus: 'review-required',
-        reason: 'Approve customer-facing assets before any channel publication.',
+        reason:
+          'Approve customer-facing assets before any channel publication.',
       },
       {
         checkpointKey: 'review-fulfillment-exceptions',
         phaseKey: 'operations-fulfillment',
         checkpointStatus: 'review-required',
-        reason: 'Review operating exceptions before customer-impacting remediation.',
+        reason:
+          'Review operating exceptions before customer-impacting remediation.',
       },
     ];
 
@@ -843,7 +846,8 @@ export class OrchestrationService {
         },
         {
           phaseKey: 'supplier-validation',
-          objective: 'Validate sourcing, margin, fulfillment, and risk assumptions.',
+          objective:
+            'Validate sourcing, margin, fulfillment, and risk assumptions.',
           outputKeys: ['validated-supplier-options', 'unit-economics-draft'],
           nextPhaseKey: 'go-to-market-planning',
         },
@@ -879,7 +883,8 @@ export class OrchestrationService {
         },
         {
           phaseKey: 'customer-success',
-          objective: 'Support customers and feed evidence into the next iteration.',
+          objective:
+            'Support customers and feed evidence into the next iteration.',
           outputKeys: ['customer-feedback', 'repeat-purchase-signals'],
           nextPhaseKey: 'market-discovery',
         },
@@ -1085,7 +1090,9 @@ export class OrchestrationService {
     };
   }) {
     const executionModes = this.normalizeStringList(input.executionModes);
-    const runtimeBindings = this.normalizeRuntimeBindings(input.runtimeBindings);
+    const runtimeBindings = this.normalizeRuntimeBindings(
+      input.runtimeBindings,
+    );
     const childWorkflowContracts = this.normalizeChildWorkflowContracts(
       input.childWorkflowContracts,
     );
@@ -1177,7 +1184,8 @@ export class OrchestrationService {
               actionKey: 'assign-runtime-bindings',
               actionOrder: 1,
               actionStatus: 'required',
-              reason: 'Bind each lifecycle workflow draft to a configured runtime and system connection.',
+              reason:
+                'Bind each lifecycle workflow draft to a configured runtime and system connection.',
             },
           ]
         : []),
@@ -1187,7 +1195,8 @@ export class OrchestrationService {
               actionKey: 'configure-approval-channels',
               actionOrder: 2,
               actionStatus: 'required',
-              reason: 'Choose delivery channels for required operator approvals.',
+              reason:
+                'Choose delivery channels for required operator approvals.',
             },
           ]
         : []),
@@ -1197,7 +1206,8 @@ export class OrchestrationService {
               actionKey: 'assign-source-of-truth',
               actionOrder: 3,
               actionStatus: 'required',
-              reason: 'Select the authoritative system for lifecycle business objects.',
+              reason:
+                'Select the authoritative system for lifecycle business objects.',
             },
           ]
         : []),
@@ -1207,7 +1217,8 @@ export class OrchestrationService {
               actionKey: 'define-sync-policies',
               actionOrder: 4,
               actionStatus: 'required',
-              reason: 'Define how approved business-object updates synchronize across system boundaries.',
+              reason:
+                'Define how approved business-object updates synchronize across system boundaries.',
             },
           ]
         : []),
@@ -1219,7 +1230,9 @@ export class OrchestrationService {
       ...(escalationContracts.length === 0
         ? ['escalation-contracts-deferred']
         : []),
-      ...(rollbackContracts.length === 0 ? ['rollback-contracts-deferred'] : []),
+      ...(rollbackContracts.length === 0
+        ? ['rollback-contracts-deferred']
+        : []),
     ];
 
     return {
@@ -1330,16 +1343,43 @@ export class OrchestrationService {
       ...missingInputKeys.map((key) => `missing-${key}`),
       ...invalidInputKeys.map((key) => `invalid-${key}`),
     ];
+    const reviewStatus =
+      blockers.length > 0
+        ? 'blocked-pending-inputs'
+        : 'ready-for-operator-review';
+    const operatorDecisionStatus =
+      blockers.length > 0
+        ? 'blocked-before-decision'
+        : 'awaiting-operator-decision';
+    const operatorDecisionOptions =
+      blockers.length > 0
+        ? ['revise-inputs']
+        : ['approve-for-contract-draft', 'request-changes', 'defer'];
 
     return {
       setupKey: setupKey || null,
       expectedSetupKey: expectedSetupKey || null,
       setupMode: 'operator-review-required',
-      reviewStatus:
-        blockers.length > 0 ? 'blocked-pending-inputs' : 'ready-for-operator-review',
+      reviewStatus,
       previewOnly: true,
       externalActionsAllowed: false,
       activationAllowed: false,
+      operatorDecisionState: {
+        status: operatorDecisionStatus,
+        decisionScope: 'runtime-binding-setup-preview',
+        allowedDecisions: operatorDecisionOptions,
+        selectedDecision: null,
+        requiresActivationContract: true,
+        activationBoundary:
+          'Operator decisions in this preview only classify the draft; they do not persist a binding, activate a workflow, or dispatch connectors.',
+        reviewGate:
+          blockers.length > 0
+            ? 'Resolve missing or invalid setup inputs before an operator decision can be recorded.'
+            : 'Record an operator decision in the activation-capable execution contract after this preview is reviewed.',
+        auditIntentKey: setupKey
+          ? `${setupKey}:operator-decision:intent`
+          : null,
+      },
       blockers,
       nextActions:
         blockers.length > 0
@@ -1527,13 +1567,19 @@ export class OrchestrationService {
       (contract) => contract.approvalRequired,
     );
 
-    if (hasApprovalRequiredChildWorkflow && requiredApprovalContracts.length === 0) {
+    if (
+      hasApprovalRequiredChildWorkflow &&
+      requiredApprovalContracts.length === 0
+    ) {
       throw new BadRequestException(
         'Approval-required child workflows require at least one required approval contract.',
       );
     }
 
-    if (!hasApprovalRequiredChildWorkflow && draft.approvalContracts.length > 0) {
+    if (
+      !hasApprovalRequiredChildWorkflow &&
+      draft.approvalContracts.length > 0
+    ) {
       throw new BadRequestException(
         'Approval contracts require at least one approval-required child workflow.',
       );
@@ -1541,7 +1587,8 @@ export class OrchestrationService {
 
     const approvalRequiredChildWithoutCheckpoint =
       draft.childWorkflowContracts.find(
-        (contract) => contract.approvalRequired && !contract.approvalCheckpointKey,
+        (contract) =>
+          contract.approvalRequired && !contract.approvalCheckpointKey,
       );
 
     if (approvalRequiredChildWithoutCheckpoint) {
@@ -1551,7 +1598,8 @@ export class OrchestrationService {
     }
 
     const nonApprovalChildWithCheckpoint = draft.childWorkflowContracts.find(
-      (contract) => !contract.approvalRequired && contract.approvalCheckpointKey,
+      (contract) =>
+        !contract.approvalRequired && contract.approvalCheckpointKey,
     );
 
     if (nonApprovalChildWithCheckpoint) {
@@ -1591,7 +1639,8 @@ export class OrchestrationService {
     }
 
     const escalationWithUnknownCheckpoint = draft.escalationContracts.find(
-      (contract) => !requiredApprovalCheckpointKeys.has(contract.fromCheckpointKey),
+      (contract) =>
+        !requiredApprovalCheckpointKeys.has(contract.fromCheckpointKey),
     );
 
     if (escalationWithUnknownCheckpoint) {
@@ -1627,7 +1676,8 @@ export class OrchestrationService {
     }
 
     const rollbackWithUnknownCheckpoint = draft.rollbackContracts.find(
-      (contract) => !requiredApprovalCheckpointKeys.has(contract.fromCheckpointKey),
+      (contract) =>
+        !requiredApprovalCheckpointKeys.has(contract.fromCheckpointKey),
     );
 
     if (rollbackWithUnknownCheckpoint) {
@@ -1649,14 +1699,15 @@ export class OrchestrationService {
       );
     }
 
-    const childWorkflowWithoutRuntimeBinding = draft.childWorkflowContracts.find(
-      (contract) =>
-        !draft.runtimeBindings.some(
-          (binding) =>
-            binding.runtimeKey === contract.runtimeKey &&
-            binding.systemKey === contract.systemKey,
-        ),
-    );
+    const childWorkflowWithoutRuntimeBinding =
+      draft.childWorkflowContracts.find(
+        (contract) =>
+          !draft.runtimeBindings.some(
+            (binding) =>
+              binding.runtimeKey === contract.runtimeKey &&
+              binding.systemKey === contract.systemKey,
+          ),
+      );
 
     if (childWorkflowWithoutRuntimeBinding) {
       throw new BadRequestException(
@@ -1840,7 +1891,8 @@ export class OrchestrationService {
           .filter(
             (childContract) =>
               childContract.systemKey === contract.targetSystemKey &&
-              childContract.approvalCheckpointKey === contract.fromCheckpointKey,
+              childContract.approvalCheckpointKey ===
+                contract.fromCheckpointKey,
           )
           .map((childContract) => childContract.contractKey),
       }),
@@ -1890,14 +1942,18 @@ export class OrchestrationService {
       (contract) => ({
         contractKey: contract.contractKey,
         linkedApprovalDispatchKeys: storedApprovalDispatches
-          .filter((dispatch) => dispatch.linkedChildContractKeys.includes(contract.contractKey))
+          .filter((dispatch) =>
+            dispatch.linkedChildContractKeys.includes(contract.contractKey),
+          )
           .map((dispatch) => dispatch.dispatchKey),
         linkedRunnerKey:
           storedExecutionRunnerRecords.find(
             (runner) => runner.contractKey === contract.contractKey,
           )?.runnerKey ?? null,
         linkedRollbackRecordKeys: storedRollbackContracts
-          .filter((rollback) => rollback.linkedContractKeys.includes(contract.contractKey))
+          .filter((rollback) =>
+            rollback.linkedContractKeys.includes(contract.contractKey),
+          )
           .map((rollback) => rollback.rollbackRecordKey),
       }),
     );
@@ -2077,7 +2133,9 @@ export class OrchestrationService {
 
     const executionRunBatch = {
       batchKey: `${input.planId}:execution-run`,
-      status: executionRunRecords.some((record) => record.runStatus === 'blocked')
+      status: executionRunRecords.some(
+        (record) => record.runStatus === 'blocked',
+      )
         ? 'blocked'
         : 'pending',
       records: executionRunRecords.map((record) => ({
@@ -2104,54 +2162,60 @@ export class OrchestrationService {
       })),
     };
 
-    const executionTransitionQueue: OrchestrationExecutionTransitionQueueRecord[] = executionActionRecords.map((action) => ({
-      transitionKey: `${action.actionKey}:transition`,
-      sourceActionKey: action.actionKey,
-      sourceRunnerKey: action.runnerKey,
-      sourceContractKey: action.contractKey,
-      transitionType:
-        action.actionType === 'dispatch-required-approval'
-          ? 'await-approval-decision'
-          : action.actionType === 'dispatch-child-workflow'
-            ? 'dispatch-runner'
-            : 'resolve-runner-binding',
-      transitionStatus:
-        action.actionStatus === 'blocked' ? 'blocked' : 'pending',
-      targetKey: action.actionTargetKey,
-      readinessStatus: action.readinessStatus,
-    }));
+    const executionTransitionQueue: OrchestrationExecutionTransitionQueueRecord[] =
+      executionActionRecords.map((action) => ({
+        transitionKey: `${action.actionKey}:transition`,
+        sourceActionKey: action.actionKey,
+        sourceRunnerKey: action.runnerKey,
+        sourceContractKey: action.contractKey,
+        transitionType:
+          action.actionType === 'dispatch-required-approval'
+            ? 'await-approval-decision'
+            : action.actionType === 'dispatch-child-workflow'
+              ? 'dispatch-runner'
+              : 'resolve-runner-binding',
+        transitionStatus:
+          action.actionStatus === 'blocked' ? 'blocked' : 'pending',
+        targetKey: action.actionTargetKey,
+        readinessStatus: action.readinessStatus,
+      }));
 
-    const executionRunStateHints: OrchestrationExecutionRunStateHintRecord[] = executionRunRecords.map((run) => ({
-      runKey: run.runKey,
-      runStatus: run.runStatus,
-      nextTransitionKey:
-        executionTransitionQueue.find(
-          (transition) => transition.sourceRunnerKey === run.runnerKey,
-        )?.transitionKey ?? null,
-      completionGate:
-        run.runStatus === 'awaiting-approval'
-          ? 'approval-decision'
-          : run.runStatus === 'queued-for-dispatch'
-            ? 'runner-dispatch'
-            : 'runtime-binding-resolution',
-    }));
+    const executionRunStateHints: OrchestrationExecutionRunStateHintRecord[] =
+      executionRunRecords.map((run) => ({
+        runKey: run.runKey,
+        runStatus: run.runStatus,
+        nextTransitionKey:
+          executionTransitionQueue.find(
+            (transition) => transition.sourceRunnerKey === run.runnerKey,
+          )?.transitionKey ?? null,
+        completionGate:
+          run.runStatus === 'awaiting-approval'
+            ? 'approval-decision'
+            : run.runStatus === 'queued-for-dispatch'
+              ? 'runner-dispatch'
+              : 'runtime-binding-resolution',
+      }));
 
-    const approvalTaskStateHints: OrchestrationApprovalTaskStateHintRecord[] = approvalTaskRecords.map((task) => ({
-      taskKey: task.taskKey,
-      taskStatus: task.taskStatus,
-      nextTransitionType: task.required ? 'record-approval-decision' : 'optional-review',
-      linkedRunKeys: task.linkedRunKeys,
-    }));
+    const approvalTaskStateHints: OrchestrationApprovalTaskStateHintRecord[] =
+      approvalTaskRecords.map((task) => ({
+        taskKey: task.taskKey,
+        taskStatus: task.taskStatus,
+        nextTransitionType: task.required
+          ? 'record-approval-decision'
+          : 'optional-review',
+        linkedRunKeys: task.linkedRunKeys,
+      }));
 
-    const approvalDecisionOptions: OrchestrationApprovalDecisionOptionRecord[] = approvalTaskRecords.map((task) => ({
-      taskKey: task.taskKey,
-      dispatchKey: task.dispatchKey,
-      decisionOptions: task.required
-        ? ['approve', 'reject', 'request-changes']
-        : ['approve', 'skip', 'request-review'],
-      defaultDecision: task.required ? 'approve' : 'skip',
-      affectedRunKeys: task.linkedRunKeys,
-    }));
+    const approvalDecisionOptions: OrchestrationApprovalDecisionOptionRecord[] =
+      approvalTaskRecords.map((task) => ({
+        taskKey: task.taskKey,
+        dispatchKey: task.dispatchKey,
+        decisionOptions: task.required
+          ? ['approve', 'reject', 'request-changes']
+          : ['approve', 'skip', 'request-review'],
+        defaultDecision: task.required ? 'approve' : 'skip',
+        affectedRunKeys: task.linkedRunKeys,
+      }));
 
     const executionRunDispatchQueue: OrchestrationExecutionRunDispatchQueueRecord[] =
       executionRunRecords.map((run) => ({
@@ -2171,21 +2235,22 @@ export class OrchestrationService {
         systemKey: run.systemKey,
       }));
 
-    const executionStateTransitionBatch: OrchestrationExecutionStateTransitionBatch = {
-      batchKey: `${input.planId}:execution-transition`,
-      status: executionTransitionQueue.some(
-        (transition) => transition.transitionStatus === 'blocked',
-      )
-        ? 'blocked'
-        : 'pending',
-      records: executionTransitionQueue.map((transition) => ({
-        transitionKey: transition.transitionKey,
-        transitionType: transition.transitionType,
-        transitionStatus: transition.transitionStatus,
-        targetKey: transition.targetKey,
-        workspaceSlug: input.workspaceSlug ?? null,
-      })),
-    };
+    const executionStateTransitionBatch: OrchestrationExecutionStateTransitionBatch =
+      {
+        batchKey: `${input.planId}:execution-transition`,
+        status: executionTransitionQueue.some(
+          (transition) => transition.transitionStatus === 'blocked',
+        )
+          ? 'blocked'
+          : 'pending',
+        records: executionTransitionQueue.map((transition) => ({
+          transitionKey: transition.transitionKey,
+          transitionType: transition.transitionType,
+          transitionStatus: transition.transitionStatus,
+          targetKey: transition.targetKey,
+          workspaceSlug: input.workspaceSlug ?? null,
+        })),
+      };
 
     const projectedApprovalDecisionRecords: OrchestrationProjectedApprovalDecisionRecord[] =
       approvalDecisionOptions.map((option, index) => ({
@@ -2284,39 +2349,39 @@ export class OrchestrationService {
 
     const actionTransitionPolicies: OrchestrationActionTransitionPolicy[] =
       executionActionRecords.map((action) => ({
-      actionKey: action.actionKey,
-      actionType: action.actionType,
-      currentStatus: action.actionStatus,
-      allowedNextStatuses:
-        action.actionStatus === 'blocked'
-          ? ['pending-runtime-resolution']
-          : action.actionType === 'dispatch-required-approval'
-            ? ['awaiting-approval-decision', 'cancelled']
-            : action.actionType === 'dispatch-child-workflow'
-              ? ['dispatched', 'dispatch-failed']
-              : ['runtime-binding-resolved', 'cancelled'],
-    }));
+        actionKey: action.actionKey,
+        actionType: action.actionType,
+        currentStatus: action.actionStatus,
+        allowedNextStatuses:
+          action.actionStatus === 'blocked'
+            ? ['pending-runtime-resolution']
+            : action.actionType === 'dispatch-required-approval'
+              ? ['awaiting-approval-decision', 'cancelled']
+              : action.actionType === 'dispatch-child-workflow'
+                ? ['dispatched', 'dispatch-failed']
+                : ['runtime-binding-resolved', 'cancelled'],
+      }));
 
     const runTransitionPolicies: OrchestrationRunTransitionPolicy[] =
       executionRunRecords.map((run) => ({
-      runKey: run.runKey,
-      currentStatus: run.runStatus,
-      allowedNextStatuses:
-        run.runStatus === 'blocked'
-          ? ['queued-for-dispatch']
-          : run.runStatus === 'awaiting-approval'
-            ? ['queued-for-dispatch', 'cancelled']
-            : ['dispatched', 'dispatch-failed', 'cancelled'],
-    }));
+        runKey: run.runKey,
+        currentStatus: run.runStatus,
+        allowedNextStatuses:
+          run.runStatus === 'blocked'
+            ? ['queued-for-dispatch']
+            : run.runStatus === 'awaiting-approval'
+              ? ['queued-for-dispatch', 'cancelled']
+              : ['dispatched', 'dispatch-failed', 'cancelled'],
+      }));
 
     const approvalTaskTransitionPolicies: OrchestrationApprovalTaskTransitionPolicy[] =
       approvalTaskRecords.map((task) => ({
-      taskKey: task.taskKey,
-      currentStatus: task.taskStatus,
-      allowedNextStatuses: task.required
-        ? ['approved', 'rejected', 'changes-requested']
-        : ['approved', 'skipped', 'review-requested'],
-    }));
+        taskKey: task.taskKey,
+        currentStatus: task.taskStatus,
+        allowedNextStatuses: task.required
+          ? ['approved', 'rejected', 'changes-requested']
+          : ['approved', 'skipped', 'review-requested'],
+      }));
 
     const transitionPolicyBatch: OrchestrationTransitionPolicyBatch = {
       batchKey: `${input.planId}:transition-policy`,
@@ -2346,8 +2411,12 @@ export class OrchestrationService {
         (record) => record.dispatchRecordKey,
       ),
       outcomeKeys: [
-        ...projectedApprovalOutcomeRecords.map((record) => record.outcomeRecordKey),
-        ...projectedDispatchOutcomeRecords.map((record) => record.outcomeRecordKey),
+        ...projectedApprovalOutcomeRecords.map(
+          (record) => record.outcomeRecordKey,
+        ),
+        ...projectedDispatchOutcomeRecords.map(
+          (record) => record.outcomeRecordKey,
+        ),
       ],
     };
 
@@ -2358,21 +2427,23 @@ export class OrchestrationService {
       submissionNotes: input.submissionNotes?.trim() || '',
       storedRuntimeBindings,
       childWorkflowContractRecords,
-      storedChildWorkflowContracts: storedChildWorkflowContracts.map((contract) => ({
-        ...contract,
-        linkedApprovalDispatchKeys:
-          childWorkflowContractLinkage.find(
-            (linkage) => linkage.contractKey === contract.contractKey,
-          )?.linkedApprovalDispatchKeys ?? [],
-        linkedRunnerKey:
-          childWorkflowContractLinkage.find(
-            (linkage) => linkage.contractKey === contract.contractKey,
-          )?.linkedRunnerKey ?? null,
-        linkedRollbackRecordKeys:
-          childWorkflowContractLinkage.find(
-            (linkage) => linkage.contractKey === contract.contractKey,
-          )?.linkedRollbackRecordKeys ?? [],
-      })),
+      storedChildWorkflowContracts: storedChildWorkflowContracts.map(
+        (contract) => ({
+          ...contract,
+          linkedApprovalDispatchKeys:
+            childWorkflowContractLinkage.find(
+              (linkage) => linkage.contractKey === contract.contractKey,
+            )?.linkedApprovalDispatchKeys ?? [],
+          linkedRunnerKey:
+            childWorkflowContractLinkage.find(
+              (linkage) => linkage.contractKey === contract.contractKey,
+            )?.linkedRunnerKey ?? null,
+          linkedRollbackRecordKeys:
+            childWorkflowContractLinkage.find(
+              (linkage) => linkage.contractKey === contract.contractKey,
+            )?.linkedRollbackRecordKeys ?? [],
+        }),
+      ),
       storedApprovalDispatches,
       storedEscalationContracts,
       storedRollbackContracts,
@@ -2417,7 +2488,8 @@ export class OrchestrationService {
       projectedMutationContract,
       executionReadinessSummary: <OrchestrationExecutionReadinessSummary>{
         blockedRunnerCount: storedExecutionRunnerRecords.filter(
-          (runner) => runner.readinessStatus === 'blocked-missing-runtime-binding',
+          (runner) =>
+            runner.readinessStatus === 'blocked-missing-runtime-binding',
         ).length,
         awaitingApprovalRunnerCount: storedExecutionRunnerRecords.filter(
           (runner) => runner.readinessStatus === 'awaiting-required-approval',
@@ -2479,7 +2551,9 @@ export class OrchestrationService {
         deliveryMode: binding.deliveryMode,
         approvalRequired: binding.approvalRequired,
         linkedChildWorkflowContracts: childWorkflowContractRecords
-          .filter((contract) => contract.runtimeBindingKey === binding.bindingKey)
+          .filter(
+            (contract) => contract.runtimeBindingKey === binding.bindingKey,
+          )
           .map((contract) => ({
             contractKey: contract.contractKey,
             workflowKey: contract.workflowKey,
@@ -2501,7 +2575,9 @@ export class OrchestrationService {
         required: dispatch.required,
         linkedChildContractKeys: dispatch.linkedChildContractKeys,
         linkedEscalationRecordKeys: storedEscalationContracts
-          .filter((contract) => contract.checkpointKey === dispatch.checkpointKey)
+          .filter(
+            (contract) => contract.checkpointKey === dispatch.checkpointKey,
+          )
           .map((contract) => contract.escalationRecordKey),
       })),
       escalationTopology: storedEscalationContracts.map((contract) => ({
@@ -2647,86 +2723,96 @@ export class OrchestrationService {
   async materializeExecutionRuntime(
     input: OrchestrationRuntimeContextInput,
     options?: { persistSnapshot?: boolean },
-  ): Promise<ReturnType<OrchestrationService['submitExecutionContract']> & OrchestrationMaterializedRuntimeResponse> {
+  ): Promise<
+    ReturnType<OrchestrationService['submitExecutionContract']> &
+      OrchestrationMaterializedRuntimeResponse
+  > {
     const submission = this.submitExecutionContract(input);
 
-    const approvalDispatchIntegrations: OrchestrationApprovalDispatchIntegrationRecord[] = submission.approvalTaskQueue.map((task) => {
-      const decisionOption = submission.approvalDecisionOptions.find(
-        (option) => option.taskKey === task.taskKey,
-      );
+    const approvalDispatchIntegrations: OrchestrationApprovalDispatchIntegrationRecord[] =
+      submission.approvalTaskQueue.map((task) => {
+        const decisionOption = submission.approvalDecisionOptions.find(
+          (option) => option.taskKey === task.taskKey,
+        );
 
-      return {
-        integrationKey: `${task.taskKey}:integration`,
-        dispatchKey: task.dispatchKey,
-        taskKey: task.taskKey,
-        channel: task.channel,
-        approverRole: task.approverRole,
-        integrationStatus: task.required
-          ? 'dispatched-for-approval'
-          : 'optional-review-routed',
-        appliedDispatchStatus: task.required ? 'dispatched' : 'optional-review',
-        appliedTaskStatus: task.required ? 'awaiting-decision' : 'review-requested',
-        defaultDecision: decisionOption?.defaultDecision ?? null,
-        allowedDecisions: decisionOption?.decisionOptions ?? [],
-        affectedRunKeys: task.linkedRunKeys,
-      };
-    });
+        return {
+          integrationKey: `${task.taskKey}:integration`,
+          dispatchKey: task.dispatchKey,
+          taskKey: task.taskKey,
+          channel: task.channel,
+          approverRole: task.approverRole,
+          integrationStatus: task.required
+            ? 'dispatched-for-approval'
+            : 'optional-review-routed',
+          appliedDispatchStatus: task.required
+            ? 'dispatched'
+            : 'optional-review',
+          appliedTaskStatus: task.required
+            ? 'awaiting-decision'
+            : 'review-requested',
+          defaultDecision: decisionOption?.defaultDecision ?? null,
+          allowedDecisions: decisionOption?.decisionOptions ?? [],
+          affectedRunKeys: task.linkedRunKeys,
+        };
+      });
 
-    const executionRunnerIntegrations: OrchestrationExecutionRunnerIntegrationRecord[] = submission.executionRunDispatchQueue.map((run) => {
-      const runner = submission.executionRunnerTopology.find(
-        (record) => record.runnerKey === run.runnerKey,
-      );
-      const action = submission.executionActionTopology.find(
-        (record) => record.runnerKey === run.runnerKey,
-      );
-      const transition = submission.executionTransitionQueue.find(
-        (record) => record.sourceRunnerKey === run.runnerKey,
-      );
-      const projectedDispatch = submission.projectedRunDispatchRecords.find(
-        (record) => record.runKey === run.runKey,
-      );
-      const isDispatchable = run.dispatchReadiness === 'dispatchable';
-      const blockedByApproval = run.dispatchReadiness === 'blocked-by-approval';
+    const executionRunnerIntegrations: OrchestrationExecutionRunnerIntegrationRecord[] =
+      submission.executionRunDispatchQueue.map((run) => {
+        const runner = submission.executionRunnerTopology.find(
+          (record) => record.runnerKey === run.runnerKey,
+        );
+        const action = submission.executionActionTopology.find(
+          (record) => record.runnerKey === run.runnerKey,
+        );
+        const transition = submission.executionTransitionQueue.find(
+          (record) => record.sourceRunnerKey === run.runnerKey,
+        );
+        const projectedDispatch = submission.projectedRunDispatchRecords.find(
+          (record) => record.runKey === run.runKey,
+        );
+        const isDispatchable = run.dispatchReadiness === 'dispatchable';
+        const blockedByApproval =
+          run.dispatchReadiness === 'blocked-by-approval';
 
-      return {
-        integrationKey: `${run.runKey}:integration`,
-        runKey: run.runKey,
-        runnerKey: run.runnerKey,
-        actionKey: action?.actionKey ?? null,
-        transitionKey: transition?.transitionKey ?? null,
-        projectedDispatchRecordKey:
-          projectedDispatch?.dispatchRecordKey ?? null,
-        integrationStatus: isDispatchable
-          ? 'runner-dispatched'
-          : blockedByApproval
-            ? 'awaiting-approval-clearance'
-            : 'awaiting-runtime-binding',
-        appliedRunnerStatus: isDispatchable
-          ? 'dispatched'
-          : runner?.runnerStatus ?? 'pending',
-        appliedRunStatus: isDispatchable
-          ? 'dispatched'
-          : blockedByApproval
-            ? 'awaiting-approval'
-            : 'blocked',
-        appliedActionStatus: isDispatchable
-          ? 'dispatched'
-          : blockedByApproval
-            ? 'awaiting-approval-decision'
-            : 'pending-runtime-resolution',
-        appliedTransitionStatus: isDispatchable
-          ? 'applied'
-          : blockedByApproval
-            ? 'awaiting-approval-decision'
-            : 'blocked',
-        runtimeKey: run.runtimeKey,
-        systemKey: run.systemKey,
-        workflowKey: run.workflowKey,
-      };
-    });
+        return {
+          integrationKey: `${run.runKey}:integration`,
+          runKey: run.runKey,
+          runnerKey: run.runnerKey,
+          actionKey: action?.actionKey ?? null,
+          transitionKey: transition?.transitionKey ?? null,
+          projectedDispatchRecordKey:
+            projectedDispatch?.dispatchRecordKey ?? null,
+          integrationStatus: isDispatchable
+            ? 'runner-dispatched'
+            : blockedByApproval
+              ? 'awaiting-approval-clearance'
+              : 'awaiting-runtime-binding',
+          appliedRunnerStatus: isDispatchable
+            ? 'dispatched'
+            : (runner?.runnerStatus ?? 'pending'),
+          appliedRunStatus: isDispatchable
+            ? 'dispatched'
+            : blockedByApproval
+              ? 'awaiting-approval'
+              : 'blocked',
+          appliedActionStatus: isDispatchable
+            ? 'dispatched'
+            : blockedByApproval
+              ? 'awaiting-approval-decision'
+              : 'pending-runtime-resolution',
+          appliedTransitionStatus: isDispatchable
+            ? 'applied'
+            : blockedByApproval
+              ? 'awaiting-approval-decision'
+              : 'blocked',
+          runtimeKey: run.runtimeKey,
+          systemKey: run.systemKey,
+          workflowKey: run.workflowKey,
+        };
+      });
 
-    const approvalDispatchMutationRecords = approvalDispatchIntegrations.flatMap(
-      (integration) => [
+    const approvalDispatchMutationRecords =
+      approvalDispatchIntegrations.flatMap((integration) => [
         {
           mutationKey: `${integration.dispatchKey}:live-dispatch`,
           targetKey: integration.dispatchKey,
@@ -2743,8 +2829,7 @@ export class OrchestrationService {
           toStatus: integration.appliedTaskStatus,
           mutationStatus: 'applied',
         },
-      ],
-    );
+      ]);
 
     const executionRunnerMutationRecords = executionRunnerIntegrations.flatMap(
       (integration) => {
@@ -2836,10 +2921,12 @@ export class OrchestrationService {
 
     const liveRuntimeSummary: OrchestrationLiveRuntimeSummary = {
       dispatchedApprovalCount: approvalDispatchIntegrations.filter(
-        (integration) => integration.integrationStatus === 'dispatched-for-approval',
+        (integration) =>
+          integration.integrationStatus === 'dispatched-for-approval',
       ).length,
       optionalReviewCount: approvalDispatchIntegrations.filter(
-        (integration) => integration.integrationStatus === 'optional-review-routed',
+        (integration) =>
+          integration.integrationStatus === 'optional-review-routed',
       ).length,
       dispatchedRunnerCount: executionRunnerIntegrations.filter(
         (integration) => integration.integrationStatus === 'runner-dispatched',
@@ -2849,7 +2936,8 @@ export class OrchestrationService {
           integration.integrationStatus === 'awaiting-approval-clearance',
       ).length,
       awaitingRuntimeBindingCount: executionRunnerIntegrations.filter(
-        (integration) => integration.integrationStatus === 'awaiting-runtime-binding',
+        (integration) =>
+          integration.integrationStatus === 'awaiting-runtime-binding',
       ).length,
       appliedMutationCount: [
         ...approvalDispatchMutationRecords,
@@ -2864,7 +2952,9 @@ export class OrchestrationService {
     };
 
     const recordedAt = this.buildRuntimeRecordedAt();
-    const actorKey = this.buildRuntimeActorKey({ submittedBy: input.submittedBy });
+    const actorKey = this.buildRuntimeActorKey({
+      submittedBy: input.submittedBy,
+    });
     const scope = this.buildRuntimeScope(input);
     const mutationRecords = [
       ...approvalDispatchMutationRecords,
@@ -2940,13 +3030,14 @@ export class OrchestrationService {
       targetType: 'approval-task',
       targetKey: task.taskKey,
     });
-    const persistedDispatchStatus = await this.findLatestPersistedMutationStatus({
-      planId: input.planId,
-      tenantSlug: input.tenantSlug,
-      workspaceSlug: input.workspaceSlug,
-      targetType: 'approval-dispatch',
-      targetKey: task.dispatchKey,
-    });
+    const persistedDispatchStatus =
+      await this.findLatestPersistedMutationStatus({
+        planId: input.planId,
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        targetType: 'approval-dispatch',
+        targetKey: task.dispatchKey,
+      });
     const effectiveTaskStatus =
       persistedTaskStatus ??
       (task.taskStatus === 'pending-approval'
@@ -2966,21 +3057,13 @@ export class OrchestrationService {
           ? 'rejected'
           : 'changes-requested';
     const linkedRunStatus =
-      input.decision === 'approve'
-        ? 'queued-for-dispatch'
-        : 'cancelled';
+      input.decision === 'approve' ? 'queued-for-dispatch' : 'cancelled';
     const linkedActionStatus =
-      input.decision === 'approve'
-        ? 'pending'
-        : 'cancelled';
+      input.decision === 'approve' ? 'pending' : 'cancelled';
     const linkedTransitionStatus =
-      input.decision === 'approve'
-        ? 'pending'
-        : 'cancelled';
+      input.decision === 'approve' ? 'pending' : 'cancelled';
     const linkedRunnerStatus =
-      input.decision === 'approve'
-        ? 'pending'
-        : 'cancelled';
+      input.decision === 'approve' ? 'pending' : 'cancelled';
 
     const runIntegrations = task.linkedRunKeys.map((runKey) => ({
       runKey,
@@ -2988,54 +3071,57 @@ export class OrchestrationService {
         (record) => record.runKey === runKey,
       ),
     }));
-    const affectedRunMutationStatuses = await this.findLatestPersistedMutationStatuses({
-      planId: input.planId,
-      tenantSlug: input.tenantSlug,
-      workspaceSlug: input.workspaceSlug,
-      targets: runIntegrations.flatMap(({ runKey, runIntegration }) => [
-        {
-          targetType: 'execution-run',
-          targetKey: runKey,
-        },
-        {
-          targetType: 'execution-action',
-          targetKey: runIntegration?.actionKey,
-        },
-        {
-          targetType: 'execution-transition',
-          targetKey: runIntegration?.transitionKey,
-        },
-        {
-          targetType: 'execution-runner',
-          targetKey: runIntegration?.runnerKey,
-        },
-      ]),
-    });
-    const affectedRunUpdates = runIntegrations.map(({ runKey, runIntegration }) => ({
-      runKey,
-      runnerKey: runIntegration?.runnerKey ?? null,
-      actionKey: runIntegration?.actionKey ?? null,
-      transitionKey: runIntegration?.transitionKey ?? null,
-      fromRunStatus:
-        affectedRunMutationStatuses[`execution-run:${runKey}`] ??
-        'awaiting-approval',
-      toRunStatus: linkedRunStatus,
-      fromActionStatus:
-        affectedRunMutationStatuses[
-          `execution-action:${runIntegration?.actionKey ?? ''}`
-        ] ?? 'awaiting-approval-decision',
-      toActionStatus: linkedActionStatus,
-      fromTransitionStatus:
-        affectedRunMutationStatuses[
-          `execution-transition:${runIntegration?.transitionKey ?? ''}`
-        ] ?? 'awaiting-approval-decision',
-      toTransitionStatus: linkedTransitionStatus,
-      fromRunnerStatus:
-        affectedRunMutationStatuses[
-          `execution-runner:${runIntegration?.runnerKey ?? ''}`
-        ] ?? 'pending',
-      toRunnerStatus: linkedRunnerStatus,
-    }));
+    const affectedRunMutationStatuses =
+      await this.findLatestPersistedMutationStatuses({
+        planId: input.planId,
+        tenantSlug: input.tenantSlug,
+        workspaceSlug: input.workspaceSlug,
+        targets: runIntegrations.flatMap(({ runKey, runIntegration }) => [
+          {
+            targetType: 'execution-run',
+            targetKey: runKey,
+          },
+          {
+            targetType: 'execution-action',
+            targetKey: runIntegration?.actionKey,
+          },
+          {
+            targetType: 'execution-transition',
+            targetKey: runIntegration?.transitionKey,
+          },
+          {
+            targetType: 'execution-runner',
+            targetKey: runIntegration?.runnerKey,
+          },
+        ]),
+      });
+    const affectedRunUpdates = runIntegrations.map(
+      ({ runKey, runIntegration }) => ({
+        runKey,
+        runnerKey: runIntegration?.runnerKey ?? null,
+        actionKey: runIntegration?.actionKey ?? null,
+        transitionKey: runIntegration?.transitionKey ?? null,
+        fromRunStatus:
+          affectedRunMutationStatuses[`execution-run:${runKey}`] ??
+          'awaiting-approval',
+        toRunStatus: linkedRunStatus,
+        fromActionStatus:
+          affectedRunMutationStatuses[
+            `execution-action:${runIntegration?.actionKey ?? ''}`
+          ] ?? 'awaiting-approval-decision',
+        toActionStatus: linkedActionStatus,
+        fromTransitionStatus:
+          affectedRunMutationStatuses[
+            `execution-transition:${runIntegration?.transitionKey ?? ''}`
+          ] ?? 'awaiting-approval-decision',
+        toTransitionStatus: linkedTransitionStatus,
+        fromRunnerStatus:
+          affectedRunMutationStatuses[
+            `execution-runner:${runIntegration?.runnerKey ?? ''}`
+          ] ?? 'pending',
+        toRunnerStatus: linkedRunnerStatus,
+      }),
+    );
 
     const approvalDecisionMutations: OrchestrationRuntimeMutationRecord[] = [
       {
@@ -3090,8 +3176,10 @@ export class OrchestrationService {
       ]),
     ];
     const approvalDecisionSummary: OrchestrationApprovalDecisionSummary = {
-      approvedRunCount: input.decision === 'approve' ? affectedRunUpdates.length : 0,
-      cancelledRunCount: input.decision === 'approve' ? 0 : affectedRunUpdates.length,
+      approvedRunCount:
+        input.decision === 'approve' ? affectedRunUpdates.length : 0,
+      cancelledRunCount:
+        input.decision === 'approve' ? 0 : affectedRunUpdates.length,
     };
     const recordedAt = this.buildRuntimeRecordedAt();
     const actorKey = this.buildRuntimeActorKey({
@@ -3150,7 +3238,10 @@ export class OrchestrationService {
       approvalDecisionMutations,
       approvalDecisionSummary,
       runtimeSnapshot,
-      runtimeEventRecords: [...(runtime.runtimeEventRecords ?? []), ...approvalDecisionEvents],
+      runtimeEventRecords: [
+        ...(runtime.runtimeEventRecords ?? []),
+        ...approvalDecisionEvents,
+      ],
       runtimePersistence: persistence,
     };
   }
@@ -3177,10 +3268,7 @@ export class OrchestrationService {
       targetKey: input.runKey,
     });
 
-    if (
-      persistedRunStatus &&
-      persistedRunStatus !== 'queued-for-dispatch'
-    ) {
+    if (persistedRunStatus && persistedRunStatus !== 'queued-for-dispatch') {
       throw new BadRequestException(
         `Execution run ${input.runKey} is not dispatchable; current status is ${persistedRunStatus}.`,
       );
@@ -3320,7 +3408,10 @@ export class OrchestrationService {
       executionDispatchMutations,
       executionDispatchSummary,
       runtimeSnapshot,
-      runtimeEventRecords: [...(runtime.runtimeEventRecords ?? []), ...executionDispatchEvents],
+      runtimeEventRecords: [
+        ...(runtime.runtimeEventRecords ?? []),
+        ...executionDispatchEvents,
+      ],
       runtimePersistence: persistence,
     };
   }
@@ -3374,12 +3465,14 @@ export class OrchestrationService {
         latestSnapshotType: history.latestSnapshot?.snapshotType ?? null,
         latestRuntimeStatus: history.latestSnapshot?.runtimeStatus ?? null,
         latestRecordedAt:
-          history.latestSnapshot?.recordedAt ?? history.latestSnapshot?.createdAt ?? null,
+          history.latestSnapshot?.recordedAt ??
+          history.latestSnapshot?.createdAt ??
+          null,
         latestEventType: history.events[0]?.eventType ?? null,
         latestEventRecordedAt: history.events[0]?.recordedAt ?? null,
-        mutatedTargetCount: Object.values(history.latestMutationByTarget).filter(
-          (mutation) => mutation !== null,
-        ).length,
+        mutatedTargetCount: Object.values(
+          history.latestMutationByTarget,
+        ).filter((mutation) => mutation !== null).length,
       },
       latestSnapshot: history.latestSnapshot,
       latestMutationByTarget: history.latestMutationByTarget,
@@ -3406,13 +3499,15 @@ export class OrchestrationService {
         return [];
       }
 
-      return [{
-        eventKey: event.eventKey,
-        outcome,
-        runKey: event.relatedKeys.runKey ?? null,
-        runtimeStatus: event.runtimeStatus,
-        recordedAt: event.recordedAt,
-      } satisfies OrchestrationAiGovernanceOutcomeDiagnosticRecord];
+      return [
+        {
+          eventKey: event.eventKey,
+          outcome,
+          runKey: event.relatedKeys.runKey ?? null,
+          runtimeStatus: event.runtimeStatus,
+          recordedAt: event.recordedAt,
+        } satisfies OrchestrationAiGovernanceOutcomeDiagnosticRecord,
+      ];
     });
 
     return {
@@ -3441,11 +3536,15 @@ export class OrchestrationService {
         : null,
       recentAiGovernanceOutcomes: {
         recentOutcomeCount: governanceOutcomes.length,
-        heldCount: governanceOutcomes.filter((event) => event.outcome === 'held').length,
+        heldCount: governanceOutcomes.filter(
+          (event) => event.outcome === 'held',
+        ).length,
         approvedResumedCount: governanceOutcomes.filter(
           (event) => event.outcome === 'approved-resumed',
         ).length,
-        blockedCount: governanceOutcomes.filter((event) => event.outcome === 'blocked').length,
+        blockedCount: governanceOutcomes.filter(
+          (event) => event.outcome === 'blocked',
+        ).length,
         autoDispatchedCount: governanceOutcomes.filter(
           (event) => event.outcome === 'auto-dispatched',
         ).length,

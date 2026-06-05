@@ -47,11 +47,7 @@ The controller also accepts the same tenant, user, and workspace values through 
     "order",
     "customer"
   ],
-  "priorities": [
-    "time-to-first-sale",
-    "cost-control",
-    "measurable-roi"
-  ],
+  "priorities": ["time-to-first-sale", "cost-control", "measurable-roi"],
   "lanes": [
     "market-research",
     "supplier-validation",
@@ -131,12 +127,17 @@ The response envelope contains `runtimeBindingSetupReview`. Render these fields 
 
 - `reviewStatus`: `ready-for-operator-review` when required inputs are present and valid, otherwise `blocked-pending-inputs`.
 - `candidateRuntimeBinding`: the normalized candidate values being reviewed.
+- `operatorDecisionState`: bounded decision state for the operator review, including allowed draft decisions, audit intent key, and the activation boundary.
 - `blockers`, `nextActions`, and `inputSummary`: missing or invalid input details and the required next review step.
 - `previewOnly`: always `true`.
 - `externalActionsAllowed`: always `false`.
 - `activationAllowed`: always `false`.
 
 Refreshing this preview does not activate a workflow, persist the candidate binding, or dispatch a connector or other external action. A `ready-for-operator-review` result means the candidate inputs can be reviewed; it is not an activation-ready or persisted runtime binding.
+
+When required inputs are valid, `operatorDecisionState.status` is `awaiting-operator-decision` and `allowedDecisions` is limited to `approve-for-contract-draft`, `request-changes`, and `defer`. Those values classify the reviewed draft only. They must be carried into a later activation-capable execution contract before anything can persist or run.
+
+When setup inputs are missing or invalid, `operatorDecisionState.status` is `blocked-before-decision` and the only allowed decision is `revise-inputs`.
 
 ## Setup Key Consistency
 
@@ -162,13 +163,9 @@ Example mismatch response fields:
   "previewOnly": true,
   "externalActionsAllowed": false,
   "activationAllowed": false,
-  "blockers": [
-    "invalid-setupKey"
-  ],
+  "blockers": ["invalid-setupKey"],
   "inputSummary": {
-    "invalidInputKeys": [
-      "setupKey"
-    ]
+    "invalidInputKeys": ["setupKey"]
   }
 }
 ```

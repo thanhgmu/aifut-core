@@ -20,6 +20,16 @@ type SetupReview = {
   previewOnly?: boolean;
   externalActionsAllowed?: boolean;
   activationAllowed?: boolean;
+  operatorDecisionState?: {
+    status?: string;
+    decisionScope?: string;
+    allowedDecisions?: string[];
+    selectedDecision?: string | null;
+    requiresActivationContract?: boolean;
+    activationBoundary?: string;
+    reviewGate?: string;
+    auditIntentKey?: string | null;
+  };
   blockers?: string[];
   nextActions?: Array<{
     actionKey?: string;
@@ -121,18 +131,31 @@ export function RuntimeBindingPreviewEditor({
 
   return (
     <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Runtime binding setup review</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>
+            Runtime binding setup review
+          </div>
           <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>
-            Operator-editable draft. Refreshing calls the setup-preview endpoint only.
+            Operator-editable draft. Refreshing calls the setup-preview endpoint
+            only.
           </div>
         </div>
         <SafetyBadge label="Preview only" />
       </div>
 
       {selectedSetup ? (
-        <form onSubmit={refreshPreview} style={{ display: "grid", gap: 14, marginTop: 16 }}>
+        <form
+          onSubmit={refreshPreview}
+          style={{ display: "grid", gap: 14, marginTop: 16 }}
+        >
           <label style={labelStyle}>
             Setup queue row
             <select
@@ -141,16 +164,32 @@ export function RuntimeBindingPreviewEditor({
               style={inputStyle}
             >
               {boundedQueue.map((setup, index) => (
-                <option key={setup.setupKey ?? setup.workflowKey ?? index} value={index}>
-                  {setup.workflowKey ?? `setup row ${index + 1}`} / {setup.systemBoundaryKey ?? "unassigned"}
+                <option
+                  key={setup.setupKey ?? setup.workflowKey ?? index}
+                  value={index}
+                >
+                  {setup.workflowKey ?? `setup row ${index + 1}`} /{" "}
+                  {setup.systemBoundaryKey ?? "unassigned"}
                 </option>
               ))}
             </select>
           </label>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-            <ReadOnlyField label="Workflow" value={selectedSetup.workflowKey ?? "unassigned"} />
-            <ReadOnlyField label="System boundary" value={selectedSetup.systemBoundaryKey ?? "unassigned"} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <ReadOnlyField
+              label="Workflow"
+              value={selectedSetup.workflowKey ?? "unassigned"}
+            />
+            <ReadOnlyField
+              label="System boundary"
+              value={selectedSetup.systemBoundaryKey ?? "unassigned"}
+            />
             <DraftInput
               label="Runtime key"
               value={draft.runtimeKey}
@@ -165,7 +204,9 @@ export function RuntimeBindingPreviewEditor({
               Trigger mode
               <select
                 value={draft.triggerMode}
-                onChange={(event) => updateDraft("triggerMode", event.target.value)}
+                onChange={(event) =>
+                  updateDraft("triggerMode", event.target.value)
+                }
                 style={inputStyle}
               >
                 <option value="manual-review">manual-review</option>
@@ -180,7 +221,14 @@ export function RuntimeBindingPreviewEditor({
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
             <button type="submit" disabled={isLoading} style={buttonStyle}>
               {isLoading ? "Refreshing preview..." : "Refresh preview draft"}
             </button>
@@ -190,12 +238,20 @@ export function RuntimeBindingPreviewEditor({
           </div>
         </form>
       ) : (
-        <div style={{ marginTop: 14, color: "#c8d2ff" }}>No setup queue row is available to preview.</div>
+        <div style={{ marginTop: 14, color: "#c8d2ff" }}>
+          No setup queue row is available to preview.
+        </div>
       )}
 
       {review ? (
         <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
             <ReviewMetric
               title="Inputs"
               value={`${review.inputSummary?.providedCount ?? 0}/${review.inputSummary?.requiredCount ?? 0}`}
@@ -211,26 +267,84 @@ export function RuntimeBindingPreviewEditor({
               value={review.externalActionsAllowed ? "Allowed" : "Disabled"}
               note="no connector side effects"
             />
+            <ReviewMetric
+              title="Decision"
+              value={review.operatorDecisionState?.status ?? "Review required"}
+              note="bounded operator state"
+            />
           </div>
 
-          <div style={{ display: "grid", gap: 8, color: "#dfe6ff", lineHeight: 1.6 }}>
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+              color: "#dfe6ff",
+              lineHeight: 1.6,
+            }}
+          >
             <div>Review: {review.reviewStatus ?? "review required"}</div>
+            <div>
+              Decision scope:{" "}
+              {review.operatorDecisionState?.decisionScope ?? "preview"}
+            </div>
+            <div>
+              Allowed decisions:{" "}
+              {(
+                review.operatorDecisionState?.allowedDecisions ?? ["review"]
+              ).join(", ")}
+            </div>
             <div>Submitted setup key: {review.setupKey ?? "unassigned"}</div>
-            <div>Expected setup key: {review.expectedSetupKey ?? "unavailable"}</div>
-            <div>Runtime: {review.candidateRuntimeBinding?.runtimeKey ?? "unassigned"}</div>
-            <div>Connection: {review.candidateRuntimeBinding?.connectionKey ?? "unassigned"}</div>
-            <div>Trigger: {review.candidateRuntimeBinding?.triggerMode ?? "unassigned"}</div>
+            <div>
+              Expected setup key: {review.expectedSetupKey ?? "unavailable"}
+            </div>
+            <div>
+              Runtime:{" "}
+              {review.candidateRuntimeBinding?.runtimeKey ?? "unassigned"}
+            </div>
+            <div>
+              Connection:{" "}
+              {review.candidateRuntimeBinding?.connectionKey ?? "unassigned"}
+            </div>
+            <div>
+              Trigger:{" "}
+              {review.candidateRuntimeBinding?.triggerMode ?? "unassigned"}
+            </div>
           </div>
+
+          {review.operatorDecisionState ? (
+            <div
+              style={{
+                ...nestedCardStyle,
+                display: "grid",
+                gap: 8,
+                color: "#dfe6ff",
+                fontSize: 13,
+              }}
+            >
+              <div style={{ color: "#9fb0ff", fontWeight: 700 }}>
+                Operator decision boundary
+              </div>
+              <div>{review.operatorDecisionState.reviewGate}</div>
+              <div>{review.operatorDecisionState.activationBoundary}</div>
+              <div>
+                Audit intent:{" "}
+                {review.operatorDecisionState.auditIntentKey ?? "unassigned"}
+              </div>
+            </div>
+          ) : null}
 
           <InputGuidance
             missingInputKeys={review.inputSummary?.missingInputKeys}
             invalidInputKeys={review.inputSummary?.invalidInputKeys}
           />
 
-          <div style={{ display: "grid", gap: 6, color: "#9fb0ff", fontSize: 13 }}>
+          <div
+            style={{ display: "grid", gap: 6, color: "#9fb0ff", fontSize: 13 }}
+          >
             {(review.nextActions ?? []).map((action) => (
               <div key={action.actionKey}>
-                next: {action.actionKey ?? "review"} / {action.actionStatus ?? "required"}
+                next: {action.actionKey ?? "review"} /{" "}
+                {action.actionStatus ?? "required"}
                 {action.reason ? ` / ${action.reason}` : ""}
               </div>
             ))}
@@ -240,21 +354,29 @@ export function RuntimeBindingPreviewEditor({
           </div>
         </div>
       ) : error ? (
-        <div style={{ marginTop: 14, color: "#c8d2ff" }}>Setup review is unavailable: {error}.</div>
+        <div style={{ marginTop: 14, color: "#c8d2ff" }}>
+          Setup review is unavailable: {error}.
+        </div>
       ) : null}
     </div>
   );
 }
 
-function buildDraftFields(setup?: SetupQueueItem, review?: SetupReview): DraftFields {
+function buildDraftFields(
+  setup?: SetupQueueItem,
+  review?: SetupReview,
+): DraftFields {
   const systemBoundaryKey = setup?.systemBoundaryKey ?? "system-boundary";
 
   return {
-    runtimeKey: review?.candidateRuntimeBinding?.runtimeKey ?? `runtime:${systemBoundaryKey}`,
+    runtimeKey:
+      review?.candidateRuntimeBinding?.runtimeKey ??
+      `runtime:${systemBoundaryKey}`,
     connectionKey:
       review?.candidateRuntimeBinding?.connectionKey ??
       `connection:${systemBoundaryKey}:operator-draft`,
-    triggerMode: review?.candidateRuntimeBinding?.triggerMode ?? "manual-review",
+    triggerMode:
+      review?.candidateRuntimeBinding?.triggerMode ?? "manual-review",
     approvalCheckpointKey: setup?.approvalCheckpointKey ?? "",
   };
 }
@@ -285,16 +407,32 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <label style={labelStyle}>
       {label}
-      <input value={value} readOnly style={{ ...inputStyle, color: "#9fb0ff" }} />
+      <input
+        value={value}
+        readOnly
+        style={{ ...inputStyle, color: "#9fb0ff" }}
+      />
     </label>
   );
 }
 
-function ReviewMetric({ title, value, note }: { title: string; value: string; note: string }) {
+function ReviewMetric({
+  title,
+  value,
+  note,
+}: {
+  title: string;
+  value: string;
+  note: string;
+}) {
   return (
     <div style={nestedCardStyle}>
-      <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
+      <div style={{ fontSize: 12, color: "#9fb0ff", marginBottom: 8 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 800, overflowWrap: "anywhere" }}>
+        {value}
+      </div>
       <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13 }}>{note}</div>
     </div>
   );
@@ -310,14 +448,17 @@ function InputGuidance({
   if (missingInputKeys.length === 0 && invalidInputKeys.length === 0) {
     return (
       <div style={{ color: "#9fb0ff", fontSize: 13 }}>
-        Input guidance: all required inputs are present and valid for operator review.
+        Input guidance: all required inputs are present and valid for operator
+        review.
       </div>
     );
   }
 
   return (
     <div style={{ ...nestedCardStyle, display: "grid", gap: 8 }}>
-      <div style={{ fontSize: 12, color: "#9fb0ff", fontWeight: 700 }}>Input guidance</div>
+      <div style={{ fontSize: 12, color: "#9fb0ff", fontWeight: 700 }}>
+        Input guidance
+      </div>
       {missingInputKeys.length > 0 ? (
         <div style={{ color: "#dfe6ff", fontSize: 13 }}>
           Missing required inputs: {missingInputKeys.join(", ")}

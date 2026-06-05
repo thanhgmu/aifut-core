@@ -32,7 +32,8 @@ describe('OrchestrationService', () => {
     expect(result).toMatchObject({
       id: 'plan:acme:tenant:draft',
       roadmapDraftId: 'draft:acme:tenant:roadmap',
-      objective: 'Design the leanest workable parent workflow for the tenant context.',
+      objective:
+        'Design the leanest workable parent workflow for the tenant context.',
       constraints: [],
       appCoordination: {
         systemAssignments: [],
@@ -505,8 +506,7 @@ describe('OrchestrationService', () => {
           ],
           runtimeBindingSetupQueue: [
             {
-              setupKey:
-                'plan:acme:ops:draft:runtime-binding:market-discovery',
+              setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
               actionKey: 'assign-runtime-binding',
               actionOrder: 1,
               workflowKey: 'market-discovery',
@@ -560,8 +560,7 @@ describe('OrchestrationService', () => {
               resolvesBlocker: 'runtime-bindings-unassigned',
             },
             {
-              setupKey:
-                'plan:acme:ops:draft:runtime-binding:sales-conversion',
+              setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
               actionKey: 'assign-runtime-binding',
               actionOrder: 6,
               workflowKey: 'sales-conversion',
@@ -582,8 +581,7 @@ describe('OrchestrationService', () => {
               resolvesBlocker: 'runtime-bindings-unassigned',
             },
             {
-              setupKey:
-                'plan:acme:ops:draft:runtime-binding:customer-success',
+              setupKey: 'plan:acme:ops:draft:runtime-binding:customer-success',
               actionKey: 'assign-runtime-binding',
               actionOrder: 8,
               workflowKey: 'customer-success',
@@ -647,8 +645,7 @@ describe('OrchestrationService', () => {
             approvalCheckpointKey: null,
           },
           {
-            setupKey:
-              'plan:acme:ops:draft:runtime-binding:supplier-validation',
+            setupKey: 'plan:acme:ops:draft:runtime-binding:supplier-validation',
             workflowKey: 'supplier-validation',
             systemBoundaryKey: 'supplier-management',
             approvalCheckpointKey: 'approve-supplier-selection',
@@ -661,8 +658,7 @@ describe('OrchestrationService', () => {
             approvalCheckpointKey: null,
           },
           {
-            setupKey:
-              'plan:acme:ops:draft:runtime-binding:content-production',
+            setupKey: 'plan:acme:ops:draft:runtime-binding:content-production',
             workflowKey: 'content-production',
             systemBoundaryKey: 'content-workspace',
             approvalCheckpointKey: 'approve-content-release',
@@ -705,9 +701,7 @@ describe('OrchestrationService', () => {
         workspaceSlug: 'ops',
       },
     });
-    expect(
-      result.reviewSummary.runtimeBindingSetupQueue[0],
-    ).toMatchObject({
+    expect(result.reviewSummary.runtimeBindingSetupQueue[0]).toMatchObject({
       setupMode: 'operator-review-required',
       previewOnly: true,
       requiredInputs: [
@@ -734,9 +728,7 @@ describe('OrchestrationService', () => {
         },
       ],
     });
-    expect(
-      result.reviewSummary.runtimeBindingSetupQueue[1],
-    ).toMatchObject({
+    expect(result.reviewSummary.runtimeBindingSetupQueue[1]).toMatchObject({
       workflowKey: 'supplier-validation',
       approvalCheckpointKey: 'approve-supplier-selection',
       requiredInputs: [
@@ -841,8 +833,7 @@ describe('OrchestrationService', () => {
       }),
     ).toMatchObject({
       setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
-      expectedSetupKey:
-        'plan:acme:ops:draft:runtime-binding:market-discovery',
+      expectedSetupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
       setupMode: 'operator-review-required',
       reviewStatus: 'ready-for-operator-review',
       previewOnly: true,
@@ -913,12 +904,20 @@ describe('OrchestrationService', () => {
       }),
     ).toMatchObject({
       setupKey: 'plan:acme:ops:draft:runtime-binding:sales-conversion',
-      expectedSetupKey:
-        'plan:acme:ops:draft:runtime-binding:market-discovery',
+      expectedSetupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
       reviewStatus: 'blocked-pending-inputs',
       previewOnly: true,
       externalActionsAllowed: false,
       activationAllowed: false,
+      operatorDecisionState: {
+        status: 'blocked-before-decision',
+        decisionScope: 'runtime-binding-setup-preview',
+        allowedDecisions: ['revise-inputs'],
+        selectedDecision: null,
+        requiresActivationContract: true,
+        auditIntentKey:
+          'plan:acme:ops:draft:runtime-binding:sales-conversion:operator-decision:intent',
+      },
       blockers: ['invalid-setupKey'],
       nextActions: [
         {
@@ -937,12 +936,56 @@ describe('OrchestrationService', () => {
     });
   });
 
+  it('should expose bounded operator decision state for reviewable runtime-binding setup previews', () => {
+    expect(
+      service.buildRuntimeBindingSetupReviewDraft({
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        planId: 'plan:acme:ops:draft',
+        workflowKey: 'market-discovery',
+        systemBoundaryKey: 'research-intelligence',
+        runtimeKey: 'runtime:research',
+        connectionKey: 'conn:research',
+        triggerMode: 'manual-review',
+      }),
+    ).toMatchObject({
+      setupKey: 'plan:acme:ops:draft:runtime-binding:market-discovery',
+      reviewStatus: 'ready-for-operator-review',
+      previewOnly: true,
+      externalActionsAllowed: false,
+      activationAllowed: false,
+      operatorDecisionState: {
+        status: 'awaiting-operator-decision',
+        decisionScope: 'runtime-binding-setup-preview',
+        allowedDecisions: [
+          'approve-for-contract-draft',
+          'request-changes',
+          'defer',
+        ],
+        selectedDecision: null,
+        requiresActivationContract: true,
+        activationBoundary:
+          'Operator decisions in this preview only classify the draft; they do not persist a binding, activate a workflow, or dispatch connectors.',
+        reviewGate:
+          'Record an operator decision in the activation-capable execution contract after this preview is reviewed.',
+        auditIntentKey:
+          'plan:acme:ops:draft:runtime-binding:market-discovery:operator-decision:intent',
+      },
+      blockers: [],
+    });
+  });
+
   it('should normalize duplicate and blank execution modes', () => {
     const result = service.buildExecutionContractDraft({
       tenantSlug: 'acme',
       workspaceSlug: 'ops',
       planId: 'plan:acme:ops:draft',
-      executionModes: [' human-approved ', '', 'event-driven', 'human-approved'],
+      executionModes: [
+        ' human-approved ',
+        '',
+        'event-driven',
+        'human-approved',
+      ],
     });
 
     expect(result.executionModes).toEqual(['human-approved', 'event-driven']);
@@ -1927,12 +1970,16 @@ describe('OrchestrationService', () => {
       expect.objectContaining({
         contractKey: 'plan:acme:ops:mapped-approvals:child:1',
         approvalCheckpointKey: 'approve-copy',
-        requiredApprovalDispatchKeys: ['plan:acme:ops:mapped-approvals:approval:1'],
+        requiredApprovalDispatchKeys: [
+          'plan:acme:ops:mapped-approvals:approval:1',
+        ],
       }),
       expect.objectContaining({
         contractKey: 'plan:acme:ops:mapped-approvals:child:2',
         approvalCheckpointKey: 'approve-ops',
-        requiredApprovalDispatchKeys: ['plan:acme:ops:mapped-approvals:approval:2'],
+        requiredApprovalDispatchKeys: [
+          'plan:acme:ops:mapped-approvals:approval:2',
+        ],
       }),
     ]);
   });
@@ -3056,7 +3103,8 @@ describe('OrchestrationService', () => {
       status: 'projected',
       approvalOutcomes: [
         expect.objectContaining({
-          outcomeRecordKey: 'plan:acme:ops:readiness:approval-decision:1:outcome',
+          outcomeRecordKey:
+            'plan:acme:ops:readiness:approval-decision:1:outcome',
         }),
       ],
       dispatchOutcomes: [
@@ -3589,16 +3637,20 @@ describe('OrchestrationService', () => {
       }),
       findLatestMutations: jest.fn().mockResolvedValue({
         'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
-          mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:decision-run',
+          mutationKey:
+            'plan:acme:ops:progression-runtime:child:1:runner:run:decision-run',
           targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
           targetType: 'execution-run',
           fromStatus: 'awaiting-approval',
           toStatus: 'queued-for-dispatch',
           mutationStatus: 'applied',
         },
-        'execution-runner:plan:acme:ops:progression-runtime:child:1:runner': null,
-        'execution-action:plan:acme:ops:progression-runtime:child:1:runner:action': null,
-        'execution-transition:plan:acme:ops:progression-runtime:child:1:runner:transition:1': null,
+        'execution-runner:plan:acme:ops:progression-runtime:child:1:runner':
+          null,
+        'execution-action:plan:acme:ops:progression-runtime:child:1:runner:action':
+          null,
+        'execution-transition:plan:acme:ops:progression-runtime:child:1:runner:transition:1':
+          null,
       }),
       findLatestMutation: jest.fn(),
       findLatestSnapshot: jest.fn(),
@@ -3671,7 +3723,8 @@ describe('OrchestrationService', () => {
       persistRuntimeHistory: jest.fn(),
       findLatestMutations: jest.fn().mockResolvedValue({
         'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
-          mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+          mutationKey:
+            'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
           targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
           targetType: 'execution-run',
           fromStatus: 'queued-for-dispatch',
@@ -3735,13 +3788,15 @@ describe('OrchestrationService', () => {
     const runtimeHistory = {
       readRuntimeHistory: jest.fn().mockResolvedValue({
         latestSnapshot: {
-          snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+          snapshotKey:
+            'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
           snapshotType: 'run-dispatch',
           runtimeStatus: 'dispatch-applied',
           recordedAt: '2026-05-07T00:46:00.000Z',
           mutationRecords: [
             {
-              mutationKey: 'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+              mutationKey:
+                'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
               targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
               targetType: 'execution-run',
               fromStatus: 'queued-for-dispatch',
@@ -3760,16 +3815,16 @@ describe('OrchestrationService', () => {
           },
         },
         latestMutationByTarget: {
-          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
-            mutationKey:
-              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
-            targetKey:
-              'plan:acme:ops:progression-runtime:child:1:runner:run',
-            targetType: 'execution-run',
-            fromStatus: 'queued-for-dispatch',
-            toStatus: 'dispatched',
-            mutationStatus: 'applied',
-          },
+          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run':
+            {
+              mutationKey:
+                'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+              targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+              targetType: 'execution-run',
+              fromStatus: 'queued-for-dispatch',
+              toStatus: 'dispatched',
+              mutationStatus: 'applied',
+            },
         },
         snapshots: [
           {
@@ -3830,15 +3885,13 @@ describe('OrchestrationService', () => {
         mutatedTargetCount: 1,
       },
       latestSnapshot: {
-        snapshotKey:
-          'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+        snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
       },
       latestMutationByTarget: {
         'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
           mutationKey:
             'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
-          targetKey:
-            'plan:acme:ops:progression-runtime:child:1:runner:run',
+          targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
           targetType: 'execution-run',
           fromStatus: 'queued-for-dispatch',
           toStatus: 'dispatched',
@@ -3862,21 +3915,23 @@ describe('OrchestrationService', () => {
     const runtimeHistory = {
       readRuntimeHistory: jest.fn().mockResolvedValue({
         latestSnapshot: {
-          snapshotKey: 'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
+          snapshotKey:
+            'plan:acme:ops:progression-runtime:run-dispatch:snapshot',
           snapshotType: 'run-dispatch',
           runtimeStatus: 'dispatch-applied',
           recordedAt: '2026-05-07T00:46:00.000Z',
         },
         latestMutationByTarget: {
-          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run': {
-            mutationKey:
-              'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
-            targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
-            targetType: 'execution-run',
-            fromStatus: 'queued-for-dispatch',
-            toStatus: 'dispatched',
-            mutationStatus: 'applied',
-          },
+          'execution-run:plan:acme:ops:progression-runtime:child:1:runner:run':
+            {
+              mutationKey:
+                'plan:acme:ops:progression-runtime:child:1:runner:run:dispatch-run',
+              targetKey: 'plan:acme:ops:progression-runtime:child:1:runner:run',
+              targetType: 'execution-run',
+              fromStatus: 'queued-for-dispatch',
+              toStatus: 'dispatched',
+              mutationStatus: 'applied',
+            },
         },
         snapshots: [
           {
@@ -3944,9 +3999,13 @@ describe('OrchestrationService', () => {
 
   it('should persist a compact AI-governance dispatch outcome event', async () => {
     const runtimeHistory = {
-      persistEvents: jest.fn().mockImplementation(async ([event]) => [event.eventKey]),
+      persistEvents: jest
+        .fn()
+        .mockImplementation(async ([event]) => [event.eventKey]),
     };
-    const serviceWithHistory = new OrchestrationService(runtimeHistory as never);
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
 
     const result = await serviceWithHistory.recordAiGovernanceDispatchOutcome({
       tenantSlug: 'acme',
@@ -4029,7 +4088,9 @@ describe('OrchestrationService', () => {
         ],
       }),
     };
-    const serviceWithHistory = new OrchestrationService(runtimeHistory as never);
+    const serviceWithHistory = new OrchestrationService(
+      runtimeHistory as never,
+    );
 
     const result = await serviceWithHistory.getExecutionRuntimeDiagnostics({
       tenantSlug: 'acme',
