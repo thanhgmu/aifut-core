@@ -30,14 +30,58 @@ export class IntegrationAiDraftingService {
     );
 
     if (!connector) {
-      throw new NotFoundException(`Connector not found for key: ${connectorKey}`);
+      throw new NotFoundException(
+        `Connector not found for key: ${connectorKey}`,
+      );
     }
 
     const normalizedPrompt = prompt.toLowerCase();
-    const suggestedObjects = this.suggestObjects(connector.category, normalizedPrompt);
-    const suggestedSyncMode = this.suggestSyncMode(normalizedPrompt, connector.syncDirections);
+    const suggestedObjects = this.suggestObjects(
+      connector.category,
+      normalizedPrompt,
+    );
+    const suggestedSyncMode = this.suggestSyncMode(
+      normalizedPrompt,
+      connector.syncDirections,
+    );
     const suggestedSetupMode = this.suggestSetupMode(normalizedPrompt);
-    const draftName = this.buildDraftName(connector.name, input.workspaceSlug, input.tenantSlug);
+    const draftName = this.buildDraftName(
+      connector.name,
+      input.workspaceSlug,
+      input.tenantSlug,
+    );
+    const draftSlug = this.slugify(draftName);
+    const inputContext = {
+      tenantSlug: input.tenantSlug?.trim().toLowerCase() ?? null,
+      workspaceSlug: input.workspaceSlug?.trim().toLowerCase() ?? null,
+      storagePolicyKey: input.storagePolicyKey?.trim().toLowerCase() ?? null,
+      prompt,
+    };
+    const draft = {
+      setupMode: suggestedSetupMode,
+      name: draftName,
+      slug: draftSlug,
+      mappingProfile: {
+        mode: 'ai-assisted',
+        objects: suggestedObjects,
+        fieldMappings: this.buildFieldMappingHints(
+          connector.key,
+          suggestedObjects,
+        ),
+        eventMappings: this.buildEventMappingHints(
+          connector.key,
+          suggestedObjects,
+        ),
+        syncPolicy: {
+          mode: suggestedSyncMode,
+          verification: 'manual-before-enable',
+          conflictResolution: normalizedPrompt.includes('override')
+            ? 'source-priority'
+            : 'review-before-write',
+        },
+      },
+      workflowHints: this.buildWorkflowHints(connector.key, normalizedPrompt),
+    };
 
     return {
       capability: 'integrations',
@@ -48,33 +92,24 @@ export class IntegrationAiDraftingService {
         name: connector.name,
         category: connector.category,
       },
-      inputContext: {
-        tenantSlug: input.tenantSlug?.trim().toLowerCase() ?? null,
-        workspaceSlug: input.workspaceSlug?.trim().toLowerCase() ?? null,
-        storagePolicyKey: input.storagePolicyKey?.trim().toLowerCase() ?? null,
-        prompt,
-      },
-      draft: {
-        setupMode: suggestedSetupMode,
-        name: draftName,
-        slug: this.slugify(draftName),
-        mappingProfile: {
-          mode: 'ai-assisted',
-          objects: suggestedObjects,
-          fieldMappings: this.buildFieldMappingHints(connector.key, suggestedObjects),
-          eventMappings: this.buildEventMappingHints(connector.key, suggestedObjects),
-          syncPolicy: {
-            mode: suggestedSyncMode,
-            verification: 'manual-before-enable',
-            conflictResolution: normalizedPrompt.includes('override')
-              ? 'source-priority'
-              : 'review-before-write',
-          },
-        },
-        workflowHints: this.buildWorkflowHints(connector.key, normalizedPrompt),
-      },
-      missingInformation: this.buildMissingInformation(connector.key, normalizedPrompt),
-      operatorQuestions: this.buildOperatorQuestions(connector.key, normalizedPrompt),
+      inputContext,
+      draft,
+      setupExecutionArtifact: this.buildSetupExecutionArtifact({
+        connectorKey: connector.key,
+        connectorName: connector.name,
+        connectorCategory: connector.category,
+        connectorAudience: connector.audience,
+        inputContext,
+        draft,
+      }),
+      missingInformation: this.buildMissingInformation(
+        connector.key,
+        normalizedPrompt,
+      ),
+      operatorQuestions: this.buildOperatorQuestions(
+        connector.key,
+        normalizedPrompt,
+      ),
       readiness: {
         canCreateDraftConnection: true,
         requiresHumanReview: true,
@@ -86,6 +121,107 @@ export class IntegrationAiDraftingService {
         'run-setup-session',
         'run-diagnostics-before-activation',
       ],
+    };
+  }
+
+  private buildSetupExecutionArtifact(input: {
+    connectorKey: string;
+    connectorName: string;
+    connectorCategory: string;
+    connectorAudience: string;
+    inputContext: {
+      tenantSlug: string | null;
+      workspaceSlug: string | null;
+      storagePolicyKey: string | null;
+      prompt: string;
+    };
+    draft: {
+      setupMode: string;
+      name: string;
+      slug: string;
+      mappingProfile: {
+        objects: string[];
+        syncPolicy: {
+          mode: string;
+          verification: string;
+          conflictResolution: string;
+        };
+      };
+      workflowHints: string[];
+    };
+  }) {
+    const scopeSlug =
+      input.inputContext.workspaceSlug ??
+      input.inputContext.tenantSlug ??
+      'tenant';
+
+    return {
+      artifactKey: `integration-setup:${scopeSlug}:${input.connectorKey}:${input.draft.slug}`,
+      artifactType: 'natural-language-integration-setup',
+      artifactStatus: 'review-ready',
+      audience: input.connectorAudience,
+      nonTechnicalMode: true,
+      naturalLanguageGoal: input.inputContext.prompt,
+      customerExperienceGoal:
+        'Keep downstream customer interactions accurate, timely, and reviewable before automation is enabled.',
+      setupTrack: input.draft.setupMode,
+      reviewBoundaries: {
+        previewOnly: true,
+        activationAllowed: false,
+        externalActionsAllowed: false,
+        requiresHumanReview: true,
+      },
+      dataContract: {
+        connectorKey: input.connectorKey,
+        connectorName: input.connectorName,
+        connectorCategory: input.connectorCategory,
+        objects: input.draft.mappingProfile.objects,
+        syncMode: input.draft.mappingProfile.syncPolicy.mode,
+        storagePolicyKey: input.inputContext.storagePolicyKey,
+      },
+      executionSteps: [
+        {
+          actionKey: 'confirm-connection-scope',
+          actionOrder: 1,
+          actionStatus: 'required',
+          owner: 'operator',
+          outputArtifactKeys: ['tenant-workspace-scope'],
+        },
+        {
+          actionKey: 'collect-credential-reference',
+          actionOrder: 2,
+          actionStatus: 'required',
+          owner: 'operator',
+          outputArtifactKeys: ['credential-reference'],
+        },
+        {
+          actionKey: 'review-mapping-profile',
+          actionOrder: 3,
+          actionStatus: 'required',
+          owner: 'operator',
+          outputArtifactKeys: ['mapping-profile-review'],
+        },
+        {
+          actionKey: 'run-diagnostics-before-activation',
+          actionOrder: 4,
+          actionStatus: 'required',
+          owner: 'system',
+          outputArtifactKeys: ['diagnostic-run'],
+        },
+        {
+          actionKey: 'submit-activation-review',
+          actionOrder: 5,
+          actionStatus: 'blocked-until-diagnostics-pass',
+          owner: 'operator',
+          outputArtifactKeys: ['activation-review'],
+        },
+      ],
+      handoff: {
+        setupSessionEndpoint: 'GET /integrations/setup-session',
+        diagnosticsEndpoint: 'GET /integrations/diagnostics',
+        activationReviewEndpoint:
+          'POST /integrations/workflow/review-activation',
+      },
     };
   }
 
@@ -103,7 +239,9 @@ export class IntegrationAiDraftingService {
       custom: ['objects', 'events', 'actions'],
     } as const;
 
-    const seeded = [...(defaults[category as keyof typeof defaults] ?? defaults.custom)];
+    const seeded = [
+      ...(defaults[category as keyof typeof defaults] ?? defaults.custom),
+    ];
 
     if (prompt.includes('lead') && !seeded.includes('leads')) {
       seeded.push('leads');
@@ -124,17 +262,30 @@ export class IntegrationAiDraftingService {
     return seeded;
   }
 
-  private suggestSyncMode(prompt: string, supportedDirections: readonly string[]) {
-    if (prompt.includes('both') || prompt.includes('hai chiều') || prompt.includes('bidirectional')) {
-      return supportedDirections.includes('bidirectional') ? 'bidirectional' : supportedDirections[0];
+  private suggestSyncMode(
+    prompt: string,
+    supportedDirections: readonly string[],
+  ) {
+    if (
+      prompt.includes('both') ||
+      prompt.includes('hai chiều') ||
+      prompt.includes('bidirectional')
+    ) {
+      return supportedDirections.includes('bidirectional')
+        ? 'bidirectional'
+        : supportedDirections[0];
     }
 
     if (prompt.includes('webhook') || prompt.includes('event')) {
-      return supportedDirections.includes('event-driven') ? 'event-driven' : supportedDirections[0];
+      return supportedDirections.includes('event-driven')
+        ? 'event-driven'
+        : supportedDirections[0];
     }
 
     if (prompt.includes('push')) {
-      return supportedDirections.includes('push') ? 'push' : supportedDirections[0];
+      return supportedDirections.includes('push')
+        ? 'push'
+        : supportedDirections[0];
     }
 
     return supportedDirections[0];
@@ -153,7 +304,11 @@ export class IntegrationAiDraftingService {
     return 'ai-assisted';
   }
 
-  private buildDraftName(connectorName: string, workspaceSlug?: string, tenantSlug?: string) {
+  private buildDraftName(
+    connectorName: string,
+    workspaceSlug?: string,
+    tenantSlug?: string,
+  ) {
     const scope = workspaceSlug?.trim() || tenantSlug?.trim() || 'tenant';
     return `${connectorName} ${scope} draft`;
   }
@@ -185,7 +340,10 @@ export class IntegrationAiDraftingService {
     }
 
     return Object.fromEntries(
-      objects.map((object) => [object, { externalId: `${object}.id`, title: `${object}.name` }]),
+      objects.map((object) => [
+        object,
+        { externalId: `${object}.id`, title: `${object}.name` },
+      ]),
     );
   }
 
@@ -250,8 +408,12 @@ export class IntegrationAiDraftingService {
     }
 
     if (connectorKey === 'nexovaflow') {
-      questions.push('Should NexovaFlow start with read-heavy operator actions before write actions?');
-      questions.push('Do you want the bridge to expose natural-language action presets for leads, tasks, and dashboard summary first?');
+      questions.push(
+        'Should NexovaFlow start with read-heavy operator actions before write actions?',
+      );
+      questions.push(
+        'Do you want the bridge to expose natural-language action presets for leads, tasks, and dashboard summary first?',
+      );
     }
 
     return questions;

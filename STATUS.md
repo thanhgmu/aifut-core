@@ -2,6 +2,11 @@
 
 Last updated: 2026-06-04
 
+## 2026-06-05 integration setup execution artifact checkpoint
+- Integration setup experience lane now emits a concrete `setupExecutionArtifact` from `POST /integrations/ai-draft`, turning natural-language app integration intent into a review-ready execution checklist with data contract, customer-experience goal, review boundaries, and handoff endpoints.
+- Added repo lane artifact `docs/roadmap/lanes/lane-integration-setup-experience-kickoff.md` to keep the multi-lane execution model concrete for non-technical integration setup work.
+- Verification passed: targeted integration AI drafting spec `2/2`, API build, full API Jest `27/27` suites and `379/379` tests, `git diff --check`, local runtime verifier `ok: true`, and live `POST /integrations/ai-draft` proof returning `setupExecutionArtifact.artifactStatus = review-ready`.
+
 ## 2026-06-04 parallel recovery and operator-editable runtime setup checkpoint
 - Wave 2 makes preview review failures directly actionable: Web HQ now displays submitted versus expected setup keys, missing/invalid input guidance, and API-provided next-action reasons.
 - A focused controller contract test locks mismatched `setupKey` rejection and proves the preview path does not submit, materialize, or dispatch execution.
