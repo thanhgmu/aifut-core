@@ -1,6 +1,14 @@
 # STATUS
 
-Last updated: 2026-06-04
+Last updated: 2026-06-06
+
+## 2026-06-06 active multi-lane execution artifact checkpoint
+- Thanh reaffirmed the durable operating boundary: choose the safest fastest structurally/data-lean path, optimize for user and end-customer time/cost/efficiency, keep code patches restrained, verify locally, commit, push, and preserve multi-lane continuity.
+- Added `docs/roadmap/lanes/wave-2-active-execution-artifacts-2026-06-06.md` as the current concrete execution map for Wave 2.
+- Updated `docs/roadmap/parallel-lane-execution-kit-v1.md` so it reflects the current Wave 2 operating state instead of the older Wave 1 active/deferred plan.
+- Current fastest safe path remains `lane/integration-setup-experience`, with orchestration consuming integration artifacts only through existing preview/review contracts and operator UI rendering backend truth only after refreshed local API proof.
+- Local runtime truth at 09:50 GMT+7: PostgreSQL was listening on `5432`; API `3002` and Web `3000` were not serving and must be restarted before new live endpoint claims.
+- Verification expectation for this docs-only checkpoint: `git diff --check`, then commit and push. Runtime-facing follow-up must restart API/Web and run local verifier before claiming deploy.
 
 ## 2026-06-05 integration setup execution artifact checkpoint
 - Integration setup experience lane now emits a concrete `setupExecutionArtifact` from `POST /integrations/ai-draft`, turning natural-language app integration intent into a review-ready execution checklist with data contract, customer-experience goal, review boundaries, and handoff endpoints.

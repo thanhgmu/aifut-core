@@ -4,6 +4,9 @@ This document turns the lane strategy into concrete execution artifacts.
 
 See also:
 - `docs/roadmap/parallel-lane-execution-plan-v1.md`
+- `docs/roadmap/wave-2-lane-board.md`
+- `docs/roadmap/wave-2-merge-order-checklist.md`
+- `docs/roadmap/lanes/wave-2-active-execution-artifacts-2026-06-06.md`
 
 ---
 
@@ -204,18 +207,24 @@ If a lane needs to touch one of these zones, declare temporary ownership for tha
 
 ---
 
-## 7) Safest wave plan right now
+## 7) Current Wave 2 execution state
 
-### Wave 1 active
-- `lane/kernel-auth-runtime`
-- `lane/operator-ui-control-plane`
-- `lane/local-dev-reliability`
-
-### Wave 1 deferred
+### Wave 2 active
 - `lane/integration-setup-experience`
+- `lane/orchestration-runtime-binding`
+- `lane/operator-ui-control-plane`
+- `lane/local-runtime-reality-checks`
+- `lane/domain-governance-hardening`
 
-### Why
-This is the best balance between speed and coordination cost on the current repo shape.
+### Current fastest safe path
+- keep the active product direction on `lane/integration-setup-experience`
+- let orchestration consume integration artifacts only through existing preview/review contracts
+- let operator UI render backend truth only after local API proof is refreshed
+- keep domain governance serialized unless a routing/security checkpoint becomes highest value
+
+### Runtime reality rule
+Before claiming a live endpoint proof, verify actual local services.
+As of the 2026-06-06 morning checkpoint, PostgreSQL was listening on `5432`, while API `3002` and Web `3000` needed to be restarted before new runtime-facing work.
 
 ---
 
