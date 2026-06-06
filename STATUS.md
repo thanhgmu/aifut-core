@@ -8,8 +8,9 @@ Last updated: 2026-06-06
 - Updated `docs/roadmap/parallel-lane-execution-kit-v1.md` so it reflects the current Wave 2 operating state instead of the older Wave 1 active/deferred plan.
 - Commit `b7ea35c` (`docs(roadmap): refresh wave 2 execution artifacts`) was pushed to GitHub.
 - Current fastest safe path remains `lane/integration-setup-experience`, with orchestration consuming integration artifacts only through existing preview/review contracts and operator UI rendering backend truth only after refreshed local API proof.
-- Local runtime truth at 09:50 GMT+7: PostgreSQL was listening on `5432`; API `3002` and Web `3000` were not serving and must be restarted before new live endpoint claims.
-- Verification expectation for this docs-only checkpoint: `git diff --check`, then commit and push. Runtime-facing follow-up must restart API/Web and run local verifier before claiming deploy.
+- Local runtime truth at 09:50 GMT+7: PostgreSQL was listening on `5432`; API `3002` and Web `3000` were initially not serving.
+- Local deploy was restarted after the docs checkpoint: API `http://127.0.0.1:3002/` returned `200`, Web `http://127.0.0.1:3000/` returned `200`, and PostgreSQL remained listening on `5432`.
+- Verification: `git diff --check` passed for the docs checkpoint; local API/Web HTTP proof passed after restart.
 
 ## 2026-06-05 integration setup execution artifact checkpoint
 - Integration setup experience lane now emits a concrete `setupExecutionArtifact` from `POST /integrations/ai-draft`, turning natural-language app integration intent into a review-ready execution checklist with data contract, customer-experience goal, review boundaries, and handoff endpoints.

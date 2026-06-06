@@ -33,6 +33,7 @@ apps/api/build-last.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.openclaw-*.log
 
 # Misc
 .DS_Store
