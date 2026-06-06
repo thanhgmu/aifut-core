@@ -90,6 +90,45 @@ describe('IntegrationAiDraftingService', () => {
             actionStatus: 'blocked-until-diagnostics-pass',
           }),
         ],
+        consumerContract: {
+          contractVersion: 'integration-setup-artifact.v1',
+          sourceArtifactKey:
+            'integration-setup:ops:nexovaflow:nexovaflow-operations-connector-ops-draft',
+          consumerSurfaces: [
+            'operator-ui-control-plane',
+            'orchestration-runtime-binding',
+            'local-runtime-reality-checks',
+          ],
+          reviewStatus: 'ready-for-operator-review',
+          displaySummary: {
+            title: 'NexovaFlow Operations Connector setup review',
+            statusLabel: 'Preview only',
+          },
+          primaryActionKey: 'confirm-connection-scope',
+          requiredActionKeys: [
+            'confirm-connection-scope',
+            'collect-credential-reference',
+            'review-mapping-profile',
+            'run-diagnostics-before-activation',
+          ],
+          blockedActionKeys: ['submit-activation-review'],
+          runtimeBindingHandoff: {
+            mode: 'preview-only',
+            setupKeySource: 'orchestration-runtime-binding-setup-queue',
+            previewEndpoint:
+              'POST /orchestration/business-systems/runtime-binding-setup-preview',
+            requiredInputKeys: [
+              'planId',
+              'workflowKey',
+              'systemBoundaryKey',
+              'runtimeKey',
+              'connectionKey',
+              'triggerMode',
+            ],
+            activationAllowed: false,
+            externalActionsAllowed: false,
+          },
+        },
       },
     });
   });

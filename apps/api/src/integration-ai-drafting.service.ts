@@ -154,9 +154,47 @@ export class IntegrationAiDraftingService {
       input.inputContext.workspaceSlug ??
       input.inputContext.tenantSlug ??
       'tenant';
+    const artifactKey = `integration-setup:${scopeSlug}:${input.connectorKey}:${input.draft.slug}`;
+    const executionSteps = [
+      {
+        actionKey: 'confirm-connection-scope',
+        actionOrder: 1,
+        actionStatus: 'required',
+        owner: 'operator',
+        outputArtifactKeys: ['tenant-workspace-scope'],
+      },
+      {
+        actionKey: 'collect-credential-reference',
+        actionOrder: 2,
+        actionStatus: 'required',
+        owner: 'operator',
+        outputArtifactKeys: ['credential-reference'],
+      },
+      {
+        actionKey: 'review-mapping-profile',
+        actionOrder: 3,
+        actionStatus: 'required',
+        owner: 'operator',
+        outputArtifactKeys: ['mapping-profile-review'],
+      },
+      {
+        actionKey: 'run-diagnostics-before-activation',
+        actionOrder: 4,
+        actionStatus: 'required',
+        owner: 'system',
+        outputArtifactKeys: ['diagnostic-run'],
+      },
+      {
+        actionKey: 'submit-activation-review',
+        actionOrder: 5,
+        actionStatus: 'blocked-until-diagnostics-pass',
+        owner: 'operator',
+        outputArtifactKeys: ['activation-review'],
+      },
+    ];
 
     return {
-      artifactKey: `integration-setup:${scopeSlug}:${input.connectorKey}:${input.draft.slug}`,
+      artifactKey,
       artifactType: 'natural-language-integration-setup',
       artifactStatus: 'review-ready',
       audience: input.connectorAudience,
@@ -179,43 +217,46 @@ export class IntegrationAiDraftingService {
         syncMode: input.draft.mappingProfile.syncPolicy.mode,
         storagePolicyKey: input.inputContext.storagePolicyKey,
       },
-      executionSteps: [
-        {
-          actionKey: 'confirm-connection-scope',
-          actionOrder: 1,
-          actionStatus: 'required',
-          owner: 'operator',
-          outputArtifactKeys: ['tenant-workspace-scope'],
+      executionSteps,
+      consumerContract: {
+        contractVersion: 'integration-setup-artifact.v1',
+        sourceArtifactKey: artifactKey,
+        consumerSurfaces: [
+          'operator-ui-control-plane',
+          'orchestration-runtime-binding',
+          'local-runtime-reality-checks',
+        ],
+        reviewStatus: 'ready-for-operator-review',
+        displaySummary: {
+          title: `${input.connectorName} setup review`,
+          subtitle:
+            'Natural-language integration intent is ready for operator review before any activation.',
+          statusLabel: 'Preview only',
         },
-        {
-          actionKey: 'collect-credential-reference',
-          actionOrder: 2,
-          actionStatus: 'required',
-          owner: 'operator',
-          outputArtifactKeys: ['credential-reference'],
+        primaryActionKey: executionSteps[0].actionKey,
+        requiredActionKeys: executionSteps
+          .filter((step) => step.actionStatus === 'required')
+          .map((step) => step.actionKey),
+        blockedActionKeys: executionSteps
+          .filter((step) => step.actionStatus.startsWith('blocked'))
+          .map((step) => step.actionKey),
+        runtimeBindingHandoff: {
+          mode: 'preview-only',
+          setupKeySource: 'orchestration-runtime-binding-setup-queue',
+          previewEndpoint:
+            'POST /orchestration/business-systems/runtime-binding-setup-preview',
+          requiredInputKeys: [
+            'planId',
+            'workflowKey',
+            'systemBoundaryKey',
+            'runtimeKey',
+            'connectionKey',
+            'triggerMode',
+          ],
+          activationAllowed: false,
+          externalActionsAllowed: false,
         },
-        {
-          actionKey: 'review-mapping-profile',
-          actionOrder: 3,
-          actionStatus: 'required',
-          owner: 'operator',
-          outputArtifactKeys: ['mapping-profile-review'],
-        },
-        {
-          actionKey: 'run-diagnostics-before-activation',
-          actionOrder: 4,
-          actionStatus: 'required',
-          owner: 'system',
-          outputArtifactKeys: ['diagnostic-run'],
-        },
-        {
-          actionKey: 'submit-activation-review',
-          actionOrder: 5,
-          actionStatus: 'blocked-until-diagnostics-pass',
-          owner: 'operator',
-          outputArtifactKeys: ['activation-review'],
-        },
-      ],
+      },
       handoff: {
         setupSessionEndpoint: 'GET /integrations/setup-session',
         diagnosticsEndpoint: 'GET /integrations/diagnostics',

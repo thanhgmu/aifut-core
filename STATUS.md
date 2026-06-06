@@ -2,6 +2,13 @@
 
 Last updated: 2026-06-06
 
+## 2026-06-06 integration setup consumer contract checkpoint
+- Integration setup experience lane now adds `setupExecutionArtifact.consumerContract` to `POST /integrations/ai-draft`.
+- The consumer contract gives operator UI, orchestration runtime-binding, and local-runtime lanes a stable render/handoff projection: contract version, source artifact key, display summary, required/blocked action keys, primary action, and preview-only runtime-binding handoff details.
+- Runtime-binding handoff stays honest: the artifact points consumers to the existing orchestration runtime-binding setup queue as the source of any `setupKey`; it does not create a fake setup key, activate workflows, persist bindings, dispatch connectors, or allow external actions.
+- API docs now note that integration AI drafting clients should use `consumerContract` as a preview-only UI/orchestration handoff projection.
+- Verification passed: targeted integration AI drafting spec `2/2`, API build, full API Jest `27/27` suites and `379/379` tests, local runtime verifier `ok: true`, and live `POST /integrations/ai-draft` proof showing `consumerContract.contractVersion = integration-setup-artifact.v1`.
+
 ## 2026-06-06 active multi-lane execution artifact checkpoint
 - Thanh reaffirmed the durable operating boundary: choose the safest fastest structurally/data-lean path, optimize for user and end-customer time/cost/efficiency, keep code patches restrained, verify locally, commit, push, and preserve multi-lane continuity.
 - Added `docs/roadmap/lanes/wave-2-active-execution-artifacts-2026-06-06.md` as the current concrete execution map for Wave 2.
