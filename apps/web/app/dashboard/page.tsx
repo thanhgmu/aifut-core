@@ -105,6 +105,57 @@ type RuntimeBindingSetupPreviewResponse = {
   };
 };
 
+type IntegrationAiDraftResponse = {
+  status?: string;
+  connector?: {
+    key?: string;
+    name?: string;
+    category?: string;
+  };
+  setupExecutionArtifact?: {
+    artifactKey?: string;
+    artifactStatus?: string;
+    setupTrack?: string;
+    customerExperienceGoal?: string;
+    reviewBoundaries?: {
+      previewOnly?: boolean;
+      activationAllowed?: boolean;
+      externalActionsAllowed?: boolean;
+      requiresHumanReview?: boolean;
+    };
+    dataContract?: {
+      connectorKey?: string;
+      connectorName?: string;
+      connectorCategory?: string;
+      objects?: string[];
+      syncMode?: string;
+      storagePolicyKey?: string | null;
+    };
+    consumerContract?: {
+      contractVersion?: string;
+      sourceArtifactKey?: string;
+      consumerSurfaces?: string[];
+      reviewStatus?: string;
+      displaySummary?: {
+        title?: string;
+        subtitle?: string;
+        statusLabel?: string;
+      };
+      primaryActionKey?: string;
+      requiredActionKeys?: string[];
+      blockedActionKeys?: string[];
+      runtimeBindingHandoff?: {
+        mode?: string;
+        setupKeySource?: string;
+        previewEndpoint?: string;
+        requiredInputKeys?: string[];
+        activationAllowed?: boolean;
+        externalActionsAllowed?: boolean;
+      };
+    };
+  };
+};
+
 type RootResponse = {
   focus?: {
     model?: string;
@@ -122,6 +173,15 @@ const SAMPLE_BLUEPRINT_REQUEST = {
   businessObjects: ["product-candidate", "supplier", "content-asset", "lead", "order", "customer-feedback"],
   priorities: ["time-to-first-sale", "operator-reviewability", "repeat-purchase-learning"],
   lanes: ["research", "content", "sales", "fulfillment", "support"],
+};
+
+const SAMPLE_INTEGRATION_DRAFT_REQUEST = {
+  tenantSlug: "acme",
+  workspaceSlug: "ops",
+  storagePolicyKey: "assets",
+  connectorKey: "nexovaflow",
+  prompt:
+    "Connect leads and tasks both ways so customers get faster follow-up, but keep writes reviewed first.",
 };
 
 const lanes: LaneCard[] = [
@@ -186,7 +246,13 @@ const lanes: LaneCard[] = [
 ];
 
 async function getDashboardData() {
-  const [health, adapterInterfacesResponse, root, blueprintPreviewResult] = await Promise.all([
+  const [
+    health,
+    adapterInterfacesResponse,
+    root,
+    blueprintPreviewResult,
+    integrationDraftResult,
+  ] = await Promise.all([
     getJson<HealthResponse>("/health"),
     getJson<{ adapterInterfaces?: AdapterInterfaceRegistryResponse }>("/connectors/adapter-interfaces"),
     getJson<RootResponse>("/"),
@@ -194,12 +260,23 @@ async function getDashboardData() {
       "/orchestration/business-systems/draft-preview",
       SAMPLE_BLUEPRINT_REQUEST,
     ),
+    postJsonResult<IntegrationAiDraftResponse>(
+      "/integrations/ai-draft",
+      SAMPLE_INTEGRATION_DRAFT_REQUEST,
+    ),
   ]);
 
   const adapterInterfaces = adapterInterfacesResponse?.adapterInterfaces;
   const runtimeBindingSetupPreviewResult = await getRuntimeBindingSetupPreviewResult(blueprintPreviewResult);
 
-  return { health, adapterInterfaces, root, blueprintPreviewResult, runtimeBindingSetupPreviewResult };
+  return {
+    health,
+    adapterInterfaces,
+    root,
+    blueprintPreviewResult,
+    integrationDraftResult,
+    runtimeBindingSetupPreviewResult,
+  };
 }
 
 async function getRuntimeBindingSetupPreviewResult(
@@ -242,7 +319,14 @@ function buildRuntimeBindingSetupCandidate(setup: RuntimeBindingSetupQueueItem) 
 }
 
 export default async function DashboardPage() {
-  const { health, adapterInterfaces, root, blueprintPreviewResult, runtimeBindingSetupPreviewResult } =
+  const {
+    health,
+    adapterInterfaces,
+    root,
+    blueprintPreviewResult,
+    integrationDraftResult,
+    runtimeBindingSetupPreviewResult,
+  } =
     await getDashboardData();
   const interfaceCount = adapterInterfaces?.adapterInterfaces?.length ?? 0;
   const topInterfaces = Array.isArray(adapterInterfaces?.adapterInterfaces)
@@ -259,6 +343,8 @@ export default async function DashboardPage() {
   const approvalContractCount = blueprint?.executionContractDraft?.approvalContracts?.length ?? 0;
   const runtimeBindingSetupQueue = reviewSummary?.runtimeBindingSetupQueue ?? [];
   const runtimeBindingSetupReview = runtimeBindingSetupPreviewResult.data?.runtimeBindingSetupReview;
+  const integrationArtifact = integrationDraftResult.data?.setupExecutionArtifact;
+  const integrationConsumerContract = integrationArtifact?.consumerContract;
 
   return (
     <main
@@ -306,6 +392,7 @@ export default async function DashboardPage() {
           <MetricCard title="Model" value={health?.platform?.model ?? root?.focus?.model ?? "C"} note="kernel-first control plane" />
           <MetricCard title="Adapter interfaces" value={String(interfaceCount)} note="visible proof of connector abstraction" />
           <MetricCard title="Blueprint preview" value={blueprint?.blueprintStatus ?? "unavailable"} note={reviewSummary?.status ?? formatReadFailure(blueprintPreviewResult)} />
+          <MetricCard title="Integration artifact" value={integrationArtifact?.artifactStatus ?? "unavailable"} note={integrationConsumerContract?.contractVersion ?? formatReadFailure(integrationDraftResult)} />
           <MetricCard title="Current theme" value="From narrative → product" note="docs + API + UI now connected" />
         </section>
 
@@ -332,6 +419,59 @@ export default async function DashboardPage() {
               </Panel>
             ))}
           </div>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
+          <Panel title="Natural-language integration setup artifact">
+            {integrationArtifact ? (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+                  <MetricCard title="Connector" value={integrationDraftResult.data?.connector?.name ?? "unknown"} note={integrationDraftResult.data?.connector?.category ?? "integration"} />
+                  <MetricCard title="Artifact" value={integrationArtifact.artifactStatus ?? "review-ready"} note={integrationArtifact.setupTrack ?? "ai-assisted"} />
+                  <MetricCard title="Contract" value={integrationConsumerContract?.contractVersion ?? "unavailable"} note={integrationConsumerContract?.reviewStatus ?? "review required"} />
+                  <MetricCard title="Activation" value={integrationArtifact.reviewBoundaries?.activationAllowed ? "Allowed" : "Blocked"} note="preview-only setup artifact" />
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>
+                        {integrationConsumerContract?.displaySummary?.title ?? "Integration setup review"}
+                      </div>
+                      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13, lineHeight: 1.6 }}>
+                        {integrationConsumerContract?.displaySummary?.subtitle ?? integrationArtifact.customerExperienceGoal ?? "Review before activation."}
+                      </div>
+                    </div>
+                    <span style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+                      {integrationConsumerContract?.displaySummary?.statusLabel ?? "Preview only"}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 16 }}>
+                    <Readout label="Source artifact" value={integrationConsumerContract?.sourceArtifactKey ?? integrationArtifact.artifactKey ?? "unassigned"} />
+                    <Readout label="Primary action" value={integrationConsumerContract?.primaryActionKey ?? "review"} />
+                    <Readout label="Sync mode" value={integrationArtifact.dataContract?.syncMode ?? "manual-review"} />
+                    <Readout label="Setup key source" value={integrationConsumerContract?.runtimeBindingHandoff?.setupKeySource ?? "runtime-binding queue"} />
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                    <KeyList label="Required artifact actions" items={integrationConsumerContract?.requiredActionKeys} />
+                    <KeyList label="Blocked until review" items={integrationConsumerContract?.blockedActionKeys} />
+                    <KeyList label="Runtime-binding inputs" items={integrationConsumerContract?.runtimeBindingHandoff?.requiredInputKeys} />
+                    <KeyList label="Consumer surfaces" items={integrationConsumerContract?.consumerSurfaces} />
+                  </div>
+
+                  <div style={{ marginTop: 16, color: "#9fb0ff", fontSize: 13, lineHeight: 1.6 }}>
+                    Handoff: {integrationConsumerContract?.runtimeBindingHandoff?.previewEndpoint ?? "runtime-binding setup preview"} / activation {integrationConsumerContract?.runtimeBindingHandoff?.activationAllowed ? "allowed" : "blocked"} / external actions {integrationConsumerContract?.runtimeBindingHandoff?.externalActionsAllowed ? "allowed" : "disabled"}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "#c8d2ff" }}>
+                Integration setup artifact is unavailable: {formatReadFailure(integrationDraftResult)}.
+              </div>
+            )}
+          </Panel>
         </section>
 
         <section style={{ marginTop: 28 }}>
@@ -460,6 +600,45 @@ export default async function DashboardPage() {
 
 function formatReadFailure(result: JsonResult<unknown>) {
   return result.error ?? (result.status ? `HTTP ${result.status}` : "read unavailable");
+}
+
+function KeyList({ label, items = [] }: { label: string; items?: string[] }) {
+  return (
+    <div style={{ ...cardStyle, padding: 14 }}>
+      <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{label}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {items.length > 0 ? (
+          items.map((item) => (
+            <span
+              key={item}
+              style={{
+                padding: "6px 8px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#dfe6ff",
+                fontSize: 12,
+                overflowWrap: "anywhere",
+              }}
+            >
+              {item}
+            </span>
+          ))
+        ) : (
+          <span style={{ color: "#c8d2ff", fontSize: 13 }}>unavailable</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Readout({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ ...cardStyle, padding: 14 }}>
+      <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{label}</div>
+      <div style={{ color: "#dfe6ff", fontSize: 14, lineHeight: 1.5, overflowWrap: "anywhere" }}>{value}</div>
+    </div>
+  );
 }
 
 function MetricCard({ title, value, note }: { title: string; value: string; note: string }) {

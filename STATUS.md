@@ -2,6 +2,12 @@
 
 Last updated: 2026-06-06
 
+## 2026-06-06 Web HQ integration artifact visibility checkpoint
+- Web HQ dashboard now calls `POST /integrations/ai-draft` with the local NexovaFlow setup prompt and renders the returned `setupExecutionArtifact.consumerContract`.
+- The dashboard surfaces artifact status, connector/category, contract version, review status, source artifact key, primary action, required/blocked action keys, runtime-binding input keys, consumer surfaces, and the preview-only handoff endpoint.
+- Safety remains explicit in the UI: activation stays blocked, external actions stay disabled, and the setup key source remains the existing orchestration runtime-binding setup queue.
+- Verification passed: web typecheck, web production build, live API `POST /integrations/ai-draft` proof showing `integration-setup-artifact.v1`, and live dashboard render `200` containing `Natural-language integration setup artifact`, `integration-setup-artifact.v1`, and `Preview only`.
+
 ## 2026-06-06 integration setup consumer contract checkpoint
 - Integration setup experience lane now adds `setupExecutionArtifact.consumerContract` to `POST /integrations/ai-draft`.
 - The consumer contract gives operator UI, orchestration runtime-binding, and local-runtime lanes a stable render/handoff projection: contract version, source artifact key, display summary, required/blocked action keys, primary action, and preview-only runtime-binding handoff details.
