@@ -69,3 +69,4 @@ This enables fast iteration on tenant-aware backend flows before introducing ful
 - See `docs/architecture/canonical-object-starter-schema-v1.md` for the first execution-ready schema baseline covering core fields, ownership, source-of-truth, sync direction, and build phase for starter objects.
 - See `docs/architecture/adapter-plan-v1.md` for the first practical adapter slicing plan across OpenClaw, n8n, MagiCA, aff.nexovaflow.com, and Perfex/NexovaFlow.
 - See `docs/architecture/application-assessment-perfex-nexovaflow-v1.md` for the first concrete app assessment using the integration intake model.
+- See `docs/architecture/backup-restore-governance.md` for the backup/restore governance direction covering local, user-owned cloud, AIFUT-managed, app-specific, workflow, skill, plugin, add-on, and config backup scopes.

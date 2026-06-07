@@ -8,6 +8,7 @@ The AIFUT product direction has been expanded with more specific operational and
 - subdomain and custom-domain support
 - platform-managed or tenant-owned storage/infrastructure
 - tenant-specific backup expectations
+- user/admin configurable backup schedules for database, workflow, skill, plugin, add-on, application config, local targets, user-owned cloud targets such as Google Drive, and AIFUT-managed ecosystem backup targets
 - natural-language system composition
 - marketplace resale/rental/service commercialization
 - affiliate-backed domain/hosting/infrastructure offers
@@ -26,6 +27,7 @@ AIFUT will treat the expanded product direction as hard architectural input, not
 - package-governed use of external services and platform resources
 - platform-managed and bring-your-own storage / API / infrastructure modes
 - backup policy and storage metering semantics
+- scheduled backup and governed restore semantics across database, workflow, skill, plugin, add-on, app configuration, and app-specific ecosystem snapshots
 - shared, split, and dedicated tenant-app topologies
 - non-technical integration flows alongside advanced integration mode
 - natural-language orchestration as a first-class experience surface
