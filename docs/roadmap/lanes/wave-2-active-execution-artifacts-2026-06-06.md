@@ -61,7 +61,8 @@ This note turns the current Wave 2 lane plan into the concrete execution state M
 
 ## 2026-06-07 update
 
-- Current pushed HEAD: `c30ac2a` (`feat(api): expose backup readiness surface`).
+- Backup-readiness code checkpoint: `c30ac2a` (`feat(api): expose backup readiness surface`).
+- Roadmap/lane state refresh checkpoint: `3e58da1` (`docs(roadmap): refresh backup center lane state`).
 - Local API proof after the backup-readiness checkpoint returned `200` from `GET /integrations/backup-readiness?tenantSlug=acme`.
 - Local runtime verifier returned `ok: true`.
 - Active product direction remains natural-language, non-technical integration, but Backup Center is now a concrete adjacent lane because user-owned/local/cloud backup is required for OPC-safe operation.
