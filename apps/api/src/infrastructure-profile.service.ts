@@ -316,6 +316,223 @@ export class InfrastructureProfileService {
     };
   }
 
+  async getBackupReadinessPolicy(tenantSlug?: string) {
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    const [storagePolicies, integrations, entitlements] = await Promise.all([
+      this.prisma.tenantStoragePolicy.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: [{ mode: 'asc' }, { key: 'asc' }],
+        select: {
+          id: true,
+          key: true,
+          mode: true,
+          storageClass: true,
+          targetRef: true,
+          targetRegion: true,
+          backupTargetRef: true,
+          meteringEnabled: true,
+          workspaceId: true,
+          workspace: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.integrationConnection.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: [{ category: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          category: true,
+          provider: true,
+          status: true,
+          workspaceId: true,
+          workspace: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+        },
+      }),
+      this.prisma.entitlement.findMany({
+        where: {
+          tenantId: tenant.id,
+          key: { contains: 'backup', mode: 'insensitive' },
+        },
+        orderBy: { key: 'asc' },
+        select: {
+          id: true,
+          key: true,
+          kind: true,
+          value: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      }),
+    ]);
+
+    const policiesWithBackupTarget = storagePolicies.filter(
+      (policy) => policy.backupTargetRef,
+    );
+    const policiesMissingBackupTarget = storagePolicies.filter(
+      (policy) => policy.mode !== 'DISABLED' && !policy.backupTargetRef,
+    );
+    const backupTargetRefs = [
+      ...new Set(
+        policiesWithBackupTarget
+          .map((policy) => policy.backupTargetRef)
+          .filter((targetRef): targetRef is string => Boolean(targetRef)),
+      ),
+    ];
+    const appBackupCandidates = integrations.filter((integration) =>
+      ['CRM', 'WORKFLOW', 'AI', 'AFFILIATE', 'STORAGE'].includes(
+        integration.category,
+      ),
+    );
+
+    const backupStatus =
+      backupTargetRefs.length > 0 && policiesMissingBackupTarget.length === 0
+        ? 'backup-targets-ready'
+        : backupTargetRefs.length > 0
+          ? 'backup-targets-partial'
+          : 'backup-targets-not-declared';
+
+    return {
+      capability: 'integrations',
+      surface: 'backup-readiness',
+      status: 'resolved',
+      tenant: {
+        id: tenant.id,
+        slug: tenant.slug,
+        name: tenant.name,
+      },
+      backup: {
+        status: backupStatus,
+        schedule: {
+          status: 'not-configured',
+          supportedCadences: ['manual', 'daily', 'weekly', 'monthly'],
+          next: 'persist-user-and-admin-backup-schedules',
+        },
+        targets: backupTargetRefs.map((targetRef) => ({
+          targetRef,
+          targetClass: this.classifyBackupTarget(targetRef),
+          policyKeys: policiesWithBackupTarget
+            .filter((policy) => policy.backupTargetRef === targetRef)
+            .map((policy) => policy.key),
+        })),
+        scopes: [
+          {
+            key: 'database',
+            status:
+              backupTargetRefs.length > 0
+                ? 'target-declared'
+                : 'target-missing',
+            source: 'tenant-storage-policy',
+          },
+          {
+            key: 'workflow-skill-plugin-addon-config',
+            status: 'contract-needed',
+            source: 'aifut-control-plane',
+          },
+          {
+            key: 'app-specific-snapshots',
+            status:
+              appBackupCandidates.length > 0
+                ? 'adapter-assessment-needed'
+                : 'no-app-candidates-detected',
+            source: 'connected-app-adapters',
+            candidates: appBackupCandidates.map((integration) => ({
+              slug: integration.slug,
+              provider: integration.provider,
+              category: integration.category,
+              status: integration.status,
+              workspace: integration.workspace,
+            })),
+          },
+        ],
+        storagePolicies: {
+          total: storagePolicies.length,
+          withBackupTarget: policiesWithBackupTarget.length,
+          missingBackupTarget: policiesMissingBackupTarget.map((policy) => ({
+            key: policy.key,
+            mode: policy.mode,
+            workspace: policy.workspace,
+          })),
+        },
+        entitlements,
+        restore: {
+          status: 'manual-governance-needed',
+          modes: [
+            'config-only',
+            'workflow-bundle',
+            'skill-plugin-addon-bundle',
+            'database-snapshot',
+            'app-specific-export',
+            'tenant-workspace-restore',
+          ],
+          approvalRequiredFor: [
+            'database-snapshot',
+            'app-specific-export',
+            'tenant-workspace-restore',
+          ],
+        },
+        blockers: [
+          ...(backupTargetRefs.length === 0 ? ['backup-target:missing'] : []),
+          ...(policiesMissingBackupTarget.length > 0
+            ? ['storage-policies-without-backup-target']
+            : []),
+          'backup-schedule:not-configured',
+          'restore-preview:not-implemented',
+        ],
+        recommendations: [
+          'add-local-or-user-cloud-backup-target',
+          'configure-user-and-admin-backup-schedules',
+          'define-workflow-skill-plugin-addon-portability-bundle',
+          'assess-nexovaflow-and-other-app-specific-export-adapters',
+          'require-approval-for-destructive-restores',
+        ],
+      },
+    };
+  }
+
+  private classifyBackupTarget(targetRef: string) {
+    const normalizedTargetRef = targetRef.trim().toLowerCase();
+
+    if (
+      normalizedTargetRef.startsWith('gdrive://') ||
+      normalizedTargetRef.startsWith('google-drive://')
+    ) {
+      return 'user-google-drive';
+    }
+
+    if (
+      normalizedTargetRef.startsWith('file://') ||
+      normalizedTargetRef.startsWith('local://')
+    ) {
+      return 'user-local';
+    }
+
+    if (
+      normalizedTargetRef.startsWith('s3://') ||
+      normalizedTargetRef.startsWith('b2://') ||
+      normalizedTargetRef.startsWith('r2://')
+    ) {
+      return 'user-object-storage';
+    }
+
+    return normalizedTargetRef.includes('platform')
+      ? 'aifut-managed'
+      : 'external-or-custom';
+  }
+
   private async resolveTenant(tenantSlug?: string) {
     const normalizedTenantSlug = tenantSlug?.trim().toLowerCase();
 

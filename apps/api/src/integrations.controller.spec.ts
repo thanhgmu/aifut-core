@@ -17,6 +17,7 @@ describe('IntegrationsController', () => {
   let infrastructureProfileService: {
     getTenantInfrastructureProfile: jest.Mock;
     getDomainRoutingPolicy: jest.Mock;
+    getBackupReadinessPolicy: jest.Mock;
   };
   let storageRoutingPolicy: { getEffectivePolicy: jest.Mock };
   let integrationControlPlane: { summarizeTenantControlPlane: jest.Mock };
@@ -40,6 +41,7 @@ describe('IntegrationsController', () => {
     infrastructureProfileService = {
       getTenantInfrastructureProfile: jest.fn(),
       getDomainRoutingPolicy: jest.fn(),
+      getBackupReadinessPolicy: jest.fn(),
     };
 
     storageRoutingPolicy = {
@@ -143,6 +145,27 @@ describe('IntegrationsController', () => {
       capability: 'integrations',
       status: 'resolved',
       storage: { policyKey: 'assets' },
+    });
+  });
+
+  it('should expose backup readiness through infrastructure profile service', async () => {
+    infrastructureProfileService.getBackupReadinessPolicy.mockResolvedValue({
+      surface: 'backup-readiness',
+      backup: {
+        status: 'backup-targets-partial',
+      },
+    });
+
+    const result = await controller.backupReadiness('acme', undefined);
+
+    expect(infrastructureProfileService.getBackupReadinessPolicy).toHaveBeenCalledWith(
+      'acme',
+    );
+    expect(result).toMatchObject({
+      surface: 'backup-readiness',
+      backup: {
+        status: 'backup-targets-partial',
+      },
     });
   });
 

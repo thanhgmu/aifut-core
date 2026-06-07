@@ -103,6 +103,16 @@ export class IntegrationsController {
     };
   }
 
+  @Get('backup-readiness')
+  async backupReadiness(
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+  ) {
+    return this.infrastructureProfileService.getBackupReadinessPolicy(
+      tenantSlugHeader ?? tenantSlugQuery,
+    );
+  }
+
   @Get('credential-reference-blueprint')
   credentialReferenceBlueprint(@Query('connectorKey') connectorKey?: string) {
     return this.credentialReferences.getBlueprint(connectorKey);
