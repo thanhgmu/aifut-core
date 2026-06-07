@@ -215,9 +215,11 @@ If a lane needs to touch one of these zones, declare temporary ownership for tha
 - `lane/operator-ui-control-plane`
 - `lane/local-runtime-reality-checks`
 - `lane/domain-governance-hardening`
+- `lane/backup-center-foundation`
 
 ### Current fastest safe path
 - keep the active product direction on `lane/integration-setup-experience`
+- treat `lane/backup-center-foundation` as the fastest adjacent safety lane when user-owned/local/cloud backup or restore confidence is the highest-value path
 - let orchestration consume integration artifacts only through existing preview/review contracts
 - let operator UI render backend truth only after local API proof is refreshed
 - keep domain governance serialized unless a routing/security checkpoint becomes highest value

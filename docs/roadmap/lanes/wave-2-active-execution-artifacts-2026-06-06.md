@@ -59,6 +59,21 @@ This note turns the current Wave 2 lane plan into the concrete execution state M
 4. Let `lane/operator-ui-control-plane` render backend truth only after the API contract is locally proven.
 5. Keep `lane/domain-governance-hardening` available but serialized unless a routing/security issue appears.
 
+## 2026-06-07 update
+
+- Current pushed HEAD: `c30ac2a` (`feat(api): expose backup readiness surface`).
+- Local API proof after the backup-readiness checkpoint returned `200` from `GET /integrations/backup-readiness?tenantSlug=acme`.
+- Local runtime verifier returned `ok: true`.
+- Active product direction remains natural-language, non-technical integration, but Backup Center is now a concrete adjacent lane because user-owned/local/cloud backup is required for OPC-safe operation.
+- New safe lane candidate: `lane/backup-center-foundation`.
+
+### lane/backup-center-foundation
+
+- Current code checkpoint: `GET /integrations/backup-readiness`.
+- Customer-facing purpose: show a user/admin whether database, workflow, skill, plugin, add-on, config, and app-specific backup coverage is ready before relying on the operating system.
+- Next smallest safe slice: add persisted backup schedule/config primitives only after confirming no Prisma/shared-policy collision, or expose a UI-readable setup contract first if persistence should wait.
+- No-touch zones unless explicitly locked: Prisma schema/migrations, credential storage, destructive restore actions, external cloud write adapters.
+
 ## Code restraint rule for this wave
 
 - Prefer small patches over broad rewrites.
