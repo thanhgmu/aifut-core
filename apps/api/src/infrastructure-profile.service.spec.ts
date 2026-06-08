@@ -642,6 +642,12 @@ describe('InfrastructureProfileService', () => {
         requestedDecision: 'defer-setup',
         decisionStatus: 'accepted-for-preview',
         validationIssues: [],
+        inputSummary: {
+          requiredCount: 10,
+          providedCount: 10,
+          missingInputKeys: [],
+          invalidInputKeys: [],
+        },
         requiredActionKeys: [
           'backup-target:missing',
           'storage-policies-without-backup-target',
@@ -742,6 +748,19 @@ describe('InfrastructureProfileService', () => {
         requestedDecision: 'persist-schedule',
         decisionStatus: 'not-allowed',
         projectedOutcome: 'operator-input-validation-required',
+        inputSummary: {
+          requiredCount: 10,
+          providedCount: 10,
+          missingInputKeys: [],
+          invalidInputKeys: [
+            'targetClass',
+            'policyKeys',
+            'cadence',
+            'retentionDays',
+            'bundleFormat',
+            'approvalRequiredFor',
+          ],
+        },
         validationIssues: expect.arrayContaining([
           'targetClass:option-not-allowed',
           'policyKeys:contains-option-not-allowed',

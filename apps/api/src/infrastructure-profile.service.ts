@@ -814,6 +814,25 @@ export class InfrastructureProfileService {
       ...fieldReviews.flatMap((review) => review.issues),
       ...decisionIssues,
     ];
+    const requiredFieldReviews = fieldReviews.filter((review) =>
+      formSchema.inputGroups
+        .find((group) => group.key === review.groupKey)
+        ?.fields.find(
+          (field) => field.key === review.fieldKey && field.required,
+        ),
+    );
+    const missingInputKeys = fieldReviews
+      .filter((review) =>
+        review.issues.some((issue) => issue.endsWith(':required')),
+      )
+      .map((review) => review.fieldKey);
+    const invalidInputKeys = fieldReviews
+      .filter(
+        (review) =>
+          review.status === 'invalid' &&
+          !review.issues.some((issue) => issue.endsWith(':required')),
+      )
+      .map((review) => review.fieldKey);
 
     return {
       capability: 'integrations',
@@ -837,6 +856,12 @@ export class InfrastructureProfileService {
             : setupIntent.projectedOutcome,
         requiredActionKeys: setupIntent.derivedFrom.requiredActionKeys,
         recommendedActionKeys: setupIntent.derivedFrom.recommendedActionKeys,
+        inputSummary: {
+          requiredCount: requiredFieldReviews.length,
+          providedCount: requiredFieldReviews.length - missingInputKeys.length,
+          missingInputKeys,
+          invalidInputKeys,
+        },
         fieldReviews,
         validationIssues,
       },

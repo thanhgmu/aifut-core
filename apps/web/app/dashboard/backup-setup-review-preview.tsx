@@ -92,6 +92,12 @@ type BackupSetupPreviewResponse = {
     projectedOutcome?: string;
     requestedDecision?: string;
     fieldReviews?: FieldReview[];
+    inputSummary?: {
+      requiredCount?: number;
+      providedCount?: number;
+      missingInputKeys?: string[];
+      invalidInputKeys?: string[];
+    };
     validationIssues?: string[];
   };
   safety?: {
@@ -149,8 +155,17 @@ export function BackupSetupReviewPreview({
   const previewSafety = previewResponse?.safety;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
-  const invalidInputKeys = getInvalidInputKeys(preview?.fieldReviews);
-  const missingInputKeys = getMissingInputKeys(preview?.fieldReviews);
+  const invalidInputKeys =
+    preview?.inputSummary?.invalidInputKeys ??
+    getInvalidInputKeys(preview?.fieldReviews);
+  const missingInputKeys =
+    preview?.inputSummary?.missingInputKeys ??
+    getMissingInputKeys(preview?.fieldReviews);
+  const previewRequiredCount =
+    preview?.inputSummary?.requiredCount ?? requiredCount;
+  const previewProvidedCount =
+    preview?.inputSummary?.providedCount ??
+    previewRequiredCount - missingInputKeys.length;
 
   function updateDraft(field: BackupSetupFormField, value: string | boolean) {
     setDraft((current) => ({
@@ -250,7 +265,7 @@ export function BackupSetupReviewPreview({
         />
         <Readout
           label="Input review"
-          value={`${previewResponse ? requiredCount - missingInputKeys.length : providedCount}/${requiredCount} required`}
+          value={`${previewResponse ? previewProvidedCount : providedCount}/${previewResponse ? previewRequiredCount : requiredCount} required`}
         />
         <Readout
           label="Projected outcome"
