@@ -91,6 +91,7 @@ type BackupSetupPreviewResponse = {
     decisionStatus?: string;
     projectedOutcome?: string;
     requestedDecision?: string;
+    reviewSummary?: BackupSetupReviewSummary;
     fieldReviews?: FieldReview[];
     inputSummary?: {
       requiredCount?: number;
@@ -107,6 +108,53 @@ type BackupSetupPreviewResponse = {
     credentialStorageAllowed?: boolean;
     externalCloudWritesAllowed?: boolean;
   };
+};
+
+type BackupSetupReviewSummary = {
+  statusLabel?: string;
+  status?: string;
+  validationIssueCount?: number;
+  missingInputCount?: number;
+  invalidInputCount?: number;
+  requiredActionCount?: number;
+  recommendedActionCount?: number;
+  previewOnly?: boolean;
+  activationAllowed?: boolean;
+  externalActionsAllowed?: boolean;
+  persistenceAllowed?: boolean;
+  schedulePersistenceAllowed?: boolean;
+  restoreExecutionAllowed?: boolean;
+  credentialStorageAllowed?: boolean;
+  externalCloudWritesAllowed?: boolean;
+  blockers?: string[];
+  nextActions?: BackupSetupReviewAction[];
+  decisionSummary?: {
+    configuredCount?: number;
+    unresolvedCount?: number;
+    deferredCount?: number;
+  };
+  inputSummary?: {
+    requiredCount?: number;
+    providedCount?: number;
+    missingInputKeys?: string[];
+    invalidInputKeys?: string[];
+  };
+  safety?: {
+    persistenceAllowed?: boolean;
+    schedulePersistenceAllowed?: boolean;
+    restoreExecutionAllowed?: boolean;
+    credentialStorageAllowed?: boolean;
+    externalCloudWritesAllowed?: boolean;
+  };
+};
+
+type BackupSetupReviewAction = {
+  actionKey?: string;
+  actionOrder?: number;
+  actionStatus?: string;
+  reason?: string;
+  missingInputKeys?: string[];
+  invalidInputKeys?: string[];
 };
 
 type FieldReview = {
@@ -152,18 +200,24 @@ export function BackupSetupReviewPreview({
   const endpoint = getPostPreviewEndpoint(runtimeHandoff?.previewEndpoint);
   const decisionProjection = setupIntent?.decisionProjection;
   const preview = previewResponse?.preview;
+  const reviewSummary = preview?.reviewSummary;
   const previewSafety = previewResponse?.safety;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
   const invalidInputKeys =
+    reviewSummary?.inputSummary?.invalidInputKeys ??
     preview?.inputSummary?.invalidInputKeys ??
     getInvalidInputKeys(preview?.fieldReviews);
   const missingInputKeys =
+    reviewSummary?.inputSummary?.missingInputKeys ??
     preview?.inputSummary?.missingInputKeys ??
     getMissingInputKeys(preview?.fieldReviews);
   const previewRequiredCount =
-    preview?.inputSummary?.requiredCount ?? requiredCount;
+    reviewSummary?.inputSummary?.requiredCount ??
+    preview?.inputSummary?.requiredCount ??
+    requiredCount;
   const previewProvidedCount =
+    reviewSummary?.inputSummary?.providedCount ??
     preview?.inputSummary?.providedCount ??
     previewRequiredCount - missingInputKeys.length;
 
@@ -239,7 +293,9 @@ export function BackupSetupReviewPreview({
           </div>
         </div>
         <span style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
-          {preview?.decisionStatus ??
+          {reviewSummary?.statusLabel ??
+            reviewSummary?.status ??
+            preview?.decisionStatus ??
             previewResponse?.status ??
             setupIntent?.status ??
             setupContract.reviewStatus ??
@@ -271,12 +327,16 @@ export function BackupSetupReviewPreview({
           label="Projected outcome"
           value={
             preview?.projectedOutcome ??
+            reviewSummary?.statusLabel ??
+            reviewSummary?.status ??
             setupIntent?.projectedOutcome ??
             setupContract.reviewStatus ??
             "operator-review"
           }
         />
       </div>
+
+      <ReviewSummaryReadout reviewSummary={reviewSummary} />
 
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
         {formSections.map((section) => (
@@ -365,6 +425,8 @@ export function BackupSetupReviewPreview({
         <PreviewFlag
           label="Persistence flag"
           allowed={
+            reviewSummary?.persistenceAllowed ??
+            reviewSummary?.safety?.persistenceAllowed ??
             previewSafety?.persistenceAllowed ??
             decisionProjection?.persistenceAllowed
           }
@@ -372,6 +434,8 @@ export function BackupSetupReviewPreview({
         <PreviewFlag
           label="Schedule flag"
           allowed={
+            reviewSummary?.schedulePersistenceAllowed ??
+            reviewSummary?.safety?.schedulePersistenceAllowed ??
             previewSafety?.schedulePersistenceAllowed ??
             decisionProjection?.schedulePersistenceAllowed ??
             runtimeHandoff?.schedulePersistenceAllowed
@@ -380,6 +444,8 @@ export function BackupSetupReviewPreview({
         <PreviewFlag
           label="Restore flag"
           allowed={
+            reviewSummary?.restoreExecutionAllowed ??
+            reviewSummary?.safety?.restoreExecutionAllowed ??
             previewSafety?.restoreExecutionAllowed ??
             decisionProjection?.restoreExecutionAllowed ??
             runtimeHandoff?.restoreExecutionAllowed
@@ -388,6 +454,8 @@ export function BackupSetupReviewPreview({
         <PreviewFlag
           label="Credential flag"
           allowed={
+            reviewSummary?.credentialStorageAllowed ??
+            reviewSummary?.safety?.credentialStorageAllowed ??
             previewSafety?.credentialStorageAllowed ??
             decisionProjection?.credentialStorageAllowed
           }
@@ -395,6 +463,8 @@ export function BackupSetupReviewPreview({
         <PreviewFlag
           label="Cloud-write flag"
           allowed={
+            reviewSummary?.externalCloudWritesAllowed ??
+            reviewSummary?.safety?.externalCloudWritesAllowed ??
             previewSafety?.externalCloudWritesAllowed ??
             decisionProjection?.externalCloudWritesAllowed ??
             runtimeHandoff?.externalCloudWritesAllowed
@@ -767,6 +837,140 @@ function InputGuidance({
   );
 }
 
+function ReviewSummaryReadout({
+  reviewSummary,
+}: {
+  reviewSummary?: BackupSetupReviewSummary;
+}) {
+  if (!reviewSummary) {
+    return null;
+  }
+
+  const decisionSummary = reviewSummary.decisionSummary;
+  const nextActions = reviewSummary.nextActions ?? [];
+  const blockers = reviewSummary.blockers ?? [];
+
+  return (
+    <div
+      style={{ ...nestedCardStyle, display: "grid", gap: 10, marginTop: 14 }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: "#dfe6ff", fontSize: 14, fontWeight: 800 }}>
+          Review summary
+        </div>
+        <span style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800 }}>
+          preview-only, no persistence
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 8,
+        }}
+      >
+        <CompactReadout
+          label="Status"
+          value={
+            reviewSummary.statusLabel ??
+            reviewSummary.status ??
+            "review required"
+          }
+        />
+        <CompactReadout
+          label="Validation"
+          value={`${reviewSummary.validationIssueCount ?? 0} issues / ${reviewSummary.missingInputCount ?? 0} missing / ${reviewSummary.invalidInputCount ?? 0} invalid`}
+        />
+        <CompactReadout
+          label="Actions"
+          value={`${reviewSummary.requiredActionCount ?? 0} required / ${reviewSummary.recommendedActionCount ?? 0} recommended`}
+        />
+        <CompactReadout
+          label="Activation"
+          value={formatOptionalAllowed(reviewSummary.activationAllowed)}
+        />
+        <CompactReadout
+          label="External actions"
+          value={formatOptionalAllowed(reviewSummary.externalActionsAllowed)}
+        />
+        <CompactReadout
+          label="Decisions"
+          value={
+            decisionSummary
+              ? `${decisionSummary.configuredCount ?? 0} configured / ${decisionSummary.unresolvedCount ?? 0} unresolved / ${decisionSummary.deferredCount ?? 0} deferred`
+              : "not summarized"
+          }
+        />
+      </div>
+
+      {nextActions.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Next operator actions
+          </div>
+          {nextActions.slice(0, 5).map((action, index) => (
+            <div
+              key={`${action.actionKey ?? "action"}:${action.actionOrder ?? index}`}
+              style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}
+            >
+              {action.actionOrder ?? index + 1}.{" "}
+              {action.actionKey ?? "operator-action"} /{" "}
+              {action.actionStatus ?? "required"}
+              {action.reason ? ` / ${action.reason}` : ""}
+              {formatActionInputIssues(action)}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {blockers.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Blockers
+          </div>
+          {blockers.map((blocker) => (
+            <div key={blocker} style={{ color: "#dfe6ff", fontSize: 13 }}>
+              blocked: {blocker}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatOptionalAllowed(allowed?: boolean) {
+  if (typeof allowed !== "boolean") {
+    return "not reported";
+  }
+
+  return allowed ? "allowed" : "blocked";
+}
+
+function formatActionInputIssues(action: BackupSetupReviewAction) {
+  const missingInputKeys = action.missingInputKeys ?? [];
+  const invalidInputKeys = action.invalidInputKeys ?? [];
+  const issues = [
+    missingInputKeys.length > 0
+      ? `missing ${missingInputKeys.join(", ")}`
+      : null,
+    invalidInputKeys.length > 0
+      ? `invalid ${invalidInputKeys.join(", ")}`
+      : null,
+  ].filter((issue): issue is string => Boolean(issue));
+
+  return issues.length > 0 ? ` / ${issues.join(" / ")}` : "";
+}
+
 function PreviewFlag({ label, allowed }: { label: string; allowed?: boolean }) {
   return (
     <div
@@ -789,6 +993,40 @@ function PreviewFlag({ label, allowed }: { label: string; allowed?: boolean }) {
       </div>
       <div style={{ color: "#dfe6ff", fontSize: 13 }}>
         {allowed ? "contract: true" : "contract: false"}
+      </div>
+    </div>
+  );
+}
+
+function CompactReadout({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        padding: "8px 10px",
+        borderRadius: 8,
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <div
+        style={{
+          color: "#9fb0ff",
+          fontSize: 11,
+          fontWeight: 800,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          color: "#dfe6ff",
+          fontSize: 13,
+          lineHeight: 1.4,
+          overflowWrap: "anywhere",
+        }}
+      >
+        {value}
       </div>
     </div>
   );

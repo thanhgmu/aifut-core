@@ -833,11 +833,13 @@ export class InfrastructureProfileService {
           !review.issues.some((issue) => issue.endsWith(':required')),
       )
       .map((review) => review.fieldKey);
+    const previewStatus =
+      validationIssues.length > 0 ? 'validation-required' : 'resolved';
 
     return {
       capability: 'integrations',
       surface: 'backup-setup-preview',
-      status: validationIssues.length > 0 ? 'validation-required' : 'resolved',
+      status: previewStatus,
       mode: 'preview-only',
       tenant: readiness.tenant,
       preview: {
@@ -861,6 +863,22 @@ export class InfrastructureProfileService {
           providedCount: requiredFieldReviews.length - missingInputKeys.length,
           missingInputKeys,
           invalidInputKeys,
+        },
+        reviewSummary: {
+          statusLabel:
+            previewStatus === 'resolved'
+              ? 'Ready for preview'
+              : 'Validation required',
+          validationIssueCount: validationIssues.length,
+          missingInputCount: missingInputKeys.length,
+          invalidInputCount: invalidInputKeys.length,
+          requiredActionCount:
+            setupIntent.derivedFrom.requiredActionKeys.length,
+          recommendedActionCount:
+            setupIntent.derivedFrom.recommendedActionKeys.length,
+          persistenceAllowed: false,
+          restoreExecutionAllowed: false,
+          externalCloudWritesAllowed: false,
         },
         fieldReviews,
         validationIssues,
