@@ -1,4 +1,4 @@
-import { API_BASE, getJson, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
+import { API_BASE, getJson, getJsonResult, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
 import { RuntimeBindingPreviewEditor } from "./runtime-binding-preview-editor";
 
 type LaneCard = {
@@ -156,6 +156,57 @@ type IntegrationAiDraftResponse = {
   };
 };
 
+type BackupReadinessResponse = {
+  status?: string;
+  tenant?: {
+    slug?: string;
+    name?: string;
+  };
+  backup?: {
+    status?: string;
+    schedule?: {
+      status?: string;
+      supportedCadences?: string[];
+      next?: string;
+    };
+    targets?: Array<{
+      targetRef?: string;
+      targetClass?: string;
+      policyKeys?: string[];
+    }>;
+    blockers?: string[];
+    recommendations?: string[];
+    restore?: {
+      status?: string;
+      modes?: string[];
+      approvalRequiredFor?: string[];
+    };
+    setupContract?: {
+      contractVersion?: string;
+      reviewStatus?: string;
+      sourceSurface?: string;
+      consumerSurfaces?: string[];
+      displaySummary?: {
+        title?: string;
+        subtitle?: string;
+        statusLabel?: string;
+      };
+      primaryActionKey?: string;
+      requiredActionKeys?: string[];
+      recommendedActionKeys?: string[];
+      runtimeHandoff?: {
+        mode?: string;
+        previewEndpoint?: string;
+        requiredInputKeys?: string[];
+        schedulePersistenceAllowed?: boolean;
+        restoreExecutionAllowed?: boolean;
+        externalCloudWritesAllowed?: boolean;
+        approvalRequiredFor?: string[];
+      };
+    };
+  };
+};
+
 type RootResponse = {
   focus?: {
     model?: string;
@@ -252,6 +303,7 @@ async function getDashboardData() {
     root,
     blueprintPreviewResult,
     integrationDraftResult,
+    backupReadinessResult,
   ] = await Promise.all([
     getJson<HealthResponse>("/health"),
     getJson<{ adapterInterfaces?: AdapterInterfaceRegistryResponse }>("/connectors/adapter-interfaces"),
@@ -264,6 +316,9 @@ async function getDashboardData() {
       "/integrations/ai-draft",
       SAMPLE_INTEGRATION_DRAFT_REQUEST,
     ),
+    getJsonResult<BackupReadinessResponse>(
+      `/integrations/backup-readiness?tenantSlug=${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,
+    ),
   ]);
 
   const adapterInterfaces = adapterInterfacesResponse?.adapterInterfaces;
@@ -275,6 +330,7 @@ async function getDashboardData() {
     root,
     blueprintPreviewResult,
     integrationDraftResult,
+    backupReadinessResult,
     runtimeBindingSetupPreviewResult,
   };
 }
@@ -325,6 +381,7 @@ export default async function DashboardPage() {
     root,
     blueprintPreviewResult,
     integrationDraftResult,
+    backupReadinessResult,
     runtimeBindingSetupPreviewResult,
   } =
     await getDashboardData();
@@ -345,6 +402,8 @@ export default async function DashboardPage() {
   const runtimeBindingSetupReview = runtimeBindingSetupPreviewResult.data?.runtimeBindingSetupReview;
   const integrationArtifact = integrationDraftResult.data?.setupExecutionArtifact;
   const integrationConsumerContract = integrationArtifact?.consumerContract;
+  const backupReadiness = backupReadinessResult.data?.backup;
+  const backupSetupContract = backupReadiness?.setupContract;
 
   return (
     <main
@@ -393,6 +452,7 @@ export default async function DashboardPage() {
           <MetricCard title="Adapter interfaces" value={String(interfaceCount)} note="visible proof of connector abstraction" />
           <MetricCard title="Blueprint preview" value={blueprint?.blueprintStatus ?? "unavailable"} note={reviewSummary?.status ?? formatReadFailure(blueprintPreviewResult)} />
           <MetricCard title="Integration artifact" value={integrationArtifact?.artifactStatus ?? "unavailable"} note={integrationConsumerContract?.contractVersion ?? formatReadFailure(integrationDraftResult)} />
+          <MetricCard title="Backup readiness" value={backupReadiness?.status ?? "unavailable"} note={backupSetupContract?.contractVersion ?? formatReadFailure(backupReadinessResult)} />
           <MetricCard title="Current theme" value="From narrative → product" note="docs + API + UI now connected" />
         </section>
 
@@ -475,6 +535,59 @@ export default async function DashboardPage() {
         </section>
 
         <section style={{ marginTop: 28 }}>
+          <Panel title="Backup Center readiness setup contract">
+            {backupReadiness ? (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+                  <MetricCard title="Tenant" value={backupReadinessResult.data?.tenant?.name ?? "unknown"} note={backupReadinessResult.data?.tenant?.slug ?? "tenant"} />
+                  <MetricCard title="Readiness" value={backupReadiness.status ?? "unknown"} note={backupReadiness.schedule?.status ?? "schedule pending"} />
+                  <MetricCard title="Contract" value={backupSetupContract?.contractVersion ?? "unavailable"} note={backupSetupContract?.reviewStatus ?? "operator review"} />
+                  <MetricCard title="Restore" value={backupReadiness.restore?.status ?? "manual"} note="approval-gated restore path" />
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>
+                        {backupSetupContract?.displaySummary?.title ?? "Backup readiness review"}
+                      </div>
+                      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13, lineHeight: 1.6 }}>
+                        {backupSetupContract?.displaySummary?.subtitle ?? "Review backup coverage before schedules or restore execution are enabled."}
+                      </div>
+                    </div>
+                    <span style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+                      {backupSetupContract?.displaySummary?.statusLabel ?? "Setup needed"}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 16 }}>
+                    <Readout label="Source surface" value={backupSetupContract?.sourceSurface ?? "GET /integrations/backup-readiness"} />
+                    <Readout label="Primary action" value={backupSetupContract?.primaryActionKey ?? "review-backup-readiness"} />
+                    <Readout label="Handoff mode" value={backupSetupContract?.runtimeHandoff?.mode ?? "preview-only"} />
+                    <Readout label="Schedule persistence" value={backupSetupContract?.runtimeHandoff?.schedulePersistenceAllowed ? "allowed" : "blocked"} />
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                    <KeyList label="Required backup actions" items={backupSetupContract?.requiredActionKeys ?? backupReadiness.blockers} />
+                    <KeyList label="Recommended setup actions" items={backupSetupContract?.recommendedActionKeys ?? backupReadiness.recommendations} />
+                    <KeyList label="Restore approval gates" items={backupSetupContract?.runtimeHandoff?.approvalRequiredFor ?? backupReadiness.restore?.approvalRequiredFor} />
+                    <KeyList label="Consumer surfaces" items={backupSetupContract?.consumerSurfaces} />
+                  </div>
+
+                  <div style={{ marginTop: 16, color: "#9fb0ff", fontSize: 13, lineHeight: 1.6 }}>
+                    Handoff: {backupSetupContract?.runtimeHandoff?.previewEndpoint ?? "GET /integrations/backup-readiness"} / restore {backupSetupContract?.runtimeHandoff?.restoreExecutionAllowed ? "allowed" : "blocked"} / external cloud writes {backupSetupContract?.runtimeHandoff?.externalCloudWritesAllowed ? "allowed" : "disabled"}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "#c8d2ff" }}>
+                Backup readiness is unavailable: {formatReadFailure(backupReadinessResult)}.
+              </div>
+            )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
           <Panel title="Natural-language business blueprint preview">
             {blueprint ? (
               <div style={{ display: "grid", gap: 16 }}>
@@ -550,6 +663,7 @@ export default async function DashboardPage() {
                 `${API_BASE}/connectors/adapter-interfaces`,
                 `${API_BASE}/connectors/adapter-contracts`,
                 `${API_BASE}/connectors/templates`,
+                `${API_BASE}/integrations/backup-readiness?tenantSlug=${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,
                 `${API_BASE}/orchestration/business-systems/draft-preview`,
                 `${API_BASE}/orchestration/business-systems/runtime-binding-setup-preview`,
               ].map((href) => (
