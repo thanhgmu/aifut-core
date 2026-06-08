@@ -215,6 +215,7 @@ type BackupReadinessResponse = {
       allowedDecisions?: string[];
       defaultDecision?: string;
       projectedOutcome?: string;
+      formSchema?: BackupSetupFormSchema;
       decisionProjection?: {
         status?: string;
         recordable?: boolean;
@@ -226,6 +227,40 @@ type BackupReadinessResponse = {
       };
     };
   };
+};
+
+type BackupSetupFormField = {
+  key?: string;
+  fieldKey?: string;
+  inputKey?: string;
+  name?: string;
+  label?: string;
+  inputType?: string;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+  value?: string;
+  defaultValue?: string;
+  defaultChecked?: boolean;
+  options?: Array<string | { value?: string; label?: string }>;
+};
+
+type BackupSetupFormSection = {
+  key?: string;
+  sectionKey?: string;
+  title?: string;
+  purpose?: string;
+  description?: string;
+  fields?: BackupSetupFormField[];
+};
+
+type BackupSetupFormSchema = {
+  schemaVersion?: string;
+  title?: string;
+  inputGroups?: BackupSetupFormSection[];
+  sections?: BackupSetupFormSection[];
+  fields?: BackupSetupFormField[];
 };
 
 type BackupSetupContract = NonNullable<
@@ -766,6 +801,7 @@ function BackupSetupIntentPreview({
     return Boolean(actionKey) && actionKeys.indexOf(actionKey) === index;
   });
   const decisionProjection = setupIntent?.decisionProjection;
+  const formSections = buildBackupSetupFormSections(setupContract, setupIntent, operatorActions);
 
   return (
     <div style={{ ...cardStyle, padding: 14, marginTop: 16 }}>
@@ -788,6 +824,42 @@ function BackupSetupIntentPreview({
         <Readout label="Decision scope" value={setupIntent?.decisionScope ?? "backup-center-setup-preview"} />
         <Readout label="Default decision" value={setupIntent?.defaultDecision ?? "review-required-actions"} />
         <Readout label="Projected outcome" value={setupIntent?.projectedOutcome ?? setupContract.reviewStatus ?? "operator-review"} />
+      </div>
+
+      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+        {formSections.map((section) => (
+          <div
+            key={section.sectionKey ?? section.key ?? section.title}
+            style={{
+              padding: 12,
+              borderRadius: 10,
+              background: "rgba(255,255,255,0.035)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+              <div>
+                <div style={{ color: "#dfe6ff", fontSize: 14, fontWeight: 800 }}>
+                  {section.title ?? "Operator inputs"}
+                </div>
+                {section.description ?? section.purpose ? (
+                  <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>
+                    {section.description ?? section.purpose}
+                  </div>
+                ) : null}
+              </div>
+              <span style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800 }}>
+                disabled preview
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              {(section.fields ?? []).map((field) => (
+                <BackupSetupFieldPreview key={getBackupSetupFieldKey(field)} field={field} />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
@@ -830,6 +902,139 @@ function BackupSetupIntentPreview({
       </div>
     </div>
   );
+}
+
+function buildBackupSetupFormSections(
+  setupContract: BackupSetupContract,
+  setupIntent: BackupSetupIntent | undefined,
+  operatorActions: string[],
+): BackupSetupFormSection[] {
+  const schemaSections = [
+    ...(setupIntent?.formSchema?.inputGroups ?? []),
+    ...(setupIntent?.formSchema?.sections ?? []),
+  ].filter((section) => (section.fields ?? []).length > 0);
+
+  if (schemaSections.length > 0) {
+    return schemaSections;
+  }
+
+  const schemaFields = setupIntent?.formSchema?.fields?.filter((field) => getBackupSetupFieldKey(field)) ?? [];
+
+  if (schemaFields.length > 0) {
+    return [
+      {
+        sectionKey: "schema-fields",
+        title: setupIntent?.formSchema?.title ?? "Operator inputs",
+        description: `Schema ${setupIntent?.formSchema?.schemaVersion ?? "preview"} rendered as disabled controls.`,
+        fields: schemaFields,
+      },
+    ];
+  }
+
+  const requiredInputFields = (setupContract.runtimeHandoff?.requiredInputKeys ?? []).map((inputKey) => ({
+    fieldKey: inputKey,
+    label: formatBackupSetupLabel(inputKey),
+    inputType: "text",
+    required: true,
+    placeholder: "Operator input preview",
+    helpText: "Required by the runtime handoff contract.",
+  }));
+  const decisionOptions = setupIntent?.allowedDecisions ?? [];
+  const decisionField = {
+    fieldKey: setupIntent?.primaryDecisionKey ?? setupContract.primaryActionKey ?? "backup-setup-decision",
+    label: "Setup decision",
+    inputType: decisionOptions.length > 0 ? "select" : "text",
+    required: true,
+    defaultValue: setupIntent?.defaultDecision ?? decisionOptions[0] ?? setupContract.reviewStatus ?? "review-required",
+    options: decisionOptions,
+    helpText: "Preview-only decision selection. No state is recorded from this dashboard.",
+  };
+  const actionFields = operatorActions.map((actionKey) => ({
+    fieldKey: `action:${actionKey}`,
+    label: formatBackupSetupLabel(actionKey),
+    inputType: "checkbox",
+    defaultChecked: false,
+    helpText: "Advertised setup action, shown for operator review only.",
+  }));
+
+  return [
+    {
+      sectionKey: "contract-derived-inputs",
+      title: "Operator setup form scaffold",
+      description: "Derived from the current setup contract until a setupIntent form schema is published.",
+      fields: [decisionField, ...requiredInputFields, ...actionFields],
+    },
+  ];
+}
+
+function BackupSetupFieldPreview({ field }: { field: BackupSetupFormField }) {
+  const inputType = field.inputType ?? field.type ?? "text";
+  const label = field.label ?? formatBackupSetupLabel(getBackupSetupFieldKey(field));
+  const value = field.value ?? field.defaultValue ?? "";
+  const options = field.options ?? [];
+
+  return (
+    <label
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(140px, 0.42fr) minmax(180px, 1fr)",
+        gap: 10,
+        alignItems: "center",
+        color: "#dfe6ff",
+        fontSize: 13,
+      }}
+    >
+      <span style={{ display: "grid", gap: 3 }}>
+        <span style={{ fontWeight: 800 }}>
+          {label}
+          {field.required ? <span style={{ color: "#9fb0ff" }}> *</span> : null}
+        </span>
+        {field.helpText ? <span style={{ color: "#c8d2ff", fontSize: 11, lineHeight: 1.4 }}>{field.helpText}</span> : null}
+      </span>
+      {inputType === "select" ? (
+        <select disabled defaultValue={value} style={backupSetupControlStyle}>
+          {options.length > 0 ? (
+            options.map((option) => {
+              const optionValue = typeof option === "string" ? option : option.value ?? option.label ?? "";
+
+              return (
+                <option key={optionValue} value={optionValue}>
+                  {typeof option === "string" ? option : option.label ?? optionValue}
+                </option>
+              );
+            })
+          ) : (
+            <option>{value || "preview option"}</option>
+          )}
+        </select>
+      ) : inputType === "textarea" ? (
+        <textarea disabled value={value} placeholder={field.placeholder} rows={2} style={backupSetupControlStyle} />
+      ) : inputType === "checkbox" ? (
+        <input
+          disabled
+          checked={field.defaultChecked ?? value === "true"}
+          readOnly
+          type="checkbox"
+          style={{ width: 18, height: 18, accentColor: "#9fb0ff", cursor: "not-allowed" }}
+        />
+      ) : (
+        <input disabled value={value} placeholder={field.placeholder ?? "Preview-only"} type={inputType} style={backupSetupControlStyle} />
+      )}
+    </label>
+  );
+}
+
+function getBackupSetupFieldKey(field: BackupSetupFormField) {
+  return field.fieldKey ?? field.inputKey ?? field.key ?? field.name ?? field.label ?? "backup-setup-field";
+}
+
+function formatBackupSetupLabel(value: string) {
+  return value
+    .replace(/^action:/, "")
+    .split(/[-_:]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function PreviewFlag({ label, allowed }: { label: string; allowed?: boolean }) {
@@ -943,4 +1148,17 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 18,
   background: "rgba(255,255,255,0.04)",
   border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const backupSetupControlStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#dfe6ff",
+  fontSize: 13,
+  padding: "8px 10px",
+  cursor: "not-allowed",
+  opacity: 0.78,
 };

@@ -352,6 +352,79 @@ describe('InfrastructureProfileService', () => {
         policyCount: 1,
         policiesMissingBackupTargetCount: 1,
       },
+      formSchema: {
+        schemaVersion: 'backup-center-setup-form.v1',
+        mode: 'preview-only',
+        projectionOnly: true,
+        persistenceAllowed: false,
+        credentialStorageAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+        inputGroups: [
+          {
+            key: 'backup-target',
+            requiredActionKeys: ['backup-target:missing'],
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'targetRefPreview',
+                required: true,
+                sensitive: false,
+                previewOnly: true,
+                persistenceAllowed: false,
+              }),
+              expect.objectContaining({
+                key: 'policyKeys',
+                options: ['documents'],
+                required: true,
+                previewOnly: true,
+              }),
+            ]),
+          },
+          expect.objectContaining({
+            key: 'schedule',
+            requiredActionKeys: ['backup-schedule:not-configured'],
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'cadence',
+                options: ['manual', 'daily', 'weekly', 'monthly'],
+                persistenceAllowed: false,
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            key: 'portability-bundle',
+            recommendedActionKeys: [
+              'define-workflow-skill-plugin-addon-portability-bundle',
+            ],
+          }),
+          expect.objectContaining({
+            key: 'adapter-assessment',
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'connectionSlugs',
+                required: false,
+                options: [],
+                previewOnly: true,
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            key: 'restore-approval-review',
+            requiredActionKeys: ['restore-preview:not-implemented'],
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'approvalRequiredFor',
+                options: [
+                  'database-snapshot',
+                  'app-specific-export',
+                  'tenant-workspace-restore',
+                ],
+                restoreExecutionAllowed: false,
+              }),
+            ]),
+          }),
+        ],
+      },
     });
   });
 
@@ -445,6 +518,58 @@ describe('InfrastructureProfileService', () => {
         declaredTargetCount: 1,
         policyCount: 1,
         policiesMissingBackupTargetCount: 0,
+      },
+      formSchema: {
+        schemaVersion: 'backup-center-setup-form.v1',
+        mode: 'preview-only',
+        projectionOnly: true,
+        persistenceAllowed: false,
+        credentialStorageAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+        inputGroups: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'backup-target',
+            requiredActionKeys: [],
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'targetRefPreview',
+                required: false,
+                persistenceAllowed: false,
+              }),
+              expect.objectContaining({
+                key: 'policyKeys',
+                options: ['documents'],
+                required: false,
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            key: 'adapter-assessment',
+            requiredActionKeys: ['app-specific-export-adapters:assess'],
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'connectionSlugs',
+                required: true,
+                options: ['nexovaflow-ops'],
+              }),
+              expect.objectContaining({
+                key: 'adapterDecision',
+                required: true,
+                externalWritesAllowed: false,
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            key: 'restore-approval-review',
+            fields: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'approvalRequiredFor',
+                restoreExecutionAllowed: false,
+              }),
+            ]),
+          }),
+        ]),
       },
     });
   });

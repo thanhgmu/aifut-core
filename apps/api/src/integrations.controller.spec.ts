@@ -158,6 +158,12 @@ describe('IntegrationsController', () => {
           decisionProjection: {
             recordable: false,
           },
+          formSchema: {
+            schemaVersion: 'backup-center-setup-form.v1',
+            projectionOnly: true,
+            persistenceAllowed: false,
+            inputGroups: [{ key: 'backup-target' }],
+          },
         },
       },
     });
@@ -175,6 +181,12 @@ describe('IntegrationsController', () => {
           mode: 'preview-only',
           decisionProjection: {
             recordable: false,
+          },
+          formSchema: {
+            schemaVersion: 'backup-center-setup-form.v1',
+            projectionOnly: true,
+            persistenceAllowed: false,
+            inputGroups: [{ key: 'backup-target' }],
           },
         },
       },

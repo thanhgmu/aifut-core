@@ -469,6 +469,187 @@ export class InfrastructureProfileService {
         approvalRequiredFor,
       },
     };
+    const setupFormSchema = {
+      schemaVersion: 'backup-center-setup-form.v1',
+      mode: 'preview-only',
+      projectionOnly: true,
+      persistenceAllowed: false,
+      credentialStorageAllowed: false,
+      restoreExecutionAllowed: false,
+      externalCloudWritesAllowed: false,
+      inputGroups: [
+        {
+          key: 'backup-target',
+          title: 'Backup target',
+          purpose: 'Collect non-secret target metadata for readiness review.',
+          requiredActionKeys:
+            backupTargetRefs.length === 0 ? ['backup-target:missing'] : [],
+          fields: [
+            {
+              key: 'targetClass',
+              label: 'Target class',
+              type: 'select',
+              required: true,
+              options: [
+                'user-local',
+                'user-google-drive',
+                'cloud-object-storage',
+                'custom-target',
+              ],
+              previewOnly: true,
+            },
+            {
+              key: 'targetRefPreview',
+              label: 'Target reference preview',
+              type: 'text',
+              required: backupTargetRefs.length === 0,
+              sensitive: false,
+              placeholder: 'local://team-backups or gdrive://folder-name',
+              previewOnly: true,
+              persistenceAllowed: false,
+            },
+            {
+              key: 'policyKeys',
+              label: 'Storage policies to cover',
+              type: 'multi-select',
+              required: policiesMissingBackupTarget.length > 0,
+              options: storagePolicies.map((policy) => policy.key),
+              previewOnly: true,
+            },
+          ],
+        },
+        {
+          key: 'schedule',
+          title: 'Schedule',
+          purpose:
+            'Preview cadence and retention inputs without creating jobs.',
+          requiredActionKeys: ['backup-schedule:not-configured'],
+          fields: [
+            {
+              key: 'cadence',
+              label: 'Cadence',
+              type: 'select',
+              required: true,
+              options: ['manual', 'daily', 'weekly', 'monthly'],
+              previewOnly: true,
+              persistenceAllowed: false,
+            },
+            {
+              key: 'timezone',
+              label: 'Timezone',
+              type: 'text',
+              required: true,
+              previewOnly: true,
+            },
+            {
+              key: 'retentionDays',
+              label: 'Retention days',
+              type: 'number',
+              required: true,
+              min: 1,
+              previewOnly: true,
+            },
+          ],
+        },
+        {
+          key: 'portability-bundle',
+          title: 'Portability bundle',
+          purpose:
+            'Preview export coverage for workflow, skill, plugin, and addon configuration.',
+          requiredActionKeys: [],
+          recommendedActionKeys: [
+            'define-workflow-skill-plugin-addon-portability-bundle',
+          ],
+          fields: [
+            {
+              key: 'includedConfigScopes',
+              label: 'Configuration scopes',
+              type: 'multi-select',
+              required: true,
+              options: [
+                'workflows',
+                'skills',
+                'plugins',
+                'addons',
+                'tenant-settings',
+              ],
+              previewOnly: true,
+            },
+            {
+              key: 'bundleFormat',
+              label: 'Bundle format',
+              type: 'select',
+              required: true,
+              options: ['manifest-and-archive', 'manifest-only'],
+              previewOnly: true,
+            },
+          ],
+        },
+        {
+          key: 'adapter-assessment',
+          title: 'Adapter assessment',
+          purpose: 'Review connected app backup/export adapter readiness.',
+          requiredActionKeys:
+            appBackupCandidates.length > 0
+              ? ['app-specific-export-adapters:assess']
+              : [],
+          recommendedActionKeys: [
+            'assess-nexovaflow-and-other-app-specific-export-adapters',
+          ],
+          fields: [
+            {
+              key: 'connectionSlugs',
+              label: 'Connections to assess',
+              type: 'multi-select',
+              required: appBackupCandidates.length > 0,
+              options: appBackupCandidates.map(
+                (integration) => integration.slug,
+              ),
+              previewOnly: true,
+            },
+            {
+              key: 'adapterDecision',
+              label: 'Adapter decision',
+              type: 'select',
+              required: appBackupCandidates.length > 0,
+              options: [
+                'native-export-available',
+                'manual-export-required',
+                'exclude-from-backup',
+              ],
+              previewOnly: true,
+              externalWritesAllowed: false,
+            },
+          ],
+        },
+        {
+          key: 'restore-approval-review',
+          title: 'Restore approval review',
+          purpose:
+            'Preview approvals required before destructive restore paths.',
+          requiredActionKeys: ['restore-preview:not-implemented'],
+          recommendedActionKeys: ['require-approval-for-destructive-restores'],
+          fields: [
+            {
+              key: 'approvalRequiredFor',
+              label: 'Approval required for',
+              type: 'multi-select',
+              required: true,
+              options: approvalRequiredFor,
+              previewOnly: true,
+              restoreExecutionAllowed: false,
+            },
+            {
+              key: 'approverRole',
+              label: 'Approver role',
+              type: 'text',
+              required: true,
+              previewOnly: true,
+            },
+          ],
+        },
+      ],
+    };
     const setupIntent = {
       intentVersion: 'backup-center-setup-intent.v1',
       sourceContractVersion: setupContract.contractVersion,
@@ -516,6 +697,7 @@ export class InfrastructureProfileService {
         policyCount: storagePolicies.length,
         policiesMissingBackupTargetCount: policiesMissingBackupTarget.length,
       },
+      formSchema: setupFormSchema,
     };
 
     return {
