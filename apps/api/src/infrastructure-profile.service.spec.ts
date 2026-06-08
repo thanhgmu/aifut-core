@@ -244,4 +244,71 @@ describe('InfrastructureProfileService', () => {
       },
     });
   });
+
+  it('should expose a preview-only backup readiness setup contract', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+        }),
+      },
+      tenantStoragePolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'storage_policy_1',
+            key: 'documents',
+            mode: 'HYBRID',
+            storageClass: 'STANDARD',
+            targetRef: 'tenant-primary',
+            targetRegion: 'ap-southeast-1',
+            backupTargetRef: null,
+            meteringEnabled: true,
+            workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
+            createdAt: new Date('2026-06-08T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+          },
+        ]),
+      },
+      integrationConnection: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      entitlement: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.getBackupReadinessPolicy(' ACME ');
+
+    expect(result.backup.setupContract).toMatchObject({
+      contractVersion: 'backup-readiness-setup.v1',
+      sourceSurface: 'GET /integrations/backup-readiness',
+      reviewStatus: 'operator-configuration-required',
+      displaySummary: {
+        title: 'Acme backup readiness',
+        statusLabel: 'Setup needed',
+      },
+      primaryActionKey: 'backup-target:missing',
+      requiredActionKeys: [
+        'backup-target:missing',
+        'storage-policies-without-backup-target',
+        'backup-schedule:not-configured',
+        'restore-preview:not-implemented',
+      ],
+      runtimeHandoff: {
+        mode: 'preview-only',
+        previewEndpoint: 'GET /integrations/backup-readiness',
+        requiredInputKeys: ['tenantSlug'],
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+    });
+  });
 });

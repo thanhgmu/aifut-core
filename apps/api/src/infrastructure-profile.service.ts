@@ -404,6 +404,34 @@ export class InfrastructureProfileService {
         : backupTargetRefs.length > 0
           ? 'backup-targets-partial'
           : 'backup-targets-not-declared';
+    const restoreModes = [
+      'config-only',
+      'workflow-bundle',
+      'skill-plugin-addon-bundle',
+      'database-snapshot',
+      'app-specific-export',
+      'tenant-workspace-restore',
+    ];
+    const approvalRequiredFor = [
+      'database-snapshot',
+      'app-specific-export',
+      'tenant-workspace-restore',
+    ];
+    const blockers = [
+      ...(backupTargetRefs.length === 0 ? ['backup-target:missing'] : []),
+      ...(policiesMissingBackupTarget.length > 0
+        ? ['storage-policies-without-backup-target']
+        : []),
+      'backup-schedule:not-configured',
+      'restore-preview:not-implemented',
+    ];
+    const recommendations = [
+      'add-local-or-user-cloud-backup-target',
+      'configure-user-and-admin-backup-schedules',
+      'define-workflow-skill-plugin-addon-portability-bundle',
+      'assess-nexovaflow-and-other-app-specific-export-adapters',
+      'require-approval-for-destructive-restores',
+    ];
 
     return {
       capability: 'integrations',
@@ -470,35 +498,46 @@ export class InfrastructureProfileService {
         entitlements,
         restore: {
           status: 'manual-governance-needed',
-          modes: [
-            'config-only',
-            'workflow-bundle',
-            'skill-plugin-addon-bundle',
-            'database-snapshot',
-            'app-specific-export',
-            'tenant-workspace-restore',
-          ],
-          approvalRequiredFor: [
-            'database-snapshot',
-            'app-specific-export',
-            'tenant-workspace-restore',
-          ],
+          modes: restoreModes,
+          approvalRequiredFor,
         },
-        blockers: [
-          ...(backupTargetRefs.length === 0 ? ['backup-target:missing'] : []),
-          ...(policiesMissingBackupTarget.length > 0
-            ? ['storage-policies-without-backup-target']
-            : []),
-          'backup-schedule:not-configured',
-          'restore-preview:not-implemented',
-        ],
-        recommendations: [
-          'add-local-or-user-cloud-backup-target',
-          'configure-user-and-admin-backup-schedules',
-          'define-workflow-skill-plugin-addon-portability-bundle',
-          'assess-nexovaflow-and-other-app-specific-export-adapters',
-          'require-approval-for-destructive-restores',
-        ],
+        blockers,
+        recommendations,
+        setupContract: {
+          contractVersion: 'backup-readiness-setup.v1',
+          sourceSurface: 'GET /integrations/backup-readiness',
+          consumerSurfaces: [
+            'operator-ui-control-plane',
+            'local-runtime-reality-checks',
+            'backup-center-foundation',
+          ],
+          reviewStatus:
+            blockers.length > 0
+              ? 'operator-configuration-required'
+              : 'ready-for-schedule-preview',
+          displaySummary: {
+            title: `${tenant.name} backup readiness`,
+            subtitle:
+              'Backup coverage is visible for review before schedules, restore previews, or external writes are enabled.',
+            statusLabel:
+              backupStatus === 'backup-targets-ready'
+                ? 'Targets ready'
+                : 'Setup needed',
+          },
+          primaryActionKey:
+            blockers[0] ?? 'backup-schedule:preview-configuration',
+          requiredActionKeys: blockers,
+          recommendedActionKeys: recommendations,
+          runtimeHandoff: {
+            mode: 'preview-only',
+            previewEndpoint: 'GET /integrations/backup-readiness',
+            requiredInputKeys: ['tenantSlug'],
+            schedulePersistenceAllowed: false,
+            restoreExecutionAllowed: false,
+            externalCloudWritesAllowed: false,
+            approvalRequiredFor,
+          },
+        },
       },
     };
   }
