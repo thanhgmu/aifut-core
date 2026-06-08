@@ -303,7 +303,7 @@ describe('InfrastructureProfileService', () => {
       ],
       runtimeHandoff: {
         mode: 'preview-only',
-        previewEndpoint: 'GET /integrations/backup-readiness',
+        previewEndpoint: 'POST /integrations/backup-setup-preview',
         requiredInputKeys: ['tenantSlug'],
         schedulePersistenceAllowed: false,
         restoreExecutionAllowed: false,
@@ -570,6 +570,206 @@ describe('InfrastructureProfileService', () => {
             ]),
           }),
         ]),
+      },
+    });
+  });
+
+  it('should validate backup setup preview values from the readiness form schema without writes', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+        }),
+      },
+      tenantStoragePolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'storage_policy_1',
+            key: 'documents',
+            mode: 'HYBRID',
+            storageClass: 'STANDARD',
+            targetRef: 'tenant-primary',
+            targetRegion: 'ap-southeast-1',
+            backupTargetRef: null,
+            meteringEnabled: true,
+            workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
+            createdAt: new Date('2026-06-08T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+          },
+        ]),
+      },
+      integrationConnection: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      entitlement: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.previewBackupSetup({
+      tenantSlug: ' ACME ',
+      decision: 'defer-setup',
+      values: {
+        targetClass: 'user-local',
+        targetRefPreview: 'local://acme-backups',
+        policyKeys: ['documents'],
+        cadence: 'daily',
+        timezone: 'Asia/Bangkok',
+        retentionDays: 14,
+        includedConfigScopes: ['workflows', 'skills'],
+        bundleFormat: 'manifest-and-archive',
+        approvalRequiredFor: ['database-snapshot'],
+        approverRole: 'owner',
+      },
+    });
+
+    expect(result).toMatchObject({
+      surface: 'backup-setup-preview',
+      status: 'resolved',
+      mode: 'preview-only',
+      preview: {
+        contractVersion: 'backup-readiness-setup.v1',
+        formSchemaVersion: 'backup-center-setup-form.v1',
+        sourceSurface: 'POST /integrations/backup-setup-preview',
+        derivedFromSurface: 'GET /integrations/backup-readiness',
+        requestedDecision: 'defer-setup',
+        decisionStatus: 'accepted-for-preview',
+        validationIssues: [],
+        requiredActionKeys: [
+          'backup-target:missing',
+          'storage-policies-without-backup-target',
+          'backup-schedule:not-configured',
+          'restore-preview:not-implemented',
+        ],
+        fieldReviews: expect.arrayContaining([
+          expect.objectContaining({
+            groupKey: 'backup-target',
+            fieldKey: 'targetRefPreview',
+            status: 'accepted-for-preview',
+            issues: [],
+            persistenceAllowed: false,
+          }),
+          expect.objectContaining({
+            groupKey: 'restore-approval-review',
+            fieldKey: 'approvalRequiredFor',
+            status: 'accepted-for-preview',
+            restoreExecutionAllowed: false,
+          }),
+        ]),
+      },
+      safety: {
+        projectionOnly: true,
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+        databaseWritesAllowed: false,
+        disallowedActions: [
+          'persist-backup-setup',
+          'persist-backup-schedule',
+          'execute-restore',
+          'store-credentials',
+          'write-external-cloud-target',
+        ],
+      },
+    });
+  });
+
+  it('should reject invalid backup setup preview fields and decisions', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+        }),
+      },
+      tenantStoragePolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'storage_policy_1',
+            key: 'documents',
+            mode: 'HYBRID',
+            storageClass: 'STANDARD',
+            targetRef: 'tenant-primary',
+            targetRegion: 'ap-southeast-1',
+            backupTargetRef: null,
+            meteringEnabled: true,
+            workspaceId: null,
+            workspace: null,
+            createdAt: new Date('2026-06-08T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+          },
+        ]),
+      },
+      integrationConnection: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      entitlement: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.previewBackupSetup({
+      tenantSlug: 'acme',
+      decision: 'persist-schedule',
+      values: {
+        targetClass: 'dropbox',
+        targetRefPreview: 'local://acme-backups',
+        policyKeys: ['unknown-policy'],
+        cadence: 'hourly',
+        timezone: 'Asia/Bangkok',
+        retentionDays: 0,
+        includedConfigScopes: ['workflows'],
+        bundleFormat: 'zip',
+        approvalRequiredFor: ['execute-now'],
+        approverRole: 'owner',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'validation-required',
+      preview: {
+        requestedDecision: 'persist-schedule',
+        decisionStatus: 'not-allowed',
+        projectedOutcome: 'operator-input-validation-required',
+        validationIssues: expect.arrayContaining([
+          'targetClass:option-not-allowed',
+          'policyKeys:contains-option-not-allowed',
+          'cadence:option-not-allowed',
+          'retentionDays:below-minimum:1',
+          'bundleFormat:option-not-allowed',
+          'approvalRequiredFor:contains-option-not-allowed',
+          'decision:not-allowed:persist-schedule',
+        ]),
+        fieldReviews: expect.arrayContaining([
+          expect.objectContaining({
+            fieldKey: 'targetClass',
+            status: 'invalid',
+            issues: ['targetClass:option-not-allowed'],
+          }),
+          expect.objectContaining({
+            fieldKey: 'retentionDays',
+            status: 'invalid',
+            issues: ['retentionDays:below-minimum:1'],
+          }),
+        ]),
+      },
+      safety: {
+        persistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+        databaseWritesAllowed: false,
       },
     });
   });

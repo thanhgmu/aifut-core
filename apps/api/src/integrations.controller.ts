@@ -59,9 +59,10 @@ export class IntegrationsController {
     return {
       capability: 'integrations',
       status: 'resolved',
-      profile: await this.infrastructureProfileService.getTenantInfrastructureProfile(
-        tenantSlugHeader ?? tenantSlugQuery,
-      ),
+      profile:
+        await this.infrastructureProfileService.getTenantInfrastructureProfile(
+          tenantSlugHeader ?? tenantSlugQuery,
+        ),
     };
   }
 
@@ -113,6 +114,24 @@ export class IntegrationsController {
     );
   }
 
+  @Post('backup-setup-preview')
+  async backupSetupPreview(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      values?: Record<string, unknown>;
+      formValues?: Record<string, unknown>;
+      decision?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+  ) {
+    return this.infrastructureProfileService.previewBackupSetup({
+      tenantSlug: tenantSlugHeader ?? body.tenantSlug,
+      values: body.values ?? body.formValues ?? {},
+      decision: body.decision,
+    });
+  }
+
   @Get('credential-reference-blueprint')
   credentialReferenceBlueprint(@Query('connectorKey') connectorKey?: string) {
     return this.credentialReferences.getBlueprint(connectorKey);
@@ -134,7 +153,10 @@ export class IntegrationsController {
       connectorKey?: string;
       reference?: string;
       authMode?: string;
-      ownershipMode?: 'platform-provided' | 'tenant-provided' | 'affiliate-provided';
+      ownershipMode?:
+        | 'platform-provided'
+        | 'tenant-provided'
+        | 'affiliate-provided';
       label?: string;
       packagePolicy?: {
         allowTenantExternalCredentials?: boolean;

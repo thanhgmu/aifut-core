@@ -18,6 +18,7 @@ describe('IntegrationsController', () => {
     getTenantInfrastructureProfile: jest.Mock;
     getDomainRoutingPolicy: jest.Mock;
     getBackupReadinessPolicy: jest.Mock;
+    previewBackupSetup: jest.Mock;
   };
   let storageRoutingPolicy: { getEffectivePolicy: jest.Mock };
   let integrationControlPlane: { summarizeTenantControlPlane: jest.Mock };
@@ -42,6 +43,7 @@ describe('IntegrationsController', () => {
       getTenantInfrastructureProfile: jest.fn(),
       getDomainRoutingPolicy: jest.fn(),
       getBackupReadinessPolicy: jest.fn(),
+      previewBackupSetup: jest.fn(),
     };
 
     storageRoutingPolicy = {
@@ -78,16 +80,37 @@ describe('IntegrationsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IntegrationsController],
       providers: [
-        { provide: InfrastructureProfileService, useValue: infrastructureProfileService },
+        {
+          provide: InfrastructureProfileService,
+          useValue: infrastructureProfileService,
+        },
         { provide: ConnectionInstancesService, useValue: connectionInstances },
-        { provide: CredentialReferencesService, useValue: { getBlueprint: jest.fn(), previewReference: jest.fn() } },
-        { provide: StorageRoutingPolicyService, useValue: storageRoutingPolicy },
-        { provide: IntegrationControlPlaneService, useValue: integrationControlPlane },
+        {
+          provide: CredentialReferencesService,
+          useValue: { getBlueprint: jest.fn(), previewReference: jest.fn() },
+        },
+        {
+          provide: StorageRoutingPolicyService,
+          useValue: storageRoutingPolicy,
+        },
+        {
+          provide: IntegrationControlPlaneService,
+          useValue: integrationControlPlane,
+        },
         { provide: IntegrationSetupService, useValue: integrationSetup },
-        { provide: IntegrationDiagnosticsService, useValue: integrationDiagnostics },
-        { provide: IntegrationAiDraftingService, useValue: { draftFromNaturalLanguage: jest.fn() } },
+        {
+          provide: IntegrationDiagnosticsService,
+          useValue: integrationDiagnostics,
+        },
+        {
+          provide: IntegrationAiDraftingService,
+          useValue: { draftFromNaturalLanguage: jest.fn() },
+        },
         { provide: IntegrationWorkflowService, useValue: integrationWorkflow },
-        { provide: AccessPolicyService, useValue: { resolveAndRequire: jest.fn() } },
+        {
+          provide: AccessPolicyService,
+          useValue: { resolveAndRequire: jest.fn() },
+        },
         { provide: Reflector, useValue: { getAllAndOverride: jest.fn() } },
       ],
     }).compile();
@@ -96,16 +119,18 @@ describe('IntegrationsController', () => {
   });
 
   it('should resolve infrastructure profile from header or query', async () => {
-    infrastructureProfileService.getTenantInfrastructureProfile.mockResolvedValue({
-      tenantSlug: 'acme',
-      topology: 'split',
-    });
+    infrastructureProfileService.getTenantInfrastructureProfile.mockResolvedValue(
+      {
+        tenantSlug: 'acme',
+        topology: 'split',
+      },
+    );
 
     const result = await controller.infrastructureProfile('acme', undefined);
 
-    expect(infrastructureProfileService.getTenantInfrastructureProfile).toHaveBeenCalledWith(
-      'acme',
-    );
+    expect(
+      infrastructureProfileService.getTenantInfrastructureProfile,
+    ).toHaveBeenCalledWith('acme');
     expect(result).toMatchObject({
       capability: 'integrations',
       status: 'resolved',
@@ -170,9 +195,9 @@ describe('IntegrationsController', () => {
 
     const result = await controller.backupReadiness('acme', undefined);
 
-    expect(infrastructureProfileService.getBackupReadinessPolicy).toHaveBeenCalledWith(
-      'acme',
-    );
+    expect(
+      infrastructureProfileService.getBackupReadinessPolicy,
+    ).toHaveBeenCalledWith('acme');
     expect(result).toMatchObject({
       surface: 'backup-readiness',
       backup: {
@@ -193,6 +218,57 @@ describe('IntegrationsController', () => {
     });
   });
 
+  it('should route backup setup preview values without persistence', async () => {
+    infrastructureProfileService.previewBackupSetup.mockResolvedValue({
+      surface: 'backup-setup-preview',
+      mode: 'preview-only',
+      preview: {
+        validationIssues: [],
+      },
+      safety: {
+        persistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+        databaseWritesAllowed: false,
+      },
+    });
+
+    const result = await controller.backupSetupPreview(
+      {
+        tenantSlug: 'body-tenant',
+        values: {
+          targetClass: 'user-local',
+          cadence: 'daily',
+        },
+        decision: 'resolve-required-actions',
+      },
+      'header-tenant',
+    );
+
+    expect(
+      infrastructureProfileService.previewBackupSetup,
+    ).toHaveBeenCalledWith({
+      tenantSlug: 'header-tenant',
+      values: {
+        targetClass: 'user-local',
+        cadence: 'daily',
+      },
+      decision: 'resolve-required-actions',
+    });
+    expect(result).toMatchObject({
+      surface: 'backup-setup-preview',
+      mode: 'preview-only',
+      safety: {
+        persistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+        databaseWritesAllowed: false,
+      },
+    });
+  });
+
   it('should resolve tenant connections from the active tenant', async () => {
     connectionInstances.listTenantConnections.mockResolvedValue([
       { id: 'conn_1', slug: 'nexovaflow-main' },
@@ -200,7 +276,9 @@ describe('IntegrationsController', () => {
 
     const result = await controller.connections(undefined, 'acme');
 
-    expect(connectionInstances.listTenantConnections).toHaveBeenCalledWith('acme');
+    expect(connectionInstances.listTenantConnections).toHaveBeenCalledWith(
+      'acme',
+    );
     expect(result).toMatchObject({
       capability: 'integrations',
       status: 'resolved',
@@ -267,7 +345,9 @@ describe('IntegrationsController', () => {
       'nexovaflow-main',
     );
 
-    expect(connectionInstances.getConnectionHealthTimeline).toHaveBeenCalledWith({
+    expect(
+      connectionInstances.getConnectionHealthTimeline,
+    ).toHaveBeenCalledWith({
       tenantSlug: 'acme',
       workspaceSlug: 'ops',
       userEmail: 'ops@acme.test',
@@ -328,7 +408,9 @@ describe('IntegrationsController', () => {
       'query.acme.test',
     );
 
-    expect(integrationControlPlane.summarizeTenantControlPlane).toHaveBeenCalledWith({
+    expect(
+      integrationControlPlane.summarizeTenantControlPlane,
+    ).toHaveBeenCalledWith({
       tenantSlug: 'acme-header',
       workspaceSlug: 'ops-header',
       userEmail: 'ops@acme.test',
@@ -695,16 +777,18 @@ describe('IntegrationsController', () => {
       'host.acme.test',
     );
 
-    expect(connectionInstances.recordFollowUpNotification).toHaveBeenCalledWith({
-      tenantSlug: 'header-tenant',
-      workspaceSlug: 'header-workspace',
-      userEmail: 'header@acme.test',
-      hostname: 'forwarded.acme.test',
-      connectionSlug: 'n8n-main',
-      channel: 'telegram',
-      recipient: '@sre-acme',
-      note: 'Pinged on-call.',
-    });
+    expect(connectionInstances.recordFollowUpNotification).toHaveBeenCalledWith(
+      {
+        tenantSlug: 'header-tenant',
+        workspaceSlug: 'header-workspace',
+        userEmail: 'header@acme.test',
+        hostname: 'forwarded.acme.test',
+        connectionSlug: 'n8n-main',
+        channel: 'telegram',
+        recipient: '@sre-acme',
+        note: 'Pinged on-call.',
+      },
+    );
     expect(result).toMatchObject({ status: 'follow-up-notified' });
   });
 

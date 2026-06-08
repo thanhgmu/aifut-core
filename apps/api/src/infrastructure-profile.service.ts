@@ -6,6 +6,8 @@ import {
 import { PrismaService } from './prisma.service';
 import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
+type BackupSetupPreviewValues = Record<string, unknown>;
+
 @Injectable()
 export class InfrastructureProfileService {
   constructor(private readonly prisma: PrismaService) {}
@@ -461,7 +463,7 @@ export class InfrastructureProfileService {
       recommendedActionKeys: recommendations,
       runtimeHandoff: {
         mode: 'preview-only',
-        previewEndpoint: 'GET /integrations/backup-readiness',
+        previewEndpoint: 'POST /integrations/backup-setup-preview',
         requiredInputKeys: ['tenantSlug'],
         schedulePersistenceAllowed: false,
         restoreExecutionAllowed: false,
@@ -776,6 +778,87 @@ export class InfrastructureProfileService {
     };
   }
 
+  async previewBackupSetup(params: {
+    tenantSlug?: string;
+    values?: BackupSetupPreviewValues;
+    decision?: string;
+  }) {
+    const readiness = await this.getBackupReadinessPolicy(params.tenantSlug);
+    const setupIntent = readiness.backup.setupIntent;
+    const formSchema = setupIntent.formSchema;
+    const values = params.values ?? {};
+    const allowedDecisions = setupIntent.allowedDecisions;
+    const requestedDecision = params.decision ?? setupIntent.defaultDecision;
+    const fieldReviews = formSchema.inputGroups.flatMap((group) =>
+      group.fields.map((field) => {
+        const value = values[field.key];
+        const issues = this.validateBackupSetupField(field, value);
+
+        return {
+          groupKey: group.key,
+          fieldKey: field.key,
+          status: issues.length > 0 ? 'invalid' : 'accepted-for-preview',
+          issues,
+          previewOnly: true,
+          persistenceAllowed: false,
+          credentialStorageAllowed: false,
+          restoreExecutionAllowed: false,
+          externalWritesAllowed: false,
+        };
+      }),
+    );
+    const decisionIssues = allowedDecisions.includes(requestedDecision)
+      ? []
+      : [`decision:not-allowed:${requestedDecision}`];
+    const validationIssues = [
+      ...fieldReviews.flatMap((review) => review.issues),
+      ...decisionIssues,
+    ];
+
+    return {
+      capability: 'integrations',
+      surface: 'backup-setup-preview',
+      status: validationIssues.length > 0 ? 'validation-required' : 'resolved',
+      mode: 'preview-only',
+      tenant: readiness.tenant,
+      preview: {
+        contractVersion: setupIntent.sourceContractVersion,
+        formSchemaVersion: formSchema.schemaVersion,
+        sourceSurface: 'POST /integrations/backup-setup-preview',
+        derivedFromSurface: readiness.backup.setupContract.sourceSurface,
+        decisionScope: setupIntent.decisionScope,
+        requestedDecision,
+        decisionStatus:
+          decisionIssues.length > 0 ? 'not-allowed' : 'accepted-for-preview',
+        allowedDecisions,
+        projectedOutcome:
+          validationIssues.length > 0
+            ? 'operator-input-validation-required'
+            : setupIntent.projectedOutcome,
+        requiredActionKeys: setupIntent.derivedFrom.requiredActionKeys,
+        recommendedActionKeys: setupIntent.derivedFrom.recommendedActionKeys,
+        fieldReviews,
+        validationIssues,
+      },
+      safety: {
+        projectionOnly: true,
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+        databaseWritesAllowed: false,
+        disallowedActions: [
+          'persist-backup-setup',
+          'persist-backup-schedule',
+          'execute-restore',
+          'store-credentials',
+          'write-external-cloud-target',
+        ],
+      },
+    };
+  }
+
   private classifyBackupTarget(targetRef: string) {
     const normalizedTargetRef = targetRef.trim().toLowerCase();
 
@@ -804,6 +887,70 @@ export class InfrastructureProfileService {
     return normalizedTargetRef.includes('platform')
       ? 'aifut-managed'
       : 'external-or-custom';
+  }
+
+  private validateBackupSetupField(
+    field: {
+      key: string;
+      type: string;
+      required?: boolean;
+      options?: string[];
+      min?: number;
+    },
+    value: unknown,
+  ) {
+    const issues: string[] = [];
+    const missing =
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      (Array.isArray(value) && value.length === 0);
+
+    if (field.required && missing) {
+      issues.push(`${field.key}:required`);
+      return issues;
+    }
+
+    if (missing) {
+      return issues;
+    }
+
+    if (field.type === 'select') {
+      if (typeof value !== 'string') {
+        issues.push(`${field.key}:must-be-string`);
+      } else if (field.options && !field.options.includes(value)) {
+        issues.push(`${field.key}:option-not-allowed`);
+      }
+    }
+
+    if (field.type === 'multi-select') {
+      if (!Array.isArray(value)) {
+        issues.push(`${field.key}:must-be-array`);
+      } else if (field.options) {
+        const invalidOptions = value.filter(
+          (option) =>
+            typeof option !== 'string' || !field.options?.includes(option),
+        );
+
+        if (invalidOptions.length > 0) {
+          issues.push(`${field.key}:contains-option-not-allowed`);
+        }
+      }
+    }
+
+    if (field.type === 'number') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        issues.push(`${field.key}:must-be-number`);
+      } else if (field.min !== undefined && value < field.min) {
+        issues.push(`${field.key}:below-minimum:${field.min}`);
+      }
+    }
+
+    if (field.type === 'text' && typeof value !== 'string') {
+      issues.push(`${field.key}:must-be-string`);
+    }
+
+    return issues;
   }
 
   private async resolveTenant(tenantSlug?: string) {
