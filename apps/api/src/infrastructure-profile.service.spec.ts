@@ -352,6 +352,54 @@ describe('InfrastructureProfileService', () => {
         policyCount: 1,
         policiesMissingBackupTargetCount: 1,
       },
+      persistenceDesignLock: {
+        schemaVersion: 'backup-center-persistence-design-lock.v1',
+        mode: 'preview-only',
+        migrationRequired: true,
+        sourceSurface: 'GET /integrations/backup-readiness',
+        lockedWriteZones: [
+          'prisma-schema',
+          'database-migrations',
+          'backup-schedule-worker',
+          'credential-storage-boundary',
+          'restore-execution-boundary',
+          'external-cloud-write-boundary',
+        ],
+        proposedTables: expect.arrayContaining([
+          expect.objectContaining({
+            name: 'tenant_backup_setup',
+          }),
+          expect.objectContaining({
+            name: 'tenant_backup_schedule',
+          }),
+          expect.objectContaining({
+            name: 'tenant_backup_target',
+          }),
+          expect.objectContaining({
+            name: 'tenant_restore_approval_review',
+          }),
+        ]),
+        guardrails: {
+          projectionOnly: true,
+          persistenceAllowed: false,
+          databaseWritesAllowed: false,
+          prismaSchemaWritesAllowed: false,
+          migrationWritesAllowed: false,
+          schedulePersistenceAllowed: false,
+          scheduleExecutionAllowed: false,
+          credentialStorageAllowed: false,
+          restoreExecutionAllowed: false,
+          externalCloudWritesAllowed: false,
+        },
+        acceptanceCriteria: expect.arrayContaining([
+          'readiness response exposes this design lock without creating or updating database rows',
+          'future implementation adds reviewed Prisma schema and migration before persistence is enabled',
+          'schedule configuration writes remain disabled until a reviewed worker contract exists',
+          'credential material is stored only through an approved secret boundary and never in readiness payloads',
+          'restore execution remains disabled until approval review, audit, and rollback criteria are implemented',
+          'external cloud writes require explicit target ownership validation and operator approval',
+        ]),
+      },
       formSchema: {
         schemaVersion: 'backup-center-setup-form.v1',
         mode: 'preview-only',
@@ -518,6 +566,23 @@ describe('InfrastructureProfileService', () => {
         declaredTargetCount: 1,
         policyCount: 1,
         policiesMissingBackupTargetCount: 0,
+      },
+      persistenceDesignLock: {
+        schemaVersion: 'backup-center-persistence-design-lock.v1',
+        mode: 'preview-only',
+        migrationRequired: true,
+        guardrails: {
+          projectionOnly: true,
+          persistenceAllowed: false,
+          databaseWritesAllowed: false,
+          prismaSchemaWritesAllowed: false,
+          migrationWritesAllowed: false,
+          schedulePersistenceAllowed: false,
+          scheduleExecutionAllowed: false,
+          credentialStorageAllowed: false,
+          restoreExecutionAllowed: false,
+          externalCloudWritesAllowed: false,
+        },
       },
       formSchema: {
         schemaVersion: 'backup-center-setup-form.v1',

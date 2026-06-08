@@ -652,6 +652,82 @@ export class InfrastructureProfileService {
         },
       ],
     };
+    const persistenceDesignLock = {
+      schemaVersion: 'backup-center-persistence-design-lock.v1',
+      mode: 'preview-only',
+      migrationRequired: true,
+      sourceSurface: 'GET /integrations/backup-readiness',
+      lockedWriteZones: [
+        'prisma-schema',
+        'database-migrations',
+        'backup-schedule-worker',
+        'credential-storage-boundary',
+        'restore-execution-boundary',
+        'external-cloud-write-boundary',
+      ],
+      proposedTables: [
+        {
+          name: 'tenant_backup_setup',
+          purpose:
+            'Persist tenant-level backup center setup review state and selected coverage scopes.',
+          requiredBeforeWrites: [
+            'Prisma model reviewed',
+            'migration reviewed',
+            'tenant ownership enforced',
+          ],
+        },
+        {
+          name: 'tenant_backup_schedule',
+          purpose:
+            'Persist cadence, timezone, retention, and enabled state without embedding credentials.',
+          requiredBeforeWrites: [
+            'schedule worker contract reviewed',
+            'idempotency rules defined',
+            'operator enablement gate added',
+          ],
+        },
+        {
+          name: 'tenant_backup_target',
+          purpose:
+            'Persist non-secret target metadata and references to separately governed credential material.',
+          requiredBeforeWrites: [
+            'credential boundary reviewed',
+            'secret storage excluded from readiness payloads',
+            'target ownership validation defined',
+          ],
+        },
+        {
+          name: 'tenant_restore_approval_review',
+          purpose:
+            'Persist restore approval policy and review state before any restore execution path exists.',
+          requiredBeforeWrites: [
+            'destructive restore approval flow reviewed',
+            'audit trail requirements defined',
+            'restore execution remains separately gated',
+          ],
+        },
+      ],
+      guardrails: {
+        projectionOnly: true,
+        persistenceAllowed: false,
+        databaseWritesAllowed: false,
+        prismaSchemaWritesAllowed: false,
+        migrationWritesAllowed: false,
+        schedulePersistenceAllowed: false,
+        scheduleExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+      acceptanceCriteria: [
+        'readiness response exposes this design lock without creating or updating database rows',
+        'future implementation adds reviewed Prisma schema and migration before persistence is enabled',
+        'schedule configuration writes remain disabled until a reviewed worker contract exists',
+        'credential material is stored only through an approved secret boundary and never in readiness payloads',
+        'restore execution remains disabled until approval review, audit, and rollback criteria are implemented',
+        'external cloud writes require explicit target ownership validation and operator approval',
+      ],
+    };
     const setupIntent = {
       intentVersion: 'backup-center-setup-intent.v1',
       sourceContractVersion: setupContract.contractVersion,
@@ -699,6 +775,7 @@ export class InfrastructureProfileService {
         policyCount: storagePolicies.length,
         policiesMissingBackupTargetCount: policiesMissingBackupTarget.length,
       },
+      persistenceDesignLock,
       formSchema: setupFormSchema,
     };
 

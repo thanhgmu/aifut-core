@@ -83,6 +83,7 @@ export type BackupSetupIntent = {
     credentialStorageAllowed?: boolean;
     externalCloudWritesAllowed?: boolean;
   };
+  persistenceDesignLock?: BackupSetupPersistenceDesignLock;
 };
 
 type BackupSetupPreviewResponse = {
@@ -100,6 +101,7 @@ type BackupSetupPreviewResponse = {
       invalidInputKeys?: string[];
     };
     validationIssues?: string[];
+    persistenceDesignLock?: BackupSetupPersistenceDesignLock;
   };
   safety?: {
     persistenceAllowed?: boolean;
@@ -109,6 +111,33 @@ type BackupSetupPreviewResponse = {
     externalCloudWritesAllowed?: boolean;
   };
 };
+
+type BackupSetupPersistenceDesignLock = {
+  schemaVersion?: string;
+  version?: string;
+  migrationRequired?: boolean;
+  requiresMigration?: boolean;
+  lockedWriteZones?: Array<string | BackupSetupDesignLockItem>;
+  proposedEntities?: Array<string | BackupSetupDesignLockItem>;
+  proposedTables?: Array<string | BackupSetupDesignLockItem>;
+  guardrailFlags?: BackupSetupDesignLockFlags;
+  guardrails?: BackupSetupDesignLockFlags;
+  flags?: BackupSetupDesignLockFlags;
+};
+
+type BackupSetupDesignLockItem = {
+  key?: string;
+  name?: string;
+  entity?: string;
+  table?: string;
+  zone?: string;
+  status?: string;
+  reason?: string;
+};
+
+type BackupSetupDesignLockFlags =
+  | string[]
+  | Record<string, boolean | string | number | null | undefined>;
 
 type BackupSetupReviewSummary = {
   statusLabel?: string;
@@ -202,6 +231,8 @@ export function BackupSetupReviewPreview({
   const preview = previewResponse?.preview;
   const reviewSummary = preview?.reviewSummary;
   const previewSafety = previewResponse?.safety;
+  const persistenceDesignLock =
+    setupIntent?.persistenceDesignLock ?? preview?.persistenceDesignLock;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
   const invalidInputKeys =
@@ -337,6 +368,9 @@ export function BackupSetupReviewPreview({
       </div>
 
       <ReviewSummaryReadout reviewSummary={reviewSummary} />
+      <PersistenceDesignLockReadout
+        persistenceDesignLock={persistenceDesignLock}
+      />
 
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
         {formSections.map((section) => (
@@ -527,6 +561,83 @@ export function BackupSetupReviewPreview({
         restores, store credentials, or write to external cloud storage.
       </div>
     </form>
+  );
+}
+
+function PersistenceDesignLockReadout({
+  persistenceDesignLock,
+}: {
+  persistenceDesignLock?: BackupSetupPersistenceDesignLock;
+}) {
+  if (!persistenceDesignLock) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{ ...nestedCardStyle, display: "grid", gap: 10, marginTop: 14 }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: "#dfe6ff", fontSize: 14, fontWeight: 800 }}>
+          Persistence design lock
+        </div>
+        <span style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800 }}>
+          preview-only readout
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 8,
+        }}
+      >
+        <CompactReadout
+          label="Schema"
+          value={
+            persistenceDesignLock.schemaVersion ??
+            persistenceDesignLock.version ??
+            "not reported"
+          }
+        />
+        <CompactReadout
+          label="Migration"
+          value={formatOptionalRequired(
+            persistenceDesignLock.migrationRequired ??
+              persistenceDesignLock.requiresMigration,
+          )}
+        />
+        <CompactReadout
+          label="Locked zones"
+          value={formatDesignLockItems(persistenceDesignLock.lockedWriteZones)}
+        />
+        <CompactReadout
+          label="Entities"
+          value={formatDesignLockItems(persistenceDesignLock.proposedEntities)}
+        />
+        <CompactReadout
+          label="Tables"
+          value={formatDesignLockItems(persistenceDesignLock.proposedTables)}
+        />
+        <CompactReadout
+          label="Guardrails"
+          value={formatDesignLockFlags(
+            persistenceDesignLock.guardrailFlags ??
+              persistenceDesignLock.guardrails ??
+              persistenceDesignLock.flags,
+          )}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -954,6 +1065,54 @@ function formatOptionalAllowed(allowed?: boolean) {
   }
 
   return allowed ? "allowed" : "blocked";
+}
+
+function formatOptionalRequired(required?: boolean) {
+  if (typeof required !== "boolean") {
+    return "not reported";
+  }
+
+  return required ? "required" : "not required";
+}
+
+function formatDesignLockItems(
+  items?: Array<string | BackupSetupDesignLockItem>,
+) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "none reported";
+  }
+
+  return items.map(formatDesignLockItem).join(", ");
+}
+
+function formatDesignLockItem(item: string | BackupSetupDesignLockItem) {
+  if (typeof item === "string") {
+    return item;
+  }
+
+  const itemName =
+    item.key ?? item.name ?? item.entity ?? item.table ?? item.zone ?? "item";
+  const details = [item.status, item.reason].filter(Boolean).join(": ");
+
+  return details ? `${itemName} (${details})` : itemName;
+}
+
+function formatDesignLockFlags(flags?: BackupSetupDesignLockFlags) {
+  if (!flags) {
+    return "none reported";
+  }
+
+  if (Array.isArray(flags)) {
+    return flags.length > 0 ? flags.join(", ") : "none reported";
+  }
+
+  const formattedFlags = Object.entries(flags)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([flagKey, value]) => `${flagKey}: ${String(value)}`);
+
+  return formattedFlags.length > 0
+    ? formattedFlags.join(", ")
+    : "none reported";
 }
 
 function formatActionInputIssues(action: BackupSetupReviewAction) {
