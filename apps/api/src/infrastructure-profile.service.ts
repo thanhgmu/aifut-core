@@ -432,6 +432,91 @@ export class InfrastructureProfileService {
       'assess-nexovaflow-and-other-app-specific-export-adapters',
       'require-approval-for-destructive-restores',
     ];
+    const setupReviewStatus =
+      blockers.length > 0
+        ? 'operator-configuration-required'
+        : 'ready-for-schedule-preview';
+    const setupPrimaryActionKey =
+      blockers[0] ?? 'backup-schedule:preview-configuration';
+    const setupContract = {
+      contractVersion: 'backup-readiness-setup.v1',
+      sourceSurface: 'GET /integrations/backup-readiness',
+      consumerSurfaces: [
+        'operator-ui-control-plane',
+        'local-runtime-reality-checks',
+        'backup-center-foundation',
+      ],
+      reviewStatus: setupReviewStatus,
+      displaySummary: {
+        title: `${tenant.name} backup readiness`,
+        subtitle:
+          'Backup coverage is visible for review before schedules, restore previews, or external writes are enabled.',
+        statusLabel:
+          backupStatus === 'backup-targets-ready'
+            ? 'Targets ready'
+            : 'Setup needed',
+      },
+      primaryActionKey: setupPrimaryActionKey,
+      requiredActionKeys: blockers,
+      recommendedActionKeys: recommendations,
+      runtimeHandoff: {
+        mode: 'preview-only',
+        previewEndpoint: 'GET /integrations/backup-readiness',
+        requiredInputKeys: ['tenantSlug'],
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+        approvalRequiredFor,
+      },
+    };
+    const setupIntent = {
+      intentVersion: 'backup-center-setup-intent.v1',
+      sourceContractVersion: setupContract.contractVersion,
+      sourceSurface: setupContract.sourceSurface,
+      mode: 'preview-only',
+      intentKey: `${tenant.slug}:backup-center:setup-preview`,
+      status:
+        blockers.length > 0
+          ? 'blocked-before-decision'
+          : 'awaiting-operator-decision',
+      decisionScope: 'backup-center-setup-preview',
+      primaryDecisionKey: setupPrimaryActionKey,
+      allowedDecisions:
+        blockers.length > 0
+          ? ['resolve-required-actions', 'defer-setup']
+          : [
+              'preview-schedule-configuration',
+              'request-setup-changes',
+              'defer-setup',
+            ],
+      defaultDecision:
+        blockers.length > 0
+          ? 'resolve-required-actions'
+          : 'preview-schedule-configuration',
+      projectedOutcome:
+        blockers.length > 0
+          ? 'operator-configuration-required'
+          : 'schedule-preview-ready',
+      derivedFrom: {
+        backupStatus,
+        requiredActionKeys: setupContract.requiredActionKeys,
+        recommendedActionKeys: setupContract.recommendedActionKeys,
+      },
+      decisionProjection: {
+        status: 'preview-only',
+        recordable: false,
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+      targetSummary: {
+        declaredTargetCount: backupTargetRefs.length,
+        policyCount: storagePolicies.length,
+        policiesMissingBackupTargetCount: policiesMissingBackupTarget.length,
+      },
+    };
 
     return {
       capability: 'integrations',
@@ -503,41 +588,8 @@ export class InfrastructureProfileService {
         },
         blockers,
         recommendations,
-        setupContract: {
-          contractVersion: 'backup-readiness-setup.v1',
-          sourceSurface: 'GET /integrations/backup-readiness',
-          consumerSurfaces: [
-            'operator-ui-control-plane',
-            'local-runtime-reality-checks',
-            'backup-center-foundation',
-          ],
-          reviewStatus:
-            blockers.length > 0
-              ? 'operator-configuration-required'
-              : 'ready-for-schedule-preview',
-          displaySummary: {
-            title: `${tenant.name} backup readiness`,
-            subtitle:
-              'Backup coverage is visible for review before schedules, restore previews, or external writes are enabled.',
-            statusLabel:
-              backupStatus === 'backup-targets-ready'
-                ? 'Targets ready'
-                : 'Setup needed',
-          },
-          primaryActionKey:
-            blockers[0] ?? 'backup-schedule:preview-configuration',
-          requiredActionKeys: blockers,
-          recommendedActionKeys: recommendations,
-          runtimeHandoff: {
-            mode: 'preview-only',
-            previewEndpoint: 'GET /integrations/backup-readiness',
-            requiredInputKeys: ['tenantSlug'],
-            schedulePersistenceAllowed: false,
-            restoreExecutionAllowed: false,
-            externalCloudWritesAllowed: false,
-            approvalRequiredFor,
-          },
-        },
+        setupContract,
+        setupIntent,
       },
     };
   }

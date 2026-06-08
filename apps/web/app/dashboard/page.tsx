@@ -204,8 +204,36 @@ type BackupReadinessResponse = {
         approvalRequiredFor?: string[];
       };
     };
+    setupIntent?: {
+      intentVersion?: string;
+      sourceContractVersion?: string;
+      mode?: string;
+      intentKey?: string;
+      status?: string;
+      decisionScope?: string;
+      primaryDecisionKey?: string;
+      allowedDecisions?: string[];
+      defaultDecision?: string;
+      projectedOutcome?: string;
+      decisionProjection?: {
+        status?: string;
+        recordable?: boolean;
+        persistenceAllowed?: boolean;
+        schedulePersistenceAllowed?: boolean;
+        restoreExecutionAllowed?: boolean;
+        credentialStorageAllowed?: boolean;
+        externalCloudWritesAllowed?: boolean;
+      };
+    };
   };
 };
+
+type BackupSetupContract = NonNullable<
+  NonNullable<NonNullable<BackupReadinessResponse["backup"]>["setupContract"]>
+>;
+type BackupSetupIntent = NonNullable<
+  NonNullable<NonNullable<BackupReadinessResponse["backup"]>["setupIntent"]>
+>;
 
 type RootResponse = {
   focus?: {
@@ -404,6 +432,7 @@ export default async function DashboardPage() {
   const integrationConsumerContract = integrationArtifact?.consumerContract;
   const backupReadiness = backupReadinessResult.data?.backup;
   const backupSetupContract = backupReadiness?.setupContract;
+  const backupSetupIntent = backupReadiness?.setupIntent;
 
   return (
     <main
@@ -567,6 +596,10 @@ export default async function DashboardPage() {
                     <Readout label="Schedule persistence" value={backupSetupContract?.runtimeHandoff?.schedulePersistenceAllowed ? "allowed" : "blocked"} />
                   </div>
 
+                  {backupSetupContract ? (
+                    <BackupSetupIntentPreview setupContract={backupSetupContract} setupIntent={backupSetupIntent} />
+                  ) : null}
+
                   <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
                     <KeyList label="Required backup actions" items={backupSetupContract?.requiredActionKeys ?? backupReadiness.blockers} />
                     <KeyList label="Recommended setup actions" items={backupSetupContract?.recommendedActionKeys ?? backupReadiness.recommendations} />
@@ -714,6 +747,105 @@ export default async function DashboardPage() {
 
 function formatReadFailure(result: JsonResult<unknown>) {
   return result.error ?? (result.status ? `HTTP ${result.status}` : "read unavailable");
+}
+
+function BackupSetupIntentPreview({
+  setupContract,
+  setupIntent,
+}: {
+  setupContract: BackupSetupContract;
+  setupIntent?: BackupSetupIntent;
+}) {
+  const runtimeHandoff = setupContract.runtimeHandoff;
+  const operatorActions = [
+    setupIntent?.primaryDecisionKey ?? setupContract.primaryActionKey,
+    ...(setupIntent?.allowedDecisions ?? []),
+    ...(setupContract.requiredActionKeys ?? []),
+    ...(setupContract.recommendedActionKeys ?? []),
+  ].filter((actionKey, index, actionKeys): actionKey is string => {
+    return Boolean(actionKey) && actionKeys.indexOf(actionKey) === index;
+  });
+  const decisionProjection = setupIntent?.decisionProjection;
+
+  return (
+    <div style={{ ...cardStyle, padding: 14, marginTop: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
+            Operator setup intent
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 14, lineHeight: 1.5 }}>
+            Preview-only decisions from {setupIntent?.intentVersion ?? setupContract.contractVersion ?? "backup setup contract"}.
+          </div>
+        </div>
+        <span style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+          {setupIntent?.status ?? setupContract.reviewStatus ?? "review required"}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8, marginTop: 14 }}>
+        <Readout label="Intent key" value={setupIntent?.intentKey ?? "contract-only preview"} />
+        <Readout label="Decision scope" value={setupIntent?.decisionScope ?? "backup-center-setup-preview"} />
+        <Readout label="Default decision" value={setupIntent?.defaultDecision ?? "review-required-actions"} />
+        <Readout label="Projected outcome" value={setupIntent?.projectedOutcome ?? setupContract.reviewStatus ?? "operator-review"} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+        {operatorActions.length > 0 ? (
+          operatorActions.map((actionKey) => (
+            <button
+              key={actionKey}
+              disabled
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "rgba(159,176,255,0.1)",
+                border: "1px solid rgba(159,176,255,0.22)",
+                color: "#dfe6ff",
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "not-allowed",
+                opacity: 0.78,
+              }}
+            >
+              {actionKey}
+            </button>
+          ))
+        ) : (
+          <span style={{ color: "#c8d2ff", fontSize: 13 }}>No operator actions advertised.</span>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginTop: 14 }}>
+        <PreviewFlag label="Recordable flag" allowed={decisionProjection?.recordable} />
+        <PreviewFlag label="Persistence flag" allowed={decisionProjection?.persistenceAllowed} />
+        <PreviewFlag label="Schedule flag" allowed={decisionProjection?.schedulePersistenceAllowed ?? runtimeHandoff?.schedulePersistenceAllowed} />
+        <PreviewFlag label="Restore flag" allowed={decisionProjection?.restoreExecutionAllowed ?? runtimeHandoff?.restoreExecutionAllowed} />
+        <PreviewFlag label="Credential flag" allowed={decisionProjection?.credentialStorageAllowed} />
+        <PreviewFlag label="Cloud-write flag" allowed={decisionProjection?.externalCloudWritesAllowed ?? runtimeHandoff?.externalCloudWritesAllowed} />
+      </div>
+
+      <div style={{ marginTop: 12, color: "#c8d2ff", fontSize: 12, lineHeight: 1.6 }}>
+        Preview controls only. This dashboard does not persist schedules, run restores, or write to external cloud storage.
+      </div>
+    </div>
+  );
+}
+
+function PreviewFlag({ label, allowed }: { label: string; allowed?: boolean }) {
+  return (
+    <div
+      style={{
+        padding: "8px 10px",
+        borderRadius: 8,
+        background: "rgba(255,255,255,0.035)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <div style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800, marginBottom: 4 }}>{label}</div>
+      <div style={{ color: "#dfe6ff", fontSize: 13 }}>{allowed ? "contract: true" : "contract: false"}</div>
+    </div>
+  );
 }
 
 function KeyList({ label, items = [] }: { label: string; items?: string[] }) {

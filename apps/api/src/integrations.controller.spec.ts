@@ -153,6 +153,12 @@ describe('IntegrationsController', () => {
       surface: 'backup-readiness',
       backup: {
         status: 'backup-targets-partial',
+        setupIntent: {
+          mode: 'preview-only',
+          decisionProjection: {
+            recordable: false,
+          },
+        },
       },
     });
 
@@ -165,6 +171,12 @@ describe('IntegrationsController', () => {
       surface: 'backup-readiness',
       backup: {
         status: 'backup-targets-partial',
+        setupIntent: {
+          mode: 'preview-only',
+          decisionProjection: {
+            recordable: false,
+          },
+        },
       },
     });
   });

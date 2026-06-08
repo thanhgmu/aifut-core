@@ -310,5 +310,142 @@ describe('InfrastructureProfileService', () => {
         externalCloudWritesAllowed: false,
       },
     });
+    expect(result.backup.setupIntent).toMatchObject({
+      intentVersion: 'backup-center-setup-intent.v1',
+      sourceContractVersion: 'backup-readiness-setup.v1',
+      sourceSurface: 'GET /integrations/backup-readiness',
+      mode: 'preview-only',
+      intentKey: 'acme:backup-center:setup-preview',
+      status: 'blocked-before-decision',
+      decisionScope: 'backup-center-setup-preview',
+      primaryDecisionKey: 'backup-target:missing',
+      allowedDecisions: ['resolve-required-actions', 'defer-setup'],
+      defaultDecision: 'resolve-required-actions',
+      projectedOutcome: 'operator-configuration-required',
+      derivedFrom: {
+        backupStatus: 'backup-targets-not-declared',
+        requiredActionKeys: [
+          'backup-target:missing',
+          'storage-policies-without-backup-target',
+          'backup-schedule:not-configured',
+          'restore-preview:not-implemented',
+        ],
+        recommendedActionKeys: [
+          'add-local-or-user-cloud-backup-target',
+          'configure-user-and-admin-backup-schedules',
+          'define-workflow-skill-plugin-addon-portability-bundle',
+          'assess-nexovaflow-and-other-app-specific-export-adapters',
+          'require-approval-for-destructive-restores',
+        ],
+      },
+      decisionProjection: {
+        status: 'preview-only',
+        recordable: false,
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+      targetSummary: {
+        declaredTargetCount: 0,
+        policyCount: 1,
+        policiesMissingBackupTargetCount: 1,
+      },
+    });
+  });
+
+  it('should derive backup setup intent from declared targets without enabling writes', async () => {
+    const prisma = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tenant_1',
+          slug: 'acme',
+          name: 'Acme',
+        }),
+      },
+      tenantStoragePolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'storage_policy_1',
+            key: 'documents',
+            mode: 'HYBRID',
+            storageClass: 'STANDARD',
+            targetRef: 'tenant-primary',
+            targetRegion: 'ap-southeast-1',
+            backupTargetRef: 'local://acme-backups',
+            meteringEnabled: true,
+            workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
+            createdAt: new Date('2026-06-08T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+          },
+        ]),
+      },
+      integrationConnection: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'connection_1',
+            name: 'NexovaFlow Ops',
+            slug: 'nexovaflow-ops',
+            category: 'WORKFLOW',
+            provider: 'nexovaflow',
+            status: 'ACTIVE',
+            workspaceId: 'workspace_1',
+            workspace: {
+              name: 'Operations',
+              slug: 'ops',
+            },
+          },
+        ]),
+      },
+      entitlement: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new InfrastructureProfileService(prisma as never);
+
+    const result = await service.getBackupReadinessPolicy('acme');
+
+    expect(result.backup.status).toBe('backup-targets-ready');
+    expect(result.backup.setupContract).toMatchObject({
+      reviewStatus: 'operator-configuration-required',
+      displaySummary: {
+        statusLabel: 'Targets ready',
+      },
+      primaryActionKey: 'backup-schedule:not-configured',
+      requiredActionKeys: [
+        'backup-schedule:not-configured',
+        'restore-preview:not-implemented',
+      ],
+    });
+    expect(result.backup.setupIntent).toMatchObject({
+      status: 'blocked-before-decision',
+      primaryDecisionKey: 'backup-schedule:not-configured',
+      allowedDecisions: ['resolve-required-actions', 'defer-setup'],
+      derivedFrom: {
+        backupStatus: 'backup-targets-ready',
+        requiredActionKeys: [
+          'backup-schedule:not-configured',
+          'restore-preview:not-implemented',
+        ],
+      },
+      decisionProjection: {
+        recordable: false,
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+      targetSummary: {
+        declaredTargetCount: 1,
+        policyCount: 1,
+        policiesMissingBackupTargetCount: 0,
+      },
+    });
   });
 });
