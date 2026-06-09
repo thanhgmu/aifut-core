@@ -1117,6 +1117,35 @@ export class InfrastructureProfileService {
         ],
         finalAction: 'submit-preview-only-backup-setup-review',
       },
+      previewEvidenceCaptureGuide: {
+        guideVersion: 'backup-center-preview-evidence-capture-guide.v1',
+        status: 'ready-for-preview-only-capture',
+        captureMode: 'operator-notes-only',
+        itemCount: 3,
+        items: [
+          {
+            evidenceKey: 'validated-backup-target-preview',
+            capturePrompt: 'Confirm target type, destination label, and owner.',
+            expectedFormat: 'target-type + destination + owner-confirmation',
+            sourceStep: 'fill-preview-only-setup-form',
+          },
+          {
+            evidenceKey: 'policy-scope-selection',
+            capturePrompt:
+              'Confirm whether the preview covers workspace, tenant, or app scope.',
+            expectedFormat: 'scope-key + reason',
+            sourceStep: 'review-readiness-summary',
+          },
+          {
+            evidenceKey: 'restore-approval-owner',
+            capturePrompt:
+              'Identify the person or role that must approve restore actions.',
+            expectedFormat: 'owner-role + approval-channel',
+            sourceStep: 'restore-approval-review',
+          },
+        ],
+        nextCaptureAction: 'record-preview-evidence-before-submission',
+      },
       gates: activationGates,
       nextSafeAction:
         'complete-preview-review-before-opening-prisma-or-migration-work',

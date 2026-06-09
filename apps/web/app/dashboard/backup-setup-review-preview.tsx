@@ -271,6 +271,19 @@ type BackupSetupActivationChecklist = {
     }>;
     finalAction?: string;
   };
+  previewEvidenceCaptureGuide?: {
+    guideVersion?: string;
+    status?: string;
+    captureMode?: string;
+    itemCount?: number;
+    items?: Array<{
+      evidenceKey?: string;
+      capturePrompt?: string;
+      expectedFormat?: string;
+      sourceStep?: string;
+    }>;
+    nextCaptureAction?: string;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -922,6 +935,8 @@ function ActivationChecklistReadout({
   const previewSubmissionReadiness =
     activationChecklist.previewSubmissionReadiness;
   const previewUnblockPlan = activationChecklist.previewUnblockPlan;
+  const previewEvidenceCaptureGuide =
+    activationChecklist.previewEvidenceCaptureGuide;
 
   return (
     <div
@@ -1216,6 +1231,34 @@ function ActivationChecklistReadout({
             {previewUnblockPlan.finalAction ??
               "submit-preview-only-backup-setup-review"}
           </div>
+        </div>
+      ) : null}
+
+      {previewEvidenceCaptureGuide ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview evidence capture guide
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewEvidenceCaptureGuide.status ??
+              "ready-for-preview-only-capture"}{" "}
+            / {previewEvidenceCaptureGuide.captureMode ?? "operator-notes-only"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Items: {previewEvidenceCaptureGuide.itemCount ?? 0} / next{" "}
+            {previewEvidenceCaptureGuide.nextCaptureAction ??
+              "record-preview-evidence-before-submission"}
+          </div>
+          {(previewEvidenceCaptureGuide.items ?? []).slice(0, 3).map((item) => (
+            <div
+              key={item.evidenceKey ?? item.capturePrompt}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {item.evidenceKey ?? "evidence"} /{" "}
+              {item.expectedFormat ?? "operator note"} /{" "}
+              {item.sourceStep ?? "preview-review"}
+            </div>
+          ))}
         </div>
       ) : null}
 
