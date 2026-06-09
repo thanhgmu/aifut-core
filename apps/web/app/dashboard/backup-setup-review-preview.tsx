@@ -229,6 +229,20 @@ type BackupSetupActivationChecklist = {
     }>;
     nextEvidenceAction?: string;
   };
+  previewReviewPacket?: {
+    packetVersion?: string;
+    status?: string;
+    sourceEndpoint?: string;
+    nextSubmissionAction?: string;
+    requiredPacketItemCount?: number;
+    readyPacketItemCount?: number;
+    missingPacketItemCount?: number;
+    packetItems?: Array<{
+      key?: string;
+      status?: string;
+      sourceVersion?: string;
+    }>;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -876,6 +890,7 @@ function ActivationChecklistReadout({
   const operatorReadinessDigest =
     activationChecklist.operatorReadinessDigest;
   const evidenceChecklist = activationChecklist.evidenceChecklist;
+  const previewReviewPacket = activationChecklist.previewReviewPacket;
 
   return (
     <div
@@ -1082,6 +1097,28 @@ function ActivationChecklistReadout({
               {item.sourceStep ?? "preview-review"}
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {previewReviewPacket ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview review packet
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewPacket.status ??
+              "ready-to-assemble-preview-review"}{" "}
+            / {previewReviewPacket.missingPacketItemCount ?? 0} missing
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewPacket.nextSubmissionAction ??
+              "submit-preview-only-backup-setup-review"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Items: {previewReviewPacket.readyPacketItemCount ?? 0} ready /{" "}
+            {previewReviewPacket.requiredPacketItemCount ?? 0} required
+          </div>
         </div>
       ) : null}
 

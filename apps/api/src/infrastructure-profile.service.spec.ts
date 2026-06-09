@@ -673,6 +673,37 @@ describe('InfrastructureProfileService', () => {
           ],
           nextEvidenceAction: 'collect-preview-evidence-before-activation-review',
         },
+        previewReviewPacket: {
+          packetVersion: 'backup-center-preview-review-packet.v1',
+          status: 'ready-to-assemble-preview-review',
+          sourceEndpoint: 'POST /integrations/backup-setup-preview',
+          nextSubmissionAction: 'submit-preview-only-backup-setup-review',
+          requiredPacketItemCount: 4,
+          readyPacketItemCount: 1,
+          missingPacketItemCount: 3,
+          packetItems: [
+            {
+              key: 'operator-readiness-digest',
+              status: 'ready',
+              sourceVersion: 'backup-center-operator-readiness-digest.v1',
+            },
+            {
+              key: 'validated-backup-target-preview',
+              status: 'missing',
+              sourceVersion: 'backup-center-evidence-checklist.v1',
+            },
+            {
+              key: 'policy-scope-selection',
+              status: 'missing',
+              sourceVersion: 'backup-center-evidence-checklist.v1',
+            },
+            {
+              key: 'restore-approval-owner',
+              status: 'missing',
+              sourceVersion: 'backup-center-evidence-checklist.v1',
+            },
+          ],
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',
