@@ -915,6 +915,49 @@ export class InfrastructureProfileService {
       .map((review) => review.fieldKey);
     const previewStatus =
       validationIssues.length > 0 ? 'validation-required' : 'resolved';
+    const inputSummary = {
+      requiredCount: requiredFieldReviews.length,
+      providedCount: requiredFieldReviews.length - missingInputKeys.length,
+      missingInputKeys,
+      invalidInputKeys,
+    };
+    const previewBlockers = [
+      ...validationIssues,
+      'persistence:not-enabled',
+      'schedule-execution:not-enabled',
+      'credential-storage:not-enabled',
+      'restore-execution:not-enabled',
+      'external-cloud-writes:not-enabled',
+    ];
+    const nextActions = [
+      ...setupIntent.derivedFrom.requiredActionKeys.map((actionKey, index) => ({
+        actionKey,
+        actionOrder: index + 1,
+        actionStatus:
+          requestedDecision === 'defer-setup'
+            ? 'deferred-for-preview'
+            : validationIssues.length > 0
+              ? 'input-validation-required'
+              : 'accepted-for-preview',
+        reason:
+          requestedDecision === 'defer-setup'
+            ? 'operator-deferred-setup'
+            : 'preview-only-no-persistence',
+        missingInputKeys,
+        invalidInputKeys,
+      })),
+      ...setupIntent.derivedFrom.recommendedActionKeys.map(
+        (actionKey, index) => ({
+          actionKey,
+          actionOrder:
+            setupIntent.derivedFrom.requiredActionKeys.length + index + 1,
+          actionStatus: 'recommended-for-review',
+          reason: 'operator-review-before-persistence',
+          missingInputKeys: [],
+          invalidInputKeys: [],
+        }),
+      ),
+    ];
 
     return {
       capability: 'integrations',
@@ -938,17 +981,18 @@ export class InfrastructureProfileService {
             : setupIntent.projectedOutcome,
         requiredActionKeys: setupIntent.derivedFrom.requiredActionKeys,
         recommendedActionKeys: setupIntent.derivedFrom.recommendedActionKeys,
-        inputSummary: {
-          requiredCount: requiredFieldReviews.length,
-          providedCount: requiredFieldReviews.length - missingInputKeys.length,
-          missingInputKeys,
-          invalidInputKeys,
-        },
+        inputSummary,
+        persistencePrerequisiteReview:
+          setupIntent.persistencePrerequisiteReview,
         reviewSummary: {
           statusLabel:
             previewStatus === 'resolved'
               ? 'Ready for preview'
               : 'Validation required',
+          status: previewStatus,
+          previewOnly: true,
+          activationAllowed: false,
+          externalActionsAllowed: false,
           validationIssueCount: validationIssues.length,
           missingInputCount: missingInputKeys.length,
           invalidInputCount: invalidInputKeys.length,
@@ -956,9 +1000,37 @@ export class InfrastructureProfileService {
             setupIntent.derivedFrom.requiredActionKeys.length,
           recommendedActionCount:
             setupIntent.derivedFrom.recommendedActionKeys.length,
+          blockers: previewBlockers,
+          nextActions,
+          decisionSummary: {
+            configuredCount:
+              requestedDecision === 'defer-setup'
+                ? 0
+                : validationIssues.length > 0
+                  ? inputSummary.providedCount
+                  : setupIntent.derivedFrom.requiredActionKeys.length,
+            unresolvedCount:
+              missingInputKeys.length +
+              invalidInputKeys.length +
+              decisionIssues.length,
+            deferredCount:
+              requestedDecision === 'defer-setup'
+                ? setupIntent.derivedFrom.requiredActionKeys.length
+                : 0,
+          },
+          inputSummary,
           persistenceAllowed: false,
+          schedulePersistenceAllowed: false,
           restoreExecutionAllowed: false,
+          credentialStorageAllowed: false,
           externalCloudWritesAllowed: false,
+          safety: {
+            persistenceAllowed: false,
+            schedulePersistenceAllowed: false,
+            restoreExecutionAllowed: false,
+            credentialStorageAllowed: false,
+            externalCloudWritesAllowed: false,
+          },
         },
         fieldReviews,
         validationIssues,

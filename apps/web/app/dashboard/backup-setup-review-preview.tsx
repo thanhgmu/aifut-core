@@ -103,6 +103,7 @@ type BackupSetupPreviewResponse = {
     };
     validationIssues?: string[];
     persistenceDesignLock?: BackupSetupPersistenceDesignLock;
+    persistencePrerequisiteReview?: BackupSetupPersistencePrerequisiteReview;
   };
   safety?: {
     persistenceAllowed?: boolean;
@@ -256,6 +257,7 @@ export function BackupSetupReviewPreview({
   const persistenceDesignLock =
     setupIntent?.persistenceDesignLock ?? preview?.persistenceDesignLock;
   const persistencePrerequisiteReview =
+    preview?.persistencePrerequisiteReview ??
     setupIntent?.persistencePrerequisiteReview;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
