@@ -814,6 +814,22 @@ describe('InfrastructureProfileService', () => {
           ],
           nextReviewAction: 'review-preview-evidence-before-submission',
         },
+        previewSubmissionDecisionSummary: {
+          summaryVersion:
+            'backup-center-preview-submission-decision-summary.v1',
+          decision: 'blocked',
+          decisionReason: 'preview-evidence-and-review-checks-pending',
+          submissionAllowed: false,
+          missingEvidenceCount: 3,
+          pendingReviewCheckCount: 3,
+          readyPacketItemCount: 1,
+          nextDecisionAction: 'review-preview-evidence-before-submission',
+          unlocksWhen: [
+            'all-preview-evidence-recorded',
+            'all-preview-evidence-checks-passed',
+            'preview-review-packet-complete',
+          ],
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',

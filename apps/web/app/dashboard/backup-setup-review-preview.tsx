@@ -299,6 +299,17 @@ type BackupSetupActivationChecklist = {
     }>;
     nextReviewAction?: string;
   };
+  previewSubmissionDecisionSummary?: {
+    summaryVersion?: string;
+    decision?: string;
+    decisionReason?: string;
+    submissionAllowed?: boolean;
+    missingEvidenceCount?: number;
+    pendingReviewCheckCount?: number;
+    readyPacketItemCount?: number;
+    nextDecisionAction?: string;
+    unlocksWhen?: string[];
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -954,6 +965,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewEvidenceCaptureGuide;
   const previewEvidenceReviewRubric =
     activationChecklist.previewEvidenceReviewRubric;
+  const previewSubmissionDecisionSummary =
+    activationChecklist.previewSubmissionDecisionSummary;
 
   return (
     <div
@@ -1306,6 +1319,43 @@ function ActivationChecklistReadout({
             Next:{" "}
             {previewEvidenceReviewRubric.nextReviewAction ??
               "review-preview-evidence-before-submission"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewSubmissionDecisionSummary ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview submission decision summary
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewSubmissionDecisionSummary.decision ?? "blocked"} /{" "}
+            {formatOptionalAllowed(
+              previewSubmissionDecisionSummary.submissionAllowed,
+            )}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Reason:{" "}
+            {previewSubmissionDecisionSummary.decisionReason ??
+              "preview-evidence-and-review-checks-pending"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Missing evidence:{" "}
+            {previewSubmissionDecisionSummary.missingEvidenceCount ?? 0};
+            pending checks:{" "}
+            {previewSubmissionDecisionSummary.pendingReviewCheckCount ?? 0};
+            packet ready:{" "}
+            {previewSubmissionDecisionSummary.readyPacketItemCount ?? 0}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewSubmissionDecisionSummary.nextDecisionAction ??
+              "review-preview-evidence-before-submission"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Unlocks when:{" "}
+            {(previewSubmissionDecisionSummary.unlocksWhen ?? []).join(", ") ||
+              "not reported"}
           </div>
         </div>
       ) : null}
