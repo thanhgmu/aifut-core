@@ -516,6 +516,14 @@ describe('InfrastructureProfileService', () => {
         activationAllowed: false,
         sourceReviewVersion:
           'backup-center-persistence-prerequisite-review.v1',
+        gateSummary: {
+          totalGateCount: 7,
+          blockedGateCount: 6,
+          pendingGateCount: 1,
+          readyGateCount: 0,
+          nextGateKey: 'operator-input-preview',
+          activationRisk: 'high',
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',

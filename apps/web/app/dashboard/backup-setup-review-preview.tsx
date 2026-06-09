@@ -156,6 +156,14 @@ type BackupSetupActivationChecklist = {
   status?: string;
   activationAllowed?: boolean;
   sourceReviewVersion?: string;
+  gateSummary?: {
+    totalGateCount?: number;
+    blockedGateCount?: number;
+    pendingGateCount?: number;
+    readyGateCount?: number;
+    nextGateKey?: string | null;
+    activationRisk?: string;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -796,6 +804,7 @@ function ActivationChecklistReadout({
   }
 
   const gates = activationChecklist.gates ?? [];
+  const gateSummary = activationChecklist.gateSummary;
 
   return (
     <div
@@ -835,7 +844,19 @@ function ActivationChecklistReadout({
         />
         <CompactReadout
           label="Gates"
-          value={`${gates.length} gates`}
+          value={`${gateSummary?.totalGateCount ?? gates.length} gates`}
+        />
+        <CompactReadout
+          label="Blocked"
+          value={`${gateSummary?.blockedGateCount ?? gates.filter((gate) => gate.status === "blocked").length} blocked / ${gateSummary?.pendingGateCount ?? gates.filter((gate) => gate.status === "pending").length} pending`}
+        />
+        <CompactReadout
+          label="Risk"
+          value={gateSummary?.activationRisk ?? "not scored"}
+        />
+        <CompactReadout
+          label="Next gate"
+          value={gateSummary?.nextGateKey ?? "not reported"}
         />
         <CompactReadout
           label="Source review"
