@@ -531,6 +531,10 @@ describe('InfrastructureProfileService', () => {
             status: 'pending',
             gateKeys: ['operator-input-preview'],
             nextGateKey: 'operator-input-preview',
+            gateCount: 1,
+            blockedGateCount: 0,
+            pendingGateCount: 1,
+            readyGateCount: 0,
           },
           {
             phaseKey: 'persistence-foundation',
@@ -538,6 +542,10 @@ describe('InfrastructureProfileService', () => {
             status: 'blocked',
             gateKeys: ['prisma-schema-review', 'migration-review'],
             nextGateKey: 'prisma-schema-review',
+            gateCount: 2,
+            blockedGateCount: 2,
+            pendingGateCount: 0,
+            readyGateCount: 0,
           },
           {
             phaseKey: 'automation-boundaries',
@@ -545,6 +553,10 @@ describe('InfrastructureProfileService', () => {
             status: 'blocked',
             gateKeys: ['schedule-worker-contract', 'credential-boundary'],
             nextGateKey: 'schedule-worker-contract',
+            gateCount: 2,
+            blockedGateCount: 2,
+            pendingGateCount: 0,
+            readyGateCount: 0,
           },
           {
             phaseKey: 'restore-and-external-writes',
@@ -552,6 +564,10 @@ describe('InfrastructureProfileService', () => {
             status: 'blocked',
             gateKeys: ['restore-approval-flow', 'external-write-approval'],
             nextGateKey: 'restore-approval-flow',
+            gateCount: 2,
+            blockedGateCount: 2,
+            pendingGateCount: 0,
+            readyGateCount: 0,
           },
         ],
         gates: expect.arrayContaining([

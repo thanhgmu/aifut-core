@@ -170,6 +170,10 @@ type BackupSetupActivationChecklist = {
     status?: string;
     gateKeys?: string[];
     nextGateKey?: string | null;
+    gateCount?: number;
+    blockedGateCount?: number;
+    pendingGateCount?: number;
+    readyGateCount?: number;
   }>;
   gates?: Array<{
     key?: string;
@@ -903,6 +907,7 @@ function ActivationChecklistReadout({
               {phase.title ?? phase.phaseKey ?? "activation phase"} /{" "}
               {phase.status ?? "blocked"} / next{" "}
               {phase.nextGateKey ?? "not reported"}
+              {` / ${phase.blockedGateCount ?? 0} blocked / ${phase.pendingGateCount ?? 0} pending / ${phase.readyGateCount ?? 0} ready`}
             </div>
           ))}
         </div>

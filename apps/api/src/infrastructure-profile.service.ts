@@ -854,6 +854,30 @@ export class InfrastructureProfileService {
           'External cloud writes remain disabled until target ownership validation is reviewed.',
       },
     ];
+    const summarizeActivationPhase = (phase: {
+      phaseKey: string;
+      title: string;
+      status: string;
+      gateKeys: string[];
+      nextGateKey: string;
+    }) => {
+      const phaseGates = activationGates.filter((gate) =>
+        phase.gateKeys.includes(gate.key),
+      );
+
+      return {
+        ...phase,
+        gateCount: phaseGates.length,
+        blockedGateCount: phaseGates.filter(
+          (gate) => gate.status === 'blocked',
+        ).length,
+        pendingGateCount: phaseGates.filter(
+          (gate) => gate.status === 'pending',
+        ).length,
+        readyGateCount: phaseGates.filter((gate) => gate.status === 'ready')
+          .length,
+      };
+    };
     const activationChecklist = {
       checklistVersion: 'backup-center-activation-checklist.v1',
       mode: 'preview-only',
@@ -877,34 +901,34 @@ export class InfrastructureProfileService {
         activationRisk: 'high',
       },
       phaseSummary: [
-        {
+        summarizeActivationPhase({
           phaseKey: 'preview-review',
           title: 'Preview review',
           status: 'pending',
           gateKeys: ['operator-input-preview'],
           nextGateKey: 'operator-input-preview',
-        },
-        {
+        }),
+        summarizeActivationPhase({
           phaseKey: 'persistence-foundation',
           title: 'Persistence foundation',
           status: 'blocked',
           gateKeys: ['prisma-schema-review', 'migration-review'],
           nextGateKey: 'prisma-schema-review',
-        },
-        {
+        }),
+        summarizeActivationPhase({
           phaseKey: 'automation-boundaries',
           title: 'Automation boundaries',
           status: 'blocked',
           gateKeys: ['schedule-worker-contract', 'credential-boundary'],
           nextGateKey: 'schedule-worker-contract',
-        },
-        {
+        }),
+        summarizeActivationPhase({
           phaseKey: 'restore-and-external-writes',
           title: 'Restore and external writes',
           status: 'blocked',
           gateKeys: ['restore-approval-flow', 'external-write-approval'],
           nextGateKey: 'restore-approval-flow',
-        },
+        }),
       ],
       gates: activationGates,
       nextSafeAction:
