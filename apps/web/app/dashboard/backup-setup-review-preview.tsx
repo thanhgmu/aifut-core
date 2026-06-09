@@ -284,6 +284,21 @@ type BackupSetupActivationChecklist = {
     }>;
     nextCaptureAction?: string;
   };
+  previewEvidenceReviewRubric?: {
+    rubricVersion?: string;
+    status?: string;
+    requiredCheckCount?: number;
+    passedCheckCount?: number;
+    pendingCheckCount?: number;
+    checks?: Array<{
+      key?: string;
+      label?: string;
+      status?: string;
+      sourceEvidenceKey?: string;
+      requiredSignal?: string;
+    }>;
+    nextReviewAction?: string;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -937,6 +952,8 @@ function ActivationChecklistReadout({
   const previewUnblockPlan = activationChecklist.previewUnblockPlan;
   const previewEvidenceCaptureGuide =
     activationChecklist.previewEvidenceCaptureGuide;
+  const previewEvidenceReviewRubric =
+    activationChecklist.previewEvidenceReviewRubric;
 
   return (
     <div
@@ -1259,6 +1276,37 @@ function ActivationChecklistReadout({
               {item.sourceStep ?? "preview-review"}
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {previewEvidenceReviewRubric ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview evidence review rubric
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewEvidenceReviewRubric.status ?? "pending-evidence-review"}{" "}
+            / {previewEvidenceReviewRubric.pendingCheckCount ?? 0} pending
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Checks: {previewEvidenceReviewRubric.passedCheckCount ?? 0} passed /{" "}
+            {previewEvidenceReviewRubric.requiredCheckCount ?? 0} required
+          </div>
+          {(previewEvidenceReviewRubric.checks ?? []).slice(0, 3).map((check) => (
+            <div
+              key={check.key ?? check.label}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {check.label ?? check.key ?? "review check"} /{" "}
+              {check.status ?? "pending"} /{" "}
+              {check.sourceEvidenceKey ?? "evidence"}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewEvidenceReviewRubric.nextReviewAction ??
+              "review-preview-evidence-before-submission"}
+          </div>
         </div>
       ) : null}
 

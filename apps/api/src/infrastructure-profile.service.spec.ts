@@ -783,6 +783,37 @@ describe('InfrastructureProfileService', () => {
           ],
           nextCaptureAction: 'record-preview-evidence-before-submission',
         },
+        previewEvidenceReviewRubric: {
+          rubricVersion: 'backup-center-preview-evidence-review-rubric.v1',
+          status: 'pending-evidence-review',
+          requiredCheckCount: 3,
+          passedCheckCount: 0,
+          pendingCheckCount: 3,
+          checks: [
+            {
+              key: 'target-ownership-confirmed',
+              label: 'Target ownership confirmed',
+              status: 'pending',
+              sourceEvidenceKey: 'validated-backup-target-preview',
+              requiredSignal: 'owner-confirmation-present',
+            },
+            {
+              key: 'backup-scope-clear',
+              label: 'Backup scope is clear',
+              status: 'pending',
+              sourceEvidenceKey: 'policy-scope-selection',
+              requiredSignal: 'scope-key-and-reason-present',
+            },
+            {
+              key: 'restore-approval-accountable',
+              label: 'Restore approval owner is accountable',
+              status: 'pending',
+              sourceEvidenceKey: 'restore-approval-owner',
+              requiredSignal: 'owner-role-and-channel-present',
+            },
+          ],
+          nextReviewAction: 'review-preview-evidence-before-submission',
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',
