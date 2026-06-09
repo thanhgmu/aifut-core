@@ -509,6 +509,33 @@ describe('InfrastructureProfileService', () => {
         credentialStorageAllowed: false,
         externalCloudWritesAllowed: false,
       },
+      activationChecklist: {
+        checklistVersion: 'backup-center-activation-checklist.v1',
+        mode: 'preview-only',
+        status: 'blocked-before-activation',
+        activationAllowed: false,
+        sourceReviewVersion:
+          'backup-center-persistence-prerequisite-review.v1',
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'operator-input-preview',
+            status: 'pending',
+            requiredBefore: 'persist-backup-setup',
+          }),
+          expect.objectContaining({
+            key: 'prisma-schema-review',
+            status: 'blocked',
+            requiredBefore: 'database-migration',
+          }),
+          expect.objectContaining({
+            key: 'external-write-approval',
+            status: 'blocked',
+            requiredBefore: 'external-cloud-writes',
+          }),
+        ]),
+        nextSafeAction:
+          'complete-preview-review-before-opening-prisma-or-migration-work',
+      },
       formSchema: {
         schemaVersion: 'backup-center-setup-form.v1',
         mode: 'preview-only',

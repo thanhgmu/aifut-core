@@ -800,6 +800,73 @@ export class InfrastructureProfileService {
         externalCloudWritesAllowed: false,
       },
     };
+    const activationChecklist = {
+      checklistVersion: 'backup-center-activation-checklist.v1',
+      mode: 'preview-only',
+      status: 'blocked-before-activation',
+      activationAllowed: false,
+      sourceReviewVersion: persistencePrerequisiteReview.reviewVersion,
+      gates: [
+        {
+          key: 'operator-input-preview',
+          label: 'Operator input preview',
+          status: 'pending',
+          requiredBefore: 'persist-backup-setup',
+          evidence:
+            'Submit and review preview-only Backup Center setup inputs.',
+        },
+        {
+          key: 'prisma-schema-review',
+          label: 'Prisma schema review',
+          status: 'blocked',
+          requiredBefore: 'database-migration',
+          evidence:
+            'No backup persistence Prisma schema has been reviewed yet.',
+        },
+        {
+          key: 'migration-review',
+          label: 'Migration review',
+          status: 'blocked',
+          requiredBefore: 'database-writes',
+          evidence:
+            'No backup persistence migration has been reviewed yet.',
+        },
+        {
+          key: 'schedule-worker-contract',
+          label: 'Schedule worker contract',
+          status: 'blocked',
+          requiredBefore: 'schedule-execution',
+          evidence:
+            'Schedule persistence and execution remain disabled.',
+        },
+        {
+          key: 'credential-boundary',
+          label: 'Credential boundary',
+          status: 'blocked',
+          requiredBefore: 'backup-target-credentials',
+          evidence:
+            'Credential storage remains disabled and excluded from readiness payloads.',
+        },
+        {
+          key: 'restore-approval-flow',
+          label: 'Restore approval flow',
+          status: 'blocked',
+          requiredBefore: 'restore-execution',
+          evidence:
+            'Restore execution remains disabled until approval and audit criteria are reviewed.',
+        },
+        {
+          key: 'external-write-approval',
+          label: 'External write approval',
+          status: 'blocked',
+          requiredBefore: 'external-cloud-writes',
+          evidence:
+            'External cloud writes remain disabled until target ownership validation is reviewed.',
+        },
+      ],
+      nextSafeAction:
+        'complete-preview-review-before-opening-prisma-or-migration-work',
+    };
     const setupIntent = {
       intentVersion: 'backup-center-setup-intent.v1',
       sourceContractVersion: setupContract.contractVersion,
@@ -850,6 +917,7 @@ export class InfrastructureProfileService {
       persistenceDesignLock,
       persistencePrerequisiteReview,
       readinessReviewSummary,
+      activationChecklist,
       formSchema: setupFormSchema,
     };
 

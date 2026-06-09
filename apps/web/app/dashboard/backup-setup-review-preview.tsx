@@ -86,6 +86,7 @@ export type BackupSetupIntent = {
   persistenceDesignLock?: BackupSetupPersistenceDesignLock;
   persistencePrerequisiteReview?: BackupSetupPersistencePrerequisiteReview;
   readinessReviewSummary?: BackupSetupReviewSummary;
+  activationChecklist?: BackupSetupActivationChecklist;
 };
 
 type BackupSetupPreviewResponse = {
@@ -147,6 +148,22 @@ type BackupSetupPersistencePrerequisiteReview = {
   acceptanceCriteriaCount?: number;
   nextSafeAction?: string;
   guardrails?: BackupSetupDesignLockFlags;
+};
+
+type BackupSetupActivationChecklist = {
+  checklistVersion?: string;
+  mode?: string;
+  status?: string;
+  activationAllowed?: boolean;
+  sourceReviewVersion?: string;
+  gates?: Array<{
+    key?: string;
+    label?: string;
+    status?: string;
+    requiredBefore?: string;
+    evidence?: string;
+  }>;
+  nextSafeAction?: string;
 };
 
 type BackupSetupDesignLockItem = {
@@ -261,6 +278,7 @@ export function BackupSetupReviewPreview({
   const persistencePrerequisiteReview =
     preview?.persistencePrerequisiteReview ??
     setupIntent?.persistencePrerequisiteReview;
+  const activationChecklist = setupIntent?.activationChecklist;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
   const invalidInputKeys =
@@ -402,6 +420,7 @@ export function BackupSetupReviewPreview({
       <PersistencePrerequisiteReviewReadout
         prerequisiteReview={persistencePrerequisiteReview}
       />
+      <ActivationChecklistReadout activationChecklist={activationChecklist} />
 
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
         {formSections.map((section) => (
@@ -761,6 +780,92 @@ function PersistencePrerequisiteReviewReadout({
         value={
           prerequisiteReview.nextSafeAction ??
           "review-prisma-schema-and-migration-before-enabling-backup-persistence"
+        }
+      />
+    </div>
+  );
+}
+
+function ActivationChecklistReadout({
+  activationChecklist,
+}: {
+  activationChecklist?: BackupSetupActivationChecklist;
+}) {
+  if (!activationChecklist) {
+    return null;
+  }
+
+  const gates = activationChecklist.gates ?? [];
+
+  return (
+    <div
+      style={{ ...nestedCardStyle, display: "grid", gap: 10, marginTop: 14 }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: "#dfe6ff", fontSize: 14, fontWeight: 800 }}>
+          Activation checklist
+        </div>
+        <span style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800 }}>
+          {activationChecklist.status ?? "blocked-before-activation"}
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 8,
+        }}
+      >
+        <CompactReadout
+          label="Checklist"
+          value={activationChecklist.checklistVersion ?? "not reported"}
+        />
+        <CompactReadout
+          label="Activation"
+          value={formatOptionalAllowed(activationChecklist.activationAllowed)}
+        />
+        <CompactReadout
+          label="Gates"
+          value={`${gates.length} gates`}
+        />
+        <CompactReadout
+          label="Source review"
+          value={activationChecklist.sourceReviewVersion ?? "not reported"}
+        />
+      </div>
+
+      {gates.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Activation gates
+          </div>
+          {gates.slice(0, 7).map((gate) => (
+            <div
+              key={gate.key ?? gate.label}
+              style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}
+            >
+              {gate.label ?? gate.key ?? "activation gate"} /{" "}
+              {gate.status ?? "pending"} /{" "}
+              {gate.requiredBefore ?? "activation"}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <CompactReadout
+        label="Next safe action"
+        value={
+          activationChecklist.nextSafeAction ??
+          "complete-preview-review-before-opening-prisma-or-migration-work"
         }
       />
     </div>
