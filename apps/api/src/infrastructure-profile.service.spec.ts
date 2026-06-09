@@ -524,6 +524,36 @@ describe('InfrastructureProfileService', () => {
           nextGateKey: 'operator-input-preview',
           activationRisk: 'high',
         },
+        phaseSummary: [
+          {
+            phaseKey: 'preview-review',
+            title: 'Preview review',
+            status: 'pending',
+            gateKeys: ['operator-input-preview'],
+            nextGateKey: 'operator-input-preview',
+          },
+          {
+            phaseKey: 'persistence-foundation',
+            title: 'Persistence foundation',
+            status: 'blocked',
+            gateKeys: ['prisma-schema-review', 'migration-review'],
+            nextGateKey: 'prisma-schema-review',
+          },
+          {
+            phaseKey: 'automation-boundaries',
+            title: 'Automation boundaries',
+            status: 'blocked',
+            gateKeys: ['schedule-worker-contract', 'credential-boundary'],
+            nextGateKey: 'schedule-worker-contract',
+          },
+          {
+            phaseKey: 'restore-and-external-writes',
+            title: 'Restore and external writes',
+            status: 'blocked',
+            gateKeys: ['restore-approval-flow', 'external-write-approval'],
+            nextGateKey: 'restore-approval-flow',
+          },
+        ],
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',

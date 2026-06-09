@@ -164,6 +164,13 @@ type BackupSetupActivationChecklist = {
     nextGateKey?: string | null;
     activationRisk?: string;
   };
+  phaseSummary?: Array<{
+    phaseKey?: string;
+    title?: string;
+    status?: string;
+    gateKeys?: string[];
+    nextGateKey?: string | null;
+  }>;
   gates?: Array<{
     key?: string;
     label?: string;
@@ -805,6 +812,7 @@ function ActivationChecklistReadout({
 
   const gates = activationChecklist.gates ?? [];
   const gateSummary = activationChecklist.gateSummary;
+  const phaseSummary = activationChecklist.phaseSummary ?? [];
 
   return (
     <div
@@ -877,6 +885,24 @@ function ActivationChecklistReadout({
               {gate.label ?? gate.key ?? "activation gate"} /{" "}
               {gate.status ?? "pending"} /{" "}
               {gate.requiredBefore ?? "activation"}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {phaseSummary.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Activation phases
+          </div>
+          {phaseSummary.slice(0, 4).map((phase) => (
+            <div
+              key={phase.phaseKey ?? phase.title}
+              style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}
+            >
+              {phase.title ?? phase.phaseKey ?? "activation phase"} /{" "}
+              {phase.status ?? "blocked"} / next{" "}
+              {phase.nextGateKey ?? "not reported"}
             </div>
           ))}
         </div>
