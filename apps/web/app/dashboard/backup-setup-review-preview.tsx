@@ -184,6 +184,14 @@ type BackupSetupActivationChecklist = {
     primaryNextOperation?: string;
     allowedOperations?: string[];
     disabledOperations?: string[];
+    runbook?: {
+      runbookVersion?: string;
+      status?: string;
+      nextReviewStep?: string;
+      evidenceRequired?: string[];
+      safeSequence?: string[];
+      escalationTriggers?: string[];
+    };
   };
   gates?: Array<{
     key?: string;
@@ -939,6 +947,30 @@ function ActivationChecklistReadout({
             {(operatorHandoff.disabledOperations ?? []).join(", ") ||
               "not reported"}
           </div>
+          {operatorHandoff.runbook ? (
+            <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
+              <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+                Operator runbook
+              </div>
+              <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+                {operatorHandoff.runbook.status ??
+                  "preview-review-required"}{" "}
+                / next{" "}
+                {operatorHandoff.runbook.nextReviewStep ??
+                  "collect-preview-inputs-and-submit-review"}
+              </div>
+              <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+                Evidence:{" "}
+                {(operatorHandoff.runbook.evidenceRequired ?? []).join(", ") ||
+                  "not reported"}
+              </div>
+              <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+                Sequence:{" "}
+                {(operatorHandoff.runbook.safeSequence ?? []).join(" -> ") ||
+                  "not reported"}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

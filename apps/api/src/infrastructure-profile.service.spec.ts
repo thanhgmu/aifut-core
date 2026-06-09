@@ -590,6 +590,28 @@ describe('InfrastructureProfileService', () => {
             'execute-restore',
             'write-external-cloud-target',
           ],
+          runbook: {
+            runbookVersion: 'backup-center-operator-runbook.v1',
+            status: 'preview-review-required',
+            nextReviewStep: 'collect-preview-inputs-and-submit-review',
+            evidenceRequired: [
+              'validated-backup-target-preview',
+              'policy-scope-selection',
+              'restore-approval-owner',
+            ],
+            safeSequence: [
+              'review-readiness-summary',
+              'fill-preview-only-setup-form',
+              'submit-preview-only-backup-setup-review',
+              'inspect-activation-gates',
+            ],
+            escalationTriggers: [
+              'prisma-schema-review-requested',
+              'migration-review-requested',
+              'credential-storage-requested',
+              'external-cloud-write-requested',
+            ],
+          },
         },
         gates: expect.arrayContaining([
           expect.objectContaining({
