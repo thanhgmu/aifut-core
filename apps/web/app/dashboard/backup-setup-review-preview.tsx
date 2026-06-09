@@ -215,6 +215,20 @@ type BackupSetupActivationChecklist = {
     disabledOperationCount?: number;
     summaryPoints?: string[];
   };
+  evidenceChecklist?: {
+    checklistVersion?: string;
+    status?: string;
+    requiredEvidenceCount?: number;
+    capturedEvidenceCount?: number;
+    missingEvidenceCount?: number;
+    items?: Array<{
+      key?: string;
+      label?: string;
+      status?: string;
+      sourceStep?: string;
+    }>;
+    nextEvidenceAction?: string;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -861,6 +875,7 @@ function ActivationChecklistReadout({
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
     activationChecklist.operatorReadinessDigest;
+  const evidenceChecklist = activationChecklist.evidenceChecklist;
 
   return (
     <div
@@ -1044,6 +1059,29 @@ function ActivationChecklistReadout({
             {operatorReadinessDigest.pendingGateCount ?? 0} pending /{" "}
             {operatorReadinessDigest.readyGateCount ?? 0} ready
           </div>
+        </div>
+      ) : null}
+
+      {evidenceChecklist ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Evidence checklist
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {evidenceChecklist.status ??
+              "evidence-needed-before-preview-review"}{" "}
+            / {evidenceChecklist.missingEvidenceCount ?? 0} missing
+          </div>
+          {(evidenceChecklist.items ?? []).slice(0, 3).map((item) => (
+            <div
+              key={item.key ?? item.label}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {item.label ?? item.key ?? "evidence"} /{" "}
+              {item.status ?? "missing"} /{" "}
+              {item.sourceStep ?? "preview-review"}
+            </div>
+          ))}
         </div>
       ) : null}
 

@@ -645,6 +645,34 @@ describe('InfrastructureProfileService', () => {
             'customer-impact-is-contained-while-actions-stay-preview-only',
           ],
         },
+        evidenceChecklist: {
+          checklistVersion: 'backup-center-evidence-checklist.v1',
+          status: 'evidence-needed-before-preview-review',
+          requiredEvidenceCount: 3,
+          capturedEvidenceCount: 0,
+          missingEvidenceCount: 3,
+          items: [
+            {
+              key: 'validated-backup-target-preview',
+              label: 'Validated backup target preview',
+              status: 'missing',
+              sourceStep: 'fill-preview-only-setup-form',
+            },
+            {
+              key: 'policy-scope-selection',
+              label: 'Policy scope selection',
+              status: 'missing',
+              sourceStep: 'review-readiness-summary',
+            },
+            {
+              key: 'restore-approval-owner',
+              label: 'Restore approval owner',
+              status: 'missing',
+              sourceStep: 'restore-approval-review',
+            },
+          ],
+          nextEvidenceAction: 'collect-preview-evidence-before-activation-review',
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',
