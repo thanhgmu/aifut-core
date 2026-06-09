@@ -973,6 +973,20 @@ export class InfrastructureProfileService {
           ],
         },
       },
+      customerImpactPreview: {
+        previewVersion: 'backup-center-customer-impact-preview.v1',
+        status: 'protected-preview-only',
+        customerRiskLevel: 'contained',
+        currentCustomerExperience:
+          'Customer-facing operations continue without backup automation until operator review is complete.',
+        expectedBenefitAfterActivation:
+          'Customers gain safer restore governance and clearer continuity coverage once reviewed persistence and restore controls are enabled.',
+        protections: [
+          'no-customer-data-export-without-review',
+          'no-restore-execution-without-approval',
+          'no-external-cloud-write-without-target-ownership-review',
+        ],
+      },
       gates: activationGates,
       nextSafeAction:
         'complete-preview-review-before-opening-prisma-or-migration-work',

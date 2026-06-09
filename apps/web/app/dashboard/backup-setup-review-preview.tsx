@@ -193,6 +193,14 @@ type BackupSetupActivationChecklist = {
       escalationTriggers?: string[];
     };
   };
+  customerImpactPreview?: {
+    previewVersion?: string;
+    status?: string;
+    customerRiskLevel?: string;
+    currentCustomerExperience?: string;
+    expectedBenefitAfterActivation?: string;
+    protections?: string[];
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -836,6 +844,7 @@ function ActivationChecklistReadout({
   const gateSummary = activationChecklist.gateSummary;
   const phaseSummary = activationChecklist.phaseSummary ?? [];
   const operatorHandoff = activationChecklist.operatorHandoff;
+  const customerImpactPreview = activationChecklist.customerImpactPreview;
 
   return (
     <div
@@ -971,6 +980,27 @@ function ActivationChecklistReadout({
               </div>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {customerImpactPreview ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Customer impact preview
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {customerImpactPreview.status ?? "protected-preview-only"} / risk{" "}
+            {customerImpactPreview.customerRiskLevel ?? "contained"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            {customerImpactPreview.currentCustomerExperience ??
+              "Customer-facing operations continue without backup automation until operator review is complete."}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Protections:{" "}
+            {(customerImpactPreview.protections ?? []).join(", ") ||
+              "not reported"}
+          </div>
         </div>
       ) : null}
 
