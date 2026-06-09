@@ -930,6 +930,27 @@ export class InfrastructureProfileService {
           nextGateKey: 'restore-approval-flow',
         }),
       ],
+      operatorHandoff: {
+        handoffVersion: 'backup-center-activation-operator-handoff.v1',
+        mode: 'preview-only',
+        sourceSurface: 'GET /integrations/backup-readiness',
+        previewEndpoint: setupContract.runtimeHandoff.previewEndpoint,
+        primaryNextGateKey: 'operator-input-preview',
+        primaryNextOperation: 'submit-preview-only-backup-setup-review',
+        allowedOperations: [
+          'review-readiness-summary',
+          'submit-preview-only-backup-setup-review',
+          'inspect-activation-gates',
+        ],
+        disabledOperations: [
+          'persist-backup-setup',
+          'run-database-migration',
+          'persist-backup-schedule',
+          'store-backup-credentials',
+          'execute-restore',
+          'write-external-cloud-target',
+        ],
+      },
       gates: activationGates,
       nextSafeAction:
         'complete-preview-review-before-opening-prisma-or-migration-work',

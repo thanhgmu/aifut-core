@@ -175,6 +175,16 @@ type BackupSetupActivationChecklist = {
     pendingGateCount?: number;
     readyGateCount?: number;
   }>;
+  operatorHandoff?: {
+    handoffVersion?: string;
+    mode?: string;
+    sourceSurface?: string;
+    previewEndpoint?: string;
+    primaryNextGateKey?: string;
+    primaryNextOperation?: string;
+    allowedOperations?: string[];
+    disabledOperations?: string[];
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -817,6 +827,7 @@ function ActivationChecklistReadout({
   const gates = activationChecklist.gates ?? [];
   const gateSummary = activationChecklist.gateSummary;
   const phaseSummary = activationChecklist.phaseSummary ?? [];
+  const operatorHandoff = activationChecklist.operatorHandoff;
 
   return (
     <div
@@ -910,6 +921,24 @@ function ActivationChecklistReadout({
               {` / ${phase.blockedGateCount ?? 0} blocked / ${phase.pendingGateCount ?? 0} pending / ${phase.readyGateCount ?? 0} ready`}
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {operatorHandoff ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Operator handoff
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {operatorHandoff.primaryNextOperation ??
+              "submit-preview-only-backup-setup-review"}{" "}
+            / next gate {operatorHandoff.primaryNextGateKey ?? "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Disabled:{" "}
+            {(operatorHandoff.disabledOperations ?? []).join(", ") ||
+              "not reported"}
+          </div>
         </div>
       ) : null}
 

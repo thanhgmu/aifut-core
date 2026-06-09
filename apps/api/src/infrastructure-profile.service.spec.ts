@@ -570,6 +570,27 @@ describe('InfrastructureProfileService', () => {
             readyGateCount: 0,
           },
         ],
+        operatorHandoff: {
+          handoffVersion: 'backup-center-activation-operator-handoff.v1',
+          mode: 'preview-only',
+          sourceSurface: 'GET /integrations/backup-readiness',
+          previewEndpoint: 'POST /integrations/backup-setup-preview',
+          primaryNextGateKey: 'operator-input-preview',
+          primaryNextOperation: 'submit-preview-only-backup-setup-review',
+          allowedOperations: [
+            'review-readiness-summary',
+            'submit-preview-only-backup-setup-review',
+            'inspect-activation-gates',
+          ],
+          disabledOperations: [
+            'persist-backup-setup',
+            'run-database-migration',
+            'persist-backup-schedule',
+            'store-backup-credentials',
+            'execute-restore',
+            'write-external-cloud-target',
+          ],
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',
