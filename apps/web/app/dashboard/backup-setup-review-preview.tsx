@@ -84,6 +84,7 @@ export type BackupSetupIntent = {
     externalCloudWritesAllowed?: boolean;
   };
   persistenceDesignLock?: BackupSetupPersistenceDesignLock;
+  persistencePrerequisiteReview?: BackupSetupPersistencePrerequisiteReview;
 };
 
 type BackupSetupPreviewResponse = {
@@ -123,6 +124,27 @@ type BackupSetupPersistenceDesignLock = {
   guardrailFlags?: BackupSetupDesignLockFlags;
   guardrails?: BackupSetupDesignLockFlags;
   flags?: BackupSetupDesignLockFlags;
+};
+
+type BackupSetupPersistencePrerequisiteReview = {
+  reviewVersion?: string;
+  sourceDesignLockVersion?: string;
+  mode?: string;
+  status?: string;
+  writeReadiness?: string;
+  migrationReadiness?: string;
+  lockedWriteZoneCount?: number;
+  proposedTableCount?: number;
+  pendingReviewCount?: number;
+  blockedGuardrails?: string[];
+  requiredReviewItems?: Array<{
+    table?: string;
+    requirement?: string;
+    status?: string;
+  }>;
+  acceptanceCriteriaCount?: number;
+  nextSafeAction?: string;
+  guardrails?: BackupSetupDesignLockFlags;
 };
 
 type BackupSetupDesignLockItem = {
@@ -233,6 +255,8 @@ export function BackupSetupReviewPreview({
   const previewSafety = previewResponse?.safety;
   const persistenceDesignLock =
     setupIntent?.persistenceDesignLock ?? preview?.persistenceDesignLock;
+  const persistencePrerequisiteReview =
+    setupIntent?.persistencePrerequisiteReview;
   const requiredCount = countRequiredFields(formSections);
   const providedCount = countProvidedRequiredFields(formSections, draft);
   const invalidInputKeys =
@@ -370,6 +394,9 @@ export function BackupSetupReviewPreview({
       <ReviewSummaryReadout reviewSummary={reviewSummary} />
       <PersistenceDesignLockReadout
         persistenceDesignLock={persistenceDesignLock}
+      />
+      <PersistencePrerequisiteReviewReadout
+        prerequisiteReview={persistencePrerequisiteReview}
       />
 
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
@@ -637,6 +664,101 @@ function PersistenceDesignLockReadout({
           )}
         />
       </div>
+    </div>
+  );
+}
+
+function PersistencePrerequisiteReviewReadout({
+  prerequisiteReview,
+}: {
+  prerequisiteReview?: BackupSetupPersistencePrerequisiteReview;
+}) {
+  if (!prerequisiteReview) {
+    return null;
+  }
+
+  const requiredReviewItems = prerequisiteReview.requiredReviewItems ?? [];
+  const blockedGuardrails = prerequisiteReview.blockedGuardrails ?? [];
+
+  return (
+    <div
+      style={{ ...nestedCardStyle, display: "grid", gap: 10, marginTop: 14 }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: "#dfe6ff", fontSize: 14, fontWeight: 800 }}>
+          Persistence prerequisite review
+        </div>
+        <span style={{ color: "#9fb0ff", fontSize: 11, fontWeight: 800 }}>
+          {prerequisiteReview.mode ?? "preview-only"}
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 8,
+        }}
+      >
+        <CompactReadout
+          label="Review"
+          value={prerequisiteReview.reviewVersion ?? "not reported"}
+        />
+        <CompactReadout
+          label="Status"
+          value={prerequisiteReview.status ?? "review required"}
+        />
+        <CompactReadout
+          label="Write readiness"
+          value={prerequisiteReview.writeReadiness ?? "not-ready"}
+        />
+        <CompactReadout
+          label="Migration"
+          value={prerequisiteReview.migrationReadiness ?? "not-ready"}
+        />
+        <CompactReadout
+          label="Pending review"
+          value={`${prerequisiteReview.pendingReviewCount ?? requiredReviewItems.length} items`}
+        />
+        <CompactReadout
+          label="Guardrails"
+          value={`${blockedGuardrails.length} blocked`}
+        />
+      </div>
+
+      {requiredReviewItems.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Required before writes
+          </div>
+          {requiredReviewItems.slice(0, 6).map((item, index) => (
+            <div
+              key={`${item.table ?? "table"}:${item.requirement ?? index}`}
+              style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}
+            >
+              {item.table ?? "backup table"} /{" "}
+              {item.requirement ?? "review required"} /{" "}
+              {item.status ?? "pending-review"}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <CompactReadout
+        label="Next safe action"
+        value={
+          prerequisiteReview.nextSafeAction ??
+          "review-prisma-schema-and-migration-before-enabling-backup-persistence"
+        }
+      />
     </div>
   );
 }

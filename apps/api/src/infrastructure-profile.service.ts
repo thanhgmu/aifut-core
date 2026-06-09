@@ -728,6 +728,8 @@ export class InfrastructureProfileService {
         'external cloud writes require explicit target ownership validation and operator approval',
       ],
     };
+    const persistencePrerequisiteReview =
+      this.buildBackupPersistencePrerequisiteReview(persistenceDesignLock);
     const setupIntent = {
       intentVersion: 'backup-center-setup-intent.v1',
       sourceContractVersion: setupContract.contractVersion,
@@ -776,6 +778,7 @@ export class InfrastructureProfileService {
         policiesMissingBackupTargetCount: policiesMissingBackupTarget.length,
       },
       persistenceDesignLock,
+      persistencePrerequisiteReview,
       formSchema: setupFormSchema,
     };
 
@@ -1007,6 +1010,54 @@ export class InfrastructureProfileService {
     return normalizedTargetRef.includes('platform')
       ? 'aifut-managed'
       : 'external-or-custom';
+  }
+
+  private buildBackupPersistencePrerequisiteReview(designLock: {
+    schemaVersion: string;
+    lockedWriteZones: string[];
+    proposedTables: Array<{
+      name: string;
+      requiredBeforeWrites: string[];
+    }>;
+    guardrails: Record<string, boolean>;
+    acceptanceCriteria: string[];
+  }) {
+    const blockedGuardrails = Object.entries(designLock.guardrails)
+      .filter(([key, value]) => key.endsWith('Allowed') && value === false)
+      .map(([key]) => key);
+    const requiredReviewItems = designLock.proposedTables.flatMap((table) =>
+      table.requiredBeforeWrites.map((requirement) => ({
+        table: table.name,
+        requirement,
+        status: 'pending-review',
+      })),
+    );
+
+    return {
+      reviewVersion: 'backup-center-persistence-prerequisite-review.v1',
+      sourceDesignLockVersion: designLock.schemaVersion,
+      mode: 'preview-only',
+      status: 'blocked-until-reviewed',
+      writeReadiness: 'not-ready',
+      migrationReadiness: 'not-ready',
+      lockedWriteZoneCount: designLock.lockedWriteZones.length,
+      proposedTableCount: designLock.proposedTables.length,
+      pendingReviewCount: requiredReviewItems.length,
+      blockedGuardrails,
+      requiredReviewItems,
+      acceptanceCriteriaCount: designLock.acceptanceCriteria.length,
+      nextSafeAction:
+        'review-prisma-schema-and-migration-before-enabling-backup-persistence',
+      guardrails: {
+        persistenceAllowed: false,
+        databaseWritesAllowed: false,
+        migrationWritesAllowed: false,
+        scheduleExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        restoreExecutionAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+    };
   }
 
   private validateBackupSetupField(
