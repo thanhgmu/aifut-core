@@ -85,6 +85,7 @@ export type BackupSetupIntent = {
   };
   persistenceDesignLock?: BackupSetupPersistenceDesignLock;
   persistencePrerequisiteReview?: BackupSetupPersistencePrerequisiteReview;
+  readinessReviewSummary?: BackupSetupReviewSummary;
 };
 
 type BackupSetupPreviewResponse = {
@@ -252,7 +253,8 @@ export function BackupSetupReviewPreview({
   const endpoint = getPostPreviewEndpoint(runtimeHandoff?.previewEndpoint);
   const decisionProjection = setupIntent?.decisionProjection;
   const preview = previewResponse?.preview;
-  const reviewSummary = preview?.reviewSummary;
+  const reviewSummary =
+    preview?.reviewSummary ?? setupIntent?.readinessReviewSummary;
   const previewSafety = previewResponse?.safety;
   const persistenceDesignLock =
     setupIntent?.persistenceDesignLock ?? preview?.persistenceDesignLock;

@@ -730,6 +730,76 @@ export class InfrastructureProfileService {
     };
     const persistencePrerequisiteReview =
       this.buildBackupPersistencePrerequisiteReview(persistenceDesignLock);
+    const readinessRequiredFieldCount = setupFormSchema.inputGroups.reduce(
+      (count, group) =>
+        count + group.fields.filter((field) => field.required).length,
+      0,
+    );
+    const readinessReviewSummary = {
+      statusLabel: setupContract.displaySummary.statusLabel,
+      status: setupContract.reviewStatus,
+      previewOnly: true,
+      activationAllowed: false,
+      externalActionsAllowed: false,
+      validationIssueCount: 0,
+      missingInputCount: readinessRequiredFieldCount,
+      invalidInputCount: 0,
+      requiredActionCount: setupContract.requiredActionKeys.length,
+      recommendedActionCount: setupContract.recommendedActionKeys.length,
+      blockers: [
+        ...blockers,
+        'persistence:not-enabled',
+        'schedule-execution:not-enabled',
+        'credential-storage:not-enabled',
+        'restore-execution:not-enabled',
+        'external-cloud-writes:not-enabled',
+      ],
+      nextActions: [
+        ...setupContract.requiredActionKeys.map((actionKey, index) => ({
+          actionKey,
+          actionOrder: index + 1,
+          actionStatus: 'required-before-persistence',
+          reason: 'readiness-summary-before-preview-submit',
+          missingInputKeys: [],
+          invalidInputKeys: [],
+        })),
+        ...setupContract.recommendedActionKeys.map((actionKey, index) => ({
+          actionKey,
+          actionOrder: setupContract.requiredActionKeys.length + index + 1,
+          actionStatus: 'recommended-for-review',
+          reason: 'operator-review-before-persistence',
+          missingInputKeys: [],
+          invalidInputKeys: [],
+        })),
+      ],
+      decisionSummary: {
+        configuredCount: 0,
+        unresolvedCount: setupContract.requiredActionKeys.length,
+        deferredCount: 0,
+      },
+      inputSummary: {
+        requiredCount: readinessRequiredFieldCount,
+        providedCount: 0,
+        missingInputKeys: setupFormSchema.inputGroups.flatMap((group) =>
+          group.fields
+            .filter((field) => field.required)
+            .map((field) => field.key),
+        ),
+        invalidInputKeys: [],
+      },
+      persistenceAllowed: false,
+      schedulePersistenceAllowed: false,
+      restoreExecutionAllowed: false,
+      credentialStorageAllowed: false,
+      externalCloudWritesAllowed: false,
+      safety: {
+        persistenceAllowed: false,
+        schedulePersistenceAllowed: false,
+        restoreExecutionAllowed: false,
+        credentialStorageAllowed: false,
+        externalCloudWritesAllowed: false,
+      },
+    };
     const setupIntent = {
       intentVersion: 'backup-center-setup-intent.v1',
       sourceContractVersion: setupContract.contractVersion,
@@ -779,6 +849,7 @@ export class InfrastructureProfileService {
       },
       persistenceDesignLock,
       persistencePrerequisiteReview,
+      readinessReviewSummary,
       formSchema: setupFormSchema,
     };
 
