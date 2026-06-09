@@ -1085,6 +1085,38 @@ export class InfrastructureProfileService {
           'restore-approval-owner:missing',
         ],
       },
+      previewUnblockPlan: {
+        planVersion: 'backup-center-preview-unblock-plan.v1',
+        status: 'ready-for-operator-evidence-collection',
+        firstActionKey: 'validated-backup-target-preview',
+        stepCount: 3,
+        completedStepCount: 0,
+        remainingStepCount: 3,
+        steps: [
+          {
+            key: 'validated-backup-target-preview',
+            label: 'Validate backup target preview',
+            status: 'pending',
+            sourceStep: 'fill-preview-only-setup-form',
+            unblocks: 'preview-submission-target-evidence',
+          },
+          {
+            key: 'policy-scope-selection',
+            label: 'Confirm backup policy scope',
+            status: 'pending',
+            sourceStep: 'review-readiness-summary',
+            unblocks: 'preview-submission-policy-evidence',
+          },
+          {
+            key: 'restore-approval-owner',
+            label: 'Assign restore approval owner',
+            status: 'pending',
+            sourceStep: 'restore-approval-review',
+            unblocks: 'preview-submission-approval-evidence',
+          },
+        ],
+        finalAction: 'submit-preview-only-backup-setup-review',
+      },
       gates: activationGates,
       nextSafeAction:
         'complete-preview-review-before-opening-prisma-or-migration-work',

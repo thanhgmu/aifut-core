@@ -255,6 +255,22 @@ type BackupSetupActivationChecklist = {
     missingEvidenceCount?: number;
     blockedReasons?: string[];
   };
+  previewUnblockPlan?: {
+    planVersion?: string;
+    status?: string;
+    firstActionKey?: string;
+    stepCount?: number;
+    completedStepCount?: number;
+    remainingStepCount?: number;
+    steps?: Array<{
+      key?: string;
+      label?: string;
+      status?: string;
+      sourceStep?: string;
+      unblocks?: string;
+    }>;
+    finalAction?: string;
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -905,6 +921,7 @@ function ActivationChecklistReadout({
   const previewReviewPacket = activationChecklist.previewReviewPacket;
   const previewSubmissionReadiness =
     activationChecklist.previewSubmissionReadiness;
+  const previewUnblockPlan = activationChecklist.previewUnblockPlan;
 
   return (
     <div
@@ -1165,6 +1182,39 @@ function ActivationChecklistReadout({
             Blocked by:{" "}
             {(previewSubmissionReadiness.blockedReasons ?? []).join(", ") ||
               "not reported"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewUnblockPlan ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview unblock plan
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewUnblockPlan.status ??
+              "ready-for-operator-evidence-collection"}{" "}
+            / next {previewUnblockPlan.firstActionKey ?? "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Steps: {previewUnblockPlan.completedStepCount ?? 0} done /{" "}
+            {previewUnblockPlan.remainingStepCount ?? 0} remaining /{" "}
+            {previewUnblockPlan.stepCount ?? 0} total
+          </div>
+          {(previewUnblockPlan.steps ?? []).slice(0, 3).map((step) => (
+            <div
+              key={step.key ?? step.label}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {step.label ?? step.key ?? "unblock step"} /{" "}
+              {step.status ?? "pending"} /{" "}
+              {step.sourceStep ?? "preview-review"}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Final:{" "}
+            {previewUnblockPlan.finalAction ??
+              "submit-preview-only-backup-setup-review"}
           </div>
         </div>
       ) : null}
