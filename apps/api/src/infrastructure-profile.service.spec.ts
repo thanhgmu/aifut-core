@@ -627,6 +627,24 @@ describe('InfrastructureProfileService', () => {
             'no-external-cloud-write-without-target-ownership-review',
           ],
         },
+        operatorReadinessDigest: {
+          digestVersion: 'backup-center-operator-readiness-digest.v1',
+          status: 'preview-ready-activation-blocked',
+          operatorState: 'ready-to-preview-not-ready-to-activate',
+          nextOperatorAction: 'submit-preview-only-backup-setup-review',
+          currentActivationRisk: 'high',
+          customerRiskLevel: 'contained',
+          readyGateCount: 0,
+          pendingGateCount: 1,
+          blockedGateCount: 6,
+          evidenceRequiredCount: 3,
+          disabledOperationCount: 6,
+          summaryPoints: [
+            'operator-preview-is-the-next-safe-step',
+            'activation-remains-blocked-before-persistence-review',
+            'customer-impact-is-contained-while-actions-stay-preview-only',
+          ],
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',

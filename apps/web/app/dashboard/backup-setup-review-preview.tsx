@@ -201,6 +201,20 @@ type BackupSetupActivationChecklist = {
     expectedBenefitAfterActivation?: string;
     protections?: string[];
   };
+  operatorReadinessDigest?: {
+    digestVersion?: string;
+    status?: string;
+    operatorState?: string;
+    nextOperatorAction?: string;
+    currentActivationRisk?: string;
+    customerRiskLevel?: string;
+    readyGateCount?: number;
+    pendingGateCount?: number;
+    blockedGateCount?: number;
+    evidenceRequiredCount?: number;
+    disabledOperationCount?: number;
+    summaryPoints?: string[];
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -845,6 +859,8 @@ function ActivationChecklistReadout({
   const phaseSummary = activationChecklist.phaseSummary ?? [];
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
+  const operatorReadinessDigest =
+    activationChecklist.operatorReadinessDigest;
 
   return (
     <div
@@ -1000,6 +1016,33 @@ function ActivationChecklistReadout({
             Protections:{" "}
             {(customerImpactPreview.protections ?? []).join(", ") ||
               "not reported"}
+          </div>
+        </div>
+      ) : null}
+
+      {operatorReadinessDigest ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Operator readiness digest
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {operatorReadinessDigest.status ??
+              "preview-ready-activation-blocked"}{" "}
+            /{" "}
+            {operatorReadinessDigest.operatorState ??
+              "ready-to-preview-not-ready-to-activate"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {operatorReadinessDigest.nextOperatorAction ??
+              "submit-preview-only-backup-setup-review"}{" "}
+            / risk{" "}
+            {operatorReadinessDigest.currentActivationRisk ?? "high"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Gates: {operatorReadinessDigest.blockedGateCount ?? 0} blocked /{" "}
+            {operatorReadinessDigest.pendingGateCount ?? 0} pending /{" "}
+            {operatorReadinessDigest.readyGateCount ?? 0} ready
           </div>
         </div>
       ) : null}
