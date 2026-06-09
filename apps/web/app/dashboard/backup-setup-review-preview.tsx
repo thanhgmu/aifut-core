@@ -243,6 +243,18 @@ type BackupSetupActivationChecklist = {
       sourceVersion?: string;
     }>;
   };
+  previewSubmissionReadiness?: {
+    readinessVersion?: string;
+    status?: string;
+    previewOnly?: boolean;
+    submissionAllowed?: boolean;
+    nextSubmissionAction?: string;
+    readyPacketItemCount?: number;
+    missingPacketItemCount?: number;
+    requiredEvidenceCount?: number;
+    missingEvidenceCount?: number;
+    blockedReasons?: string[];
+  };
   gates?: Array<{
     key?: string;
     label?: string;
@@ -891,6 +903,8 @@ function ActivationChecklistReadout({
     activationChecklist.operatorReadinessDigest;
   const evidenceChecklist = activationChecklist.evidenceChecklist;
   const previewReviewPacket = activationChecklist.previewReviewPacket;
+  const previewSubmissionReadiness =
+    activationChecklist.previewSubmissionReadiness;
 
   return (
     <div
@@ -1118,6 +1132,39 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Items: {previewReviewPacket.readyPacketItemCount ?? 0} ready /{" "}
             {previewReviewPacket.requiredPacketItemCount ?? 0} required
+          </div>
+        </div>
+      ) : null}
+
+      {previewSubmissionReadiness ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview submission readiness
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewSubmissionReadiness.status ??
+              "blocked-pending-preview-evidence"}{" "}
+            / submission{" "}
+            {formatOptionalAllowed(
+              previewSubmissionReadiness.submissionAllowed,
+            )}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewSubmissionReadiness.nextSubmissionAction ??
+              "collect-preview-evidence-before-submission"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Packet: {previewSubmissionReadiness.readyPacketItemCount ?? 0}{" "}
+            ready / {previewSubmissionReadiness.missingPacketItemCount ?? 0}{" "}
+            missing; evidence:{" "}
+            {previewSubmissionReadiness.missingEvidenceCount ?? 0} missing /{" "}
+            {previewSubmissionReadiness.requiredEvidenceCount ?? 0} required
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Blocked by:{" "}
+            {(previewSubmissionReadiness.blockedReasons ?? []).join(", ") ||
+              "not reported"}
           </div>
         </div>
       ) : null}

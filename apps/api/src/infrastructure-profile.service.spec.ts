@@ -704,6 +704,22 @@ describe('InfrastructureProfileService', () => {
             },
           ],
         },
+        previewSubmissionReadiness: {
+          readinessVersion: 'backup-center-preview-submission-readiness.v1',
+          status: 'blocked-pending-preview-evidence',
+          previewOnly: true,
+          submissionAllowed: false,
+          nextSubmissionAction: 'collect-preview-evidence-before-submission',
+          readyPacketItemCount: 1,
+          missingPacketItemCount: 3,
+          requiredEvidenceCount: 3,
+          missingEvidenceCount: 3,
+          blockedReasons: [
+            'validated-backup-target-preview:missing',
+            'policy-scope-selection:missing',
+            'restore-approval-owner:missing',
+          ],
+        },
         gates: expect.arrayContaining([
           expect.objectContaining({
             key: 'operator-input-preview',
