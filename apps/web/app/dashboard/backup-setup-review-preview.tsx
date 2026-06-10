@@ -299,6 +299,22 @@ type BackupSetupActivationChecklist = {
     }>;
     nextReviewAction?: string;
   };
+  previewEvidenceTraceability?: {
+    traceabilityVersion?: string;
+    status?: string;
+    itemCount?: number;
+    rows?: Array<{
+      evidenceKey?: string;
+      sourceStep?: string;
+      expectedFormat?: string;
+      reviewCheckKey?: string;
+      reviewCheckLabel?: string;
+      requiredSignal?: string;
+      packetItemKey?: string;
+      blockedReason?: string;
+    }>;
+    nextTraceAction?: string;
+  };
   previewSubmissionDecisionSummary?: {
     summaryVersion?: string;
     decision?: string;
@@ -965,6 +981,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewEvidenceCaptureGuide;
   const previewEvidenceReviewRubric =
     activationChecklist.previewEvidenceReviewRubric;
+  const previewEvidenceTraceability =
+    activationChecklist.previewEvidenceTraceability;
   const previewSubmissionDecisionSummary =
     activationChecklist.previewSubmissionDecisionSummary;
 
@@ -1319,6 +1337,35 @@ function ActivationChecklistReadout({
             Next:{" "}
             {previewEvidenceReviewRubric.nextReviewAction ??
               "review-preview-evidence-before-submission"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewEvidenceTraceability ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Preview evidence traceability
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewEvidenceTraceability.status ??
+              "pending-preview-evidence-linkage"}{" "}
+            / {previewEvidenceTraceability.itemCount ?? 0} items
+          </div>
+          {(previewEvidenceTraceability.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.evidenceKey ?? row.reviewCheckKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.evidenceKey ?? "evidence"} {"->"}{" "}
+              {row.reviewCheckLabel ?? row.reviewCheckKey ?? "review check"}{" "}
+              {"->"}{" "}
+              {row.blockedReason ?? "submission blocker"}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewEvidenceTraceability.nextTraceAction ??
+              "link-preview-evidence-to-review-checks-before-submission"}
           </div>
         </div>
       ) : null}

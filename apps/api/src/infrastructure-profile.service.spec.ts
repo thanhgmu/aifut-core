@@ -814,6 +814,46 @@ describe('InfrastructureProfileService', () => {
           ],
           nextReviewAction: 'review-preview-evidence-before-submission',
         },
+        previewEvidenceTraceability: {
+          traceabilityVersion: 'backup-center-preview-evidence-traceability.v1',
+          status: 'pending-preview-evidence-linkage',
+          itemCount: 3,
+          rows: [
+            {
+              evidenceKey: 'validated-backup-target-preview',
+              sourceStep: 'fill-preview-only-setup-form',
+              expectedFormat:
+                'target-type + destination + owner-confirmation',
+              reviewCheckKey: 'target-ownership-confirmed',
+              reviewCheckLabel: 'Target ownership confirmed',
+              requiredSignal: 'owner-confirmation-present',
+              packetItemKey: 'validated-backup-target-preview',
+              blockedReason: 'validated-backup-target-preview:missing',
+            },
+            {
+              evidenceKey: 'policy-scope-selection',
+              sourceStep: 'review-readiness-summary',
+              expectedFormat: 'scope-key + reason',
+              reviewCheckKey: 'backup-scope-clear',
+              reviewCheckLabel: 'Backup scope is clear',
+              requiredSignal: 'scope-key-and-reason-present',
+              packetItemKey: 'policy-scope-selection',
+              blockedReason: 'policy-scope-selection:missing',
+            },
+            {
+              evidenceKey: 'restore-approval-owner',
+              sourceStep: 'restore-approval-review',
+              expectedFormat: 'owner-role + approval-channel',
+              reviewCheckKey: 'restore-approval-accountable',
+              reviewCheckLabel: 'Restore approval owner is accountable',
+              requiredSignal: 'owner-role-and-channel-present',
+              packetItemKey: 'restore-approval-owner',
+              blockedReason: 'restore-approval-owner:missing',
+            },
+          ],
+          nextTraceAction:
+            'link-preview-evidence-to-review-checks-before-submission',
+        },
         previewSubmissionDecisionSummary: {
           summaryVersion:
             'backup-center-preview-submission-decision-summary.v1',
