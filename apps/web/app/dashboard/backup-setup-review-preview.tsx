@@ -201,6 +201,24 @@ type BackupSetupActivationChecklist = {
     }>;
     nextPriorityAction?: string;
   };
+  submissionImpactForecast?: {
+    forecastVersion?: string;
+    status?: string;
+    currentMissingEvidenceCount?: number;
+    currentPendingReviewCheckCount?: number;
+    currentBlockedReasonCount?: number;
+    sequence?: Array<{
+      actionKey?: string;
+      rank?: number;
+      clearedEvidenceKey?: string;
+      projectedMissingEvidenceCount?: number;
+      projectedPendingReviewCheckCount?: number;
+      projectedBlockedReasonCount?: number;
+      projectedSubmissionAllowed?: boolean;
+    }>;
+    forecastNote?: string;
+    nextForecastAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -997,6 +1015,8 @@ function ActivationChecklistReadout({
   const phaseBlockerMatrix = activationChecklist.phaseBlockerMatrix ?? [];
   const operatorActionPriority =
     activationChecklist.operatorActionPriority;
+  const submissionImpactForecast =
+    activationChecklist.submissionImpactForecast;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1163,6 +1183,36 @@ function ActivationChecklistReadout({
             Next:{" "}
             {operatorActionPriority.nextPriorityAction ??
               "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {submissionImpactForecast ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Submission impact forecast
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {submissionImpactForecast.status ??
+              "projected-preview-unblock-sequence"}{" "}
+            / next{" "}
+            {submissionImpactForecast.nextForecastAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          {(submissionImpactForecast.sequence ?? []).slice(0, 3).map((step) => (
+            <div
+              key={step.actionKey ?? String(step.rank)}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              #{step.rank ?? "?"} {step.actionKey ?? "operator-action"} / missing{" "}
+              {step.projectedMissingEvidenceCount ?? 0} / checks{" "}
+              {step.projectedPendingReviewCheckCount ?? 0} / submit{" "}
+              {formatOptionalAllowed(step.projectedSubmissionAllowed)}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            {submissionImpactForecast.forecastNote ??
+              "Projection assumes each ranked preview action records its linked evidence and satisfies the matching review signal."}
           </div>
         </div>
       ) : null}
