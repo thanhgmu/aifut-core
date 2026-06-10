@@ -184,6 +184,23 @@ type BackupSetupActivationChecklist = {
     pendingReviewCheckCount?: number;
     nextAction?: string;
   }>;
+  operatorActionPriority?: {
+    priorityVersion?: string;
+    status?: string;
+    prioritizationRule?: string;
+    recommendedFirstAction?: string;
+    actions?: Array<{
+      actionKey?: string;
+      rank?: number;
+      priorityReason?: string;
+      clearsEvidenceKeys?: string[];
+      clearsReviewCheckKeys?: string[];
+      clearsBlockedReasons?: string[];
+      affectsPhaseKeys?: string[];
+      blockedSignalCount?: number;
+    }>;
+    nextPriorityAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -978,6 +995,8 @@ function ActivationChecklistReadout({
   const gateSummary = activationChecklist.gateSummary;
   const phaseSummary = activationChecklist.phaseSummary ?? [];
   const phaseBlockerMatrix = activationChecklist.phaseBlockerMatrix ?? [];
+  const operatorActionPriority =
+    activationChecklist.operatorActionPriority;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1112,6 +1131,39 @@ function ActivationChecklistReadout({
                 : ""}
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {operatorActionPriority ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Operator action priority
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {operatorActionPriority.status ?? "preview-action-queue-ready"} / first{" "}
+            {operatorActionPriority.recommendedFirstAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          {(operatorActionPriority.actions ?? []).slice(0, 3).map((action) => (
+            <div
+              key={action.actionKey ?? String(action.rank)}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              #{action.rank ?? "?"} {action.actionKey ?? "operator-action"} / clears{" "}
+              {action.blockedSignalCount ?? 0} signals
+              {action.clearsEvidenceKeys?.length
+                ? ` / evidence ${action.clearsEvidenceKeys.join(", ")}`
+                : ""}
+              {action.clearsReviewCheckKeys?.length
+                ? ` / checks ${action.clearsReviewCheckKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {operatorActionPriority.nextPriorityAction ??
+              "fill-preview-only-setup-form"}
+          </div>
         </div>
       ) : null}
 
