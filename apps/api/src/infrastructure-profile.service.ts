@@ -1053,6 +1053,67 @@ export class InfrastructureProfileService {
           'Projection assumes each ranked preview action records its linked evidence and satisfies the matching review signal.',
         nextForecastAction: 'fill-preview-only-setup-form',
       },
+      previewSubmissionUnlockMatrix: {
+        matrixVersion: 'backup-center-preview-submission-unlock-matrix.v1',
+        status: 'preview-submission-unlocks-pending',
+        unlockCount: 3,
+        unlockedCount: 0,
+        rows: [
+          {
+            unlockKey: 'all-preview-evidence-recorded',
+            label: 'All preview evidence recorded',
+            status: 'blocked',
+            remainingCount: 3,
+            evidenceKeys: [
+              'validated-backup-target-preview',
+              'policy-scope-selection',
+              'restore-approval-owner',
+            ],
+            blockedReasons: [
+              'validated-backup-target-preview:missing',
+              'policy-scope-selection:missing',
+              'restore-approval-owner:missing',
+            ],
+            nextAction: 'record-preview-evidence-before-submission',
+          },
+          {
+            unlockKey: 'all-preview-evidence-checks-passed',
+            label: 'All preview evidence checks passed',
+            status: 'blocked',
+            remainingCount: 3,
+            reviewCheckKeys: [
+              'target-ownership-confirmed',
+              'backup-scope-clear',
+              'restore-approval-accountable',
+            ],
+            requiredSignals: [
+              'owner-confirmation-present',
+              'scope-key-and-reason-present',
+              'owner-role-and-channel-present',
+            ],
+            nextAction: 'review-preview-evidence-before-submission',
+          },
+          {
+            unlockKey: 'preview-review-packet-complete',
+            label: 'Preview review packet complete',
+            status: 'blocked',
+            remainingCount: 3,
+            packetItemKeys: [
+              'operator-readiness-digest',
+              'validated-backup-target-preview',
+              'policy-scope-selection',
+              'restore-approval-owner',
+            ],
+            missingPacketItemKeys: [
+              'validated-backup-target-preview',
+              'policy-scope-selection',
+              'restore-approval-owner',
+            ],
+            nextAction: 'assemble-preview-review-packet-before-submission',
+          },
+        ],
+        nextUnlockAction: 'record-preview-evidence-before-submission',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',

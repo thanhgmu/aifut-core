@@ -219,6 +219,26 @@ type BackupSetupActivationChecklist = {
     forecastNote?: string;
     nextForecastAction?: string;
   };
+  previewSubmissionUnlockMatrix?: {
+    matrixVersion?: string;
+    status?: string;
+    unlockCount?: number;
+    unlockedCount?: number;
+    rows?: Array<{
+      unlockKey?: string;
+      label?: string;
+      status?: string;
+      remainingCount?: number;
+      evidenceKeys?: string[];
+      reviewCheckKeys?: string[];
+      requiredSignals?: string[];
+      packetItemKeys?: string[];
+      missingPacketItemKeys?: string[];
+      blockedReasons?: string[];
+      nextAction?: string;
+    }>;
+    nextUnlockAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1017,6 +1037,8 @@ function ActivationChecklistReadout({
     activationChecklist.operatorActionPriority;
   const submissionImpactForecast =
     activationChecklist.submissionImpactForecast;
+  const previewSubmissionUnlockMatrix =
+    activationChecklist.previewSubmissionUnlockMatrix;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1213,6 +1235,43 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             {submissionImpactForecast.forecastNote ??
               "Projection assumes each ranked preview action records its linked evidence and satisfies the matching review signal."}
+          </div>
+        </div>
+      ) : null}
+
+      {previewSubmissionUnlockMatrix ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Submission unlock matrix
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewSubmissionUnlockMatrix.status ??
+              "preview-submission-unlocks-pending"}{" "}
+            / {previewSubmissionUnlockMatrix.unlockedCount ?? 0} of{" "}
+            {previewSubmissionUnlockMatrix.unlockCount ?? 0} unlocked
+          </div>
+          {(previewSubmissionUnlockMatrix.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.unlockKey ?? row.label}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.label ?? row.unlockKey ?? "unlock condition"} /{" "}
+              {row.status ?? "blocked"} / remaining {row.remainingCount ?? 0}
+              {row.evidenceKeys?.length
+                ? ` / evidence ${row.evidenceKeys.join(", ")}`
+                : ""}
+              {row.reviewCheckKeys?.length
+                ? ` / checks ${row.reviewCheckKeys.join(", ")}`
+                : ""}
+              {row.missingPacketItemKeys?.length
+                ? ` / missing packet ${row.missingPacketItemKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewSubmissionUnlockMatrix.nextUnlockAction ??
+              "record-preview-evidence-before-submission"}
           </div>
         </div>
       ) : null}
