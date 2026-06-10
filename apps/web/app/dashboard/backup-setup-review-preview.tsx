@@ -267,6 +267,20 @@ type BackupSetupActivationChecklist = {
     }>;
     nextProgressionAction?: string;
   };
+  previewEvidenceUnlockDependencies?: {
+    dependencyVersion?: string;
+    status?: string;
+    itemCount?: number;
+    rows?: Array<{
+      evidenceKey?: string;
+      actionKey?: string;
+      reviewCheckKey?: string;
+      packetItemKey?: string;
+      unlockKeys?: string[];
+      dependencyCount?: number;
+    }>;
+    nextDependencyAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1071,6 +1085,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewActionUnlockCoverage;
   const previewUnlockProgression =
     activationChecklist.previewUnlockProgression;
+  const previewEvidenceUnlockDependencies =
+    activationChecklist.previewEvidenceUnlockDependencies;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1370,6 +1386,37 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewUnlockProgression.nextProgressionAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewEvidenceUnlockDependencies ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Evidence unlock dependencies
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewEvidenceUnlockDependencies.status ??
+              "evidence-linked-to-unlock-conditions"}{" "}
+            / items {previewEvidenceUnlockDependencies.itemCount ?? 0}
+          </div>
+          {(previewEvidenceUnlockDependencies.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.evidenceKey ?? row.reviewCheckKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.evidenceKey ?? "evidence"} / action{" "}
+              {row.actionKey ?? "operator-action"} / links{" "}
+              {row.dependencyCount ?? 0}
+              {row.unlockKeys?.length
+                ? ` / unlocks ${row.unlockKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewEvidenceUnlockDependencies.nextDependencyAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

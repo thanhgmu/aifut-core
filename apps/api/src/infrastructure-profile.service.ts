@@ -1194,6 +1194,50 @@ export class InfrastructureProfileService {
         ],
         nextProgressionAction: 'fill-preview-only-setup-form',
       },
+      previewEvidenceUnlockDependencies: {
+        dependencyVersion: 'backup-center-preview-evidence-unlock-dependencies.v1',
+        status: 'evidence-linked-to-unlock-conditions',
+        itemCount: 3,
+        rows: [
+          {
+            evidenceKey: 'validated-backup-target-preview',
+            actionKey: 'fill-preview-only-setup-form',
+            reviewCheckKey: 'target-ownership-confirmed',
+            packetItemKey: 'validated-backup-target-preview',
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+          {
+            evidenceKey: 'policy-scope-selection',
+            actionKey: 'review-readiness-summary',
+            reviewCheckKey: 'backup-scope-clear',
+            packetItemKey: 'policy-scope-selection',
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+          {
+            evidenceKey: 'restore-approval-owner',
+            actionKey: 'restore-approval-review',
+            reviewCheckKey: 'restore-approval-accountable',
+            packetItemKey: 'restore-approval-owner',
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+        ],
+        nextDependencyAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',
