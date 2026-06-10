@@ -239,6 +239,21 @@ type BackupSetupActivationChecklist = {
     }>;
     nextUnlockAction?: string;
   };
+  previewActionUnlockCoverage?: {
+    coverageVersion?: string;
+    status?: string;
+    recommendedAction?: string;
+    actions?: Array<{
+      actionKey?: string;
+      rank?: number;
+      unlockKeys?: string[];
+      advancesEvidenceKeys?: string[];
+      advancesReviewCheckKeys?: string[];
+      clearsPacketItemKeys?: string[];
+      unlockSignalCount?: number;
+    }>;
+    nextCoverageAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1039,6 +1054,8 @@ function ActivationChecklistReadout({
     activationChecklist.submissionImpactForecast;
   const previewSubmissionUnlockMatrix =
     activationChecklist.previewSubmissionUnlockMatrix;
+  const previewActionUnlockCoverage =
+    activationChecklist.previewActionUnlockCoverage;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1272,6 +1289,41 @@ function ActivationChecklistReadout({
             Next:{" "}
             {previewSubmissionUnlockMatrix.nextUnlockAction ??
               "record-preview-evidence-before-submission"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewActionUnlockCoverage ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Action unlock coverage
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewActionUnlockCoverage.status ??
+              "preview-actions-linked-to-unlocks"}{" "}
+            / next{" "}
+            {previewActionUnlockCoverage.recommendedAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          {(previewActionUnlockCoverage.actions ?? []).slice(0, 3).map((action) => (
+            <div
+              key={action.actionKey ?? String(action.rank)}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              #{action.rank ?? "?"} {action.actionKey ?? "operator-action"} / unlocks{" "}
+              {action.unlockSignalCount ?? 0} signals
+              {action.unlockKeys?.length
+                ? ` / conditions ${action.unlockKeys.join(", ")}`
+                : ""}
+              {action.advancesEvidenceKeys?.length
+                ? ` / evidence ${action.advancesEvidenceKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewActionUnlockCoverage.nextCoverageAction ??
+              "fill-preview-only-setup-form"}
           </div>
         </div>
       ) : null}
