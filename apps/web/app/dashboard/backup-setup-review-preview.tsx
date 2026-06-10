@@ -175,6 +175,15 @@ type BackupSetupActivationChecklist = {
     pendingGateCount?: number;
     readyGateCount?: number;
   }>;
+  phaseBlockerMatrix?: Array<{
+    phaseKey?: string;
+    title?: string;
+    blockerType?: string;
+    blockingGateKeys?: string[];
+    blockingEvidenceKeys?: string[];
+    pendingReviewCheckCount?: number;
+    nextAction?: string;
+  }>;
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -968,6 +977,7 @@ function ActivationChecklistReadout({
   const gates = activationChecklist.gates ?? [];
   const gateSummary = activationChecklist.gateSummary;
   const phaseSummary = activationChecklist.phaseSummary ?? [];
+  const phaseBlockerMatrix = activationChecklist.phaseBlockerMatrix ?? [];
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1076,6 +1086,30 @@ function ActivationChecklistReadout({
               {phase.status ?? "blocked"} / next{" "}
               {phase.nextGateKey ?? "not reported"}
               {` / ${phase.blockedGateCount ?? 0} blocked / ${phase.pendingGateCount ?? 0} pending / ${phase.readyGateCount ?? 0} ready`}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {phaseBlockerMatrix.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Phase blocker matrix
+          </div>
+          {phaseBlockerMatrix.slice(0, 4).map((phase) => (
+            <div
+              key={phase.phaseKey ?? phase.title}
+              style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}
+            >
+              {phase.title ?? phase.phaseKey ?? "activation phase"} /{" "}
+              {phase.blockerType ?? "blocked"} / next{" "}
+              {phase.nextAction ?? "not reported"}
+              {phase.blockingEvidenceKeys?.length
+                ? ` / evidence ${phase.blockingEvidenceKeys.join(", ")}`
+                : ""}
+              {phase.blockingGateKeys?.length
+                ? ` / gates ${phase.blockingGateKeys.join(", ")}`
+                : ""}
             </div>
           ))}
         </div>

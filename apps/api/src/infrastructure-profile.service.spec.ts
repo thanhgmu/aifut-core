@@ -570,6 +570,57 @@ describe('InfrastructureProfileService', () => {
             readyGateCount: 0,
           },
         ],
+        phaseBlockerMatrix: [
+          {
+            phaseKey: 'preview-review',
+            title: 'Preview review',
+            blockerType: 'preview-evidence-pending',
+            blockingGateKeys: ['operator-input-preview'],
+            blockingEvidenceKeys: [
+              'validated-backup-target-preview',
+              'policy-scope-selection',
+              'restore-approval-owner',
+            ],
+            pendingReviewCheckCount: 3,
+            nextAction: 'record-preview-evidence-before-submission',
+          },
+          {
+            phaseKey: 'persistence-foundation',
+            title: 'Persistence foundation',
+            blockerType: 'write-zone-review-required',
+            blockingGateKeys: ['prisma-schema-review', 'migration-review'],
+            blockingEvidenceKeys: [],
+            pendingReviewCheckCount: 0,
+            nextAction:
+              'complete-preview-review-before-opening-prisma-or-migration-work',
+          },
+          {
+            phaseKey: 'automation-boundaries',
+            title: 'Automation boundaries',
+            blockerType: 'automation-boundary-review-required',
+            blockingGateKeys: [
+              'schedule-worker-contract',
+              'credential-boundary',
+            ],
+            blockingEvidenceKeys: [],
+            pendingReviewCheckCount: 0,
+            nextAction:
+              'complete-preview-review-before-opening-schedule-or-credential-work',
+          },
+          {
+            phaseKey: 'restore-and-external-writes',
+            title: 'Restore and external writes',
+            blockerType: 'approval-boundary-review-required',
+            blockingGateKeys: [
+              'restore-approval-flow',
+              'external-write-approval',
+            ],
+            blockingEvidenceKeys: [],
+            pendingReviewCheckCount: 0,
+            nextAction:
+              'complete-preview-review-before-opening-restore-or-external-write-work',
+          },
+        ],
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',

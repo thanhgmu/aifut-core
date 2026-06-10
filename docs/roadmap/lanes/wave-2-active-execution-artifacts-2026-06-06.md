@@ -70,6 +70,7 @@ This note turns the current Wave 2 lane plan into the concrete execution state M
 
 ### lane/backup-center-foundation
 
+- Current artifact: `docs/roadmap/lanes/lane-backup-center-foundation-kickoff.md`
 - Current code checkpoint: `GET /integrations/backup-readiness`.
 - Customer-facing purpose: show a user/admin whether database, workflow, skill, plugin, add-on, config, and app-specific backup coverage is ready before relying on the operating system.
 - Next smallest safe slice: add persisted backup schedule/config primitives only after confirming no Prisma/shared-policy collision, or expose a UI-readable setup contract first if persistence should wait.
@@ -93,3 +94,18 @@ For runtime-facing follow-up:
 - full API Jest when backend behavior changes
 - local runtime verifier
 - live API/Web endpoint proof
+
+## 2026-06-10 update
+
+- Backup-center lane remains the safest active lane because it keeps pushing user-facing operational clarity without opening Prisma/schema/migration/auth/storage write zones.
+- Kickoff artifact now exists for the lane: `docs/roadmap/lanes/lane-backup-center-foundation-kickoff.md`.
+- Current pushed HEAD after the latest checkpoint: `c31786a` (`feat(app): trace backup preview evidence blockers`).
+- Current live local runtime truth after the latest restart:
+  - PostgreSQL is listening on `5432`
+  - API `127.0.0.1:3002` is serving
+  - Web `127.0.0.1:3000` is serving
+- Latest code artifact already live:
+  - `activationChecklist.previewEvidenceTraceability`
+  - contract version `backup-center-preview-evidence-traceability.v1`
+- Next smallest safe slice from this updated state:
+  - expose a phase-aware blocker matrix so operators can see which evidence and gate families are keeping each activation phase blocked before any write-zone review starts.
