@@ -254,6 +254,19 @@ type BackupSetupActivationChecklist = {
     }>;
     nextCoverageAction?: string;
   };
+  previewUnlockProgression?: {
+    progressionVersion?: string;
+    status?: string;
+    currentBlockedUnlockCount?: number;
+    steps?: Array<{
+      actionKey?: string;
+      rank?: number;
+      remainingBlockedUnlockCount?: number;
+      clearedUnlockKeys?: string[];
+      resultingSubmissionAllowed?: boolean;
+    }>;
+    nextProgressionAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1056,6 +1069,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewSubmissionUnlockMatrix;
   const previewActionUnlockCoverage =
     activationChecklist.previewActionUnlockCoverage;
+  const previewUnlockProgression =
+    activationChecklist.previewUnlockProgression;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1323,6 +1338,38 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewActionUnlockCoverage.nextCoverageAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewUnlockProgression ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Unlock progression
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewUnlockProgression.status ??
+              "unlock-conditions-projected-across-ranked-actions"}{" "}
+            / blocked unlocks{" "}
+            {previewUnlockProgression.currentBlockedUnlockCount ?? 0}
+          </div>
+          {(previewUnlockProgression.steps ?? []).slice(0, 3).map((step) => (
+            <div
+              key={step.actionKey ?? String(step.rank)}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              #{step.rank ?? "?"} {step.actionKey ?? "operator-action"} / unlocks left{" "}
+              {step.remainingBlockedUnlockCount ?? 0} / submit{" "}
+              {formatOptionalAllowed(step.resultingSubmissionAllowed)}
+              {step.clearedUnlockKeys?.length
+                ? ` / clears ${step.clearedUnlockKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewUnlockProgression.nextProgressionAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

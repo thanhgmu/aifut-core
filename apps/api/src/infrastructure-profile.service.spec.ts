@@ -813,6 +813,39 @@ describe('InfrastructureProfileService', () => {
           ],
           nextCoverageAction: 'fill-preview-only-setup-form',
         },
+        previewUnlockProgression: {
+          progressionVersion: 'backup-center-preview-unlock-progression.v1',
+          status: 'unlock-conditions-projected-across-ranked-actions',
+          currentBlockedUnlockCount: 3,
+          steps: [
+            {
+              actionKey: 'fill-preview-only-setup-form',
+              rank: 1,
+              remainingBlockedUnlockCount: 3,
+              clearedUnlockKeys: [],
+              resultingSubmissionAllowed: false,
+            },
+            {
+              actionKey: 'review-readiness-summary',
+              rank: 2,
+              remainingBlockedUnlockCount: 3,
+              clearedUnlockKeys: [],
+              resultingSubmissionAllowed: false,
+            },
+            {
+              actionKey: 'restore-approval-review',
+              rank: 3,
+              remainingBlockedUnlockCount: 0,
+              clearedUnlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              resultingSubmissionAllowed: true,
+            },
+          ],
+          nextProgressionAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',
