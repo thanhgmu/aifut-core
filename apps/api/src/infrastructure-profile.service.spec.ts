@@ -2453,6 +2453,7 @@ describe('InfrastructureProfileService', () => {
         bundleFormat: 'zip',
         approvalRequiredFor: ['execute-now'],
         approverRole: 'owner',
+        unexpectedMode: 'persist-now',
       },
     });
 
@@ -2474,10 +2475,11 @@ describe('InfrastructureProfileService', () => {
             'bundleFormat',
             'approvalRequiredFor',
           ],
+          unknownInputKeys: ['unexpectedMode'],
         },
         reviewSummary: {
           statusLabel: 'Validation required',
-          validationIssueCount: 7,
+          validationIssueCount: 8,
           missingInputCount: 0,
           invalidInputCount: 6,
           requiredActionCount: 4,
@@ -2493,6 +2495,7 @@ describe('InfrastructureProfileService', () => {
           'retentionDays:below-minimum:1',
           'bundleFormat:option-not-allowed',
           'approvalRequiredFor:contains-option-not-allowed',
+          'input:unknown-field:unexpectedMode',
           'decision:not-allowed:persist-schedule',
         ]),
         fieldReviews: expect.arrayContaining([

@@ -2449,6 +2449,14 @@ export class InfrastructureProfileService {
     const values = params.values ?? {};
     const allowedDecisions = setupIntent.allowedDecisions;
     const requestedDecision = params.decision ?? setupIntent.defaultDecision;
+    const allowedInputKeys = new Set(
+      formSchema.inputGroups.flatMap((group) =>
+        group.fields.map((field) => field.key),
+      ),
+    );
+    const unknownInputKeys = Object.keys(values).filter(
+      (key) => !allowedInputKeys.has(key),
+    );
     const fieldReviews = formSchema.inputGroups.flatMap((group) =>
       group.fields.map((field) => {
         const value = values[field.key];
@@ -2472,6 +2480,7 @@ export class InfrastructureProfileService {
       : [`decision:not-allowed:${requestedDecision}`];
     const validationIssues = [
       ...fieldReviews.flatMap((review) => review.issues),
+      ...unknownInputKeys.map((key) => `input:unknown-field:${key}`),
       ...decisionIssues,
     ];
     const requiredFieldReviews = fieldReviews.filter((review) =>
@@ -2500,6 +2509,7 @@ export class InfrastructureProfileService {
       providedCount: requiredFieldReviews.length - missingInputKeys.length,
       missingInputKeys,
       invalidInputKeys,
+      unknownInputKeys,
     };
     const previewBlockers = [
       ...validationIssues,
