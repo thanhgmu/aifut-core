@@ -1,13 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE, AuthSession, fetchAuthMe, getStoredToken } from "../../lib/auth";
+import type { HealthResponse } from "../../lib/runtime-data";
+
+type WorkspaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  tenantId: string;
+};
 
 export default function FoundationPage() {
   const [token, setToken] = useState("");
   const [me, setMe] = useState<AuthSession | null>(null);
-  const [workspaces, setWorkspaces] = useState<any[] | null>(null);
-  const [health, setHealth] = useState<any>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -18,7 +27,7 @@ export default function FoundationPage() {
     const load = async () => {
       try {
         const healthRes = await fetch(`${API_BASE}/health`, { cache: "no-store" });
-        const healthJson = await healthRes.json();
+        const healthJson = (await healthRes.json()) as HealthResponse;
         setHealth(healthJson);
 
         if (!saved) {
@@ -36,15 +45,20 @@ export default function FoundationPage() {
           cache: "no-store",
         });
 
-        const workspaceJson = await workspaceRes.json();
+        const workspaceJson: unknown = await workspaceRes.json();
 
         if (!workspaceRes.ok) {
           throw new Error(
-            workspaceJson?.message || `workspaces failed (${workspaceRes.status})`,
+            getResponseMessage(workspaceJson) ??
+              `workspaces failed (${workspaceRes.status})`,
           );
         }
 
-        setWorkspaces(Array.isArray(workspaceJson) ? workspaceJson : []);
+        setWorkspaces(
+          Array.isArray(workspaceJson)
+            ? workspaceJson.filter(isWorkspaceSummary)
+            : [],
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load foundation data");
       } finally {
@@ -72,9 +86,9 @@ export default function FoundationPage() {
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <a href="/" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+        <Link href="/" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
           ← Back to home
-        </a>
+        </Link>
 
         <h1 style={{ fontSize: 42, margin: "18px 0 10px" }}>AIFUT Foundation</h1>
         <p style={{ color: "#c8d2ff", fontSize: 18, lineHeight: 1.7, maxWidth: 820 }}>
@@ -83,7 +97,7 @@ export default function FoundationPage() {
         </p>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 18 }}>
-          <a
+          <Link
             href="/login"
             style={{
               padding: "10px 14px",
@@ -95,9 +109,9 @@ export default function FoundationPage() {
             }}
           >
             Go to Login
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/session"
             style={{
               padding: "10px 14px",
@@ -109,9 +123,9 @@ export default function FoundationPage() {
             }}
           >
             View Session
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/foundation/demo-live"
             style={{
               padding: "10px 14px",
@@ -123,9 +137,9 @@ export default function FoundationPage() {
             }}
           >
             Open Live Demo
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/foundation/operator-preview"
             style={{
               padding: "10px 14px",
@@ -137,7 +151,7 @@ export default function FoundationPage() {
             }}
           >
             Operator Preview
-          </a>
+          </Link>
         </div>
 
         <div
@@ -214,7 +228,7 @@ export default function FoundationPage() {
                   gap: 16,
                 }}
               >
-                {workspaces.map((workspace: any) => (
+                {workspaces.map((workspace) => (
                   <div
                     key={workspace.id}
                     style={{
@@ -258,6 +272,31 @@ export default function FoundationPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function getResponseMessage(value: unknown): string | null {
+  if (!value || typeof value !== "object" || !("message" in value)) {
+    return null;
+  }
+
+  return typeof value.message === "string" ? value.message : null;
+}
+
+function isWorkspaceSummary(value: unknown): value is WorkspaceSummary {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  return (
+    "id" in value &&
+    typeof value.id === "string" &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    "slug" in value &&
+    typeof value.slug === "string" &&
+    "tenantId" in value &&
+    typeof value.tenantId === "string"
   );
 }
 

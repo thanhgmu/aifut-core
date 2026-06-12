@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
@@ -63,12 +64,12 @@ export default function SessionPage() {
       }}
     >
       <section style={{ maxWidth: 860, margin: "0 auto" }}>
-        <a
+        <Link
           href="/"
           style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}
         >
           ← Back to home
-        </a>
+        </Link>
 
         <h1 style={{ fontSize: 42, margin: "18px 0 10px" }}>Current Session</h1>
         <p style={{ color: "#c8d2ff", fontSize: 18, lineHeight: 1.7 }}>
