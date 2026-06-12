@@ -412,6 +412,21 @@ type BackupSetupActivationChecklist = {
     finalSequenceAction?: string;
     nextSequenceAction?: string;
   };
+  previewReviewClosureHandoff?: {
+    handoffVersion?: string;
+    status?: string;
+    handoffMode?: string;
+    submissionAction?: string;
+    submissionAllowed?: boolean;
+    requiredStepCount?: number;
+    completedStepCount?: number;
+    remainingStepCount?: number;
+    firstRequiredStepKey?: string;
+    firstRequiredAction?: string;
+    handoffBlockers?: string[];
+    readyWhen?: string[];
+    nextHandoffAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1234,6 +1249,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewDependencyClosure;
   const previewReviewClosureSequence =
     activationChecklist.previewReviewClosureSequence;
+  const previewReviewClosureHandoff =
+    activationChecklist.previewReviewClosureHandoff;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1822,6 +1839,41 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewClosureSequence.nextSequenceAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewClosureHandoff ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review closure handoff
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewClosureHandoff.status ??
+              "preview-review-closure-handoff-blocked"}{" "}
+            / submit{" "}
+            {formatOptionalAllowed(
+              previewReviewClosureHandoff.submissionAllowed,
+            )}{" "}
+            / remaining {previewReviewClosureHandoff.remainingStepCount ?? 0}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            First:{" "}
+            {previewReviewClosureHandoff.firstRequiredStepKey ??
+              "close-validated-backup-target-preview"}{" "}
+            / action{" "}
+            {previewReviewClosureHandoff.firstRequiredAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Blockers:{" "}
+            {(previewReviewClosureHandoff.handoffBlockers ?? []).join(", ") ||
+              "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewClosureHandoff.nextHandoffAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
