@@ -470,6 +470,24 @@ type BackupSetupActivationChecklist = {
     requiredBeforeAttempt?: string[];
     nextAttemptAction?: string;
   };
+  previewReviewSubmissionAttemptOutcome?: {
+    outcomeVersion?: string;
+    status?: string;
+    outcomeMode?: string;
+    attemptedAction?: string;
+    outcome?: string;
+    submissionRecorded?: boolean;
+    writeAttempted?: boolean;
+    safeToRetryAfterAction?: string;
+    operatorMessage?: string;
+    failedChecks?: Array<{
+      checkKey?: string;
+      status?: string;
+      blockingCount?: number;
+      nextAction?: string;
+    }>;
+    nextOutcomeAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1300,6 +1318,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionGateResolution;
   const previewReviewSubmissionAttempt =
     activationChecklist.previewReviewSubmissionAttempt;
+  const previewReviewSubmissionAttemptOutcome =
+    activationChecklist.previewReviewSubmissionAttemptOutcome;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2022,6 +2042,48 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionAttempt.nextAttemptAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionAttemptOutcome ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission attempt outcome
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionAttemptOutcome.status ??
+              "preview-review-submission-attempt-outcome-blocked"}{" "}
+            / result{" "}
+            {previewReviewSubmissionAttemptOutcome.outcome ?? "blocked"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Recorded:{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionAttemptOutcome.submissionRecorded,
+            )}{" "}
+            / writes{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionAttemptOutcome.writeAttempted,
+            )}
+          </div>
+          {(previewReviewSubmissionAttemptOutcome.failedChecks ?? [])
+            .slice(0, 3)
+            .map((check) => (
+              <div
+                key={check.checkKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {check.checkKey ?? "attempt-check"} /{" "}
+                {check.status ?? "blocked"} / blockers{" "}
+                {check.blockingCount ?? 0} / next{" "}
+                {check.nextAction ?? "fill-preview-only-setup-form"}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionAttemptOutcome.nextOutcomeAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

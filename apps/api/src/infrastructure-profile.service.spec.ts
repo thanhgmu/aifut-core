@@ -1443,6 +1443,40 @@ describe('InfrastructureProfileService', () => {
           ],
           nextAttemptAction: 'fill-preview-only-setup-form',
         },
+        previewReviewSubmissionAttemptOutcome: {
+          outcomeVersion:
+            'backup-center-preview-review-submission-attempt-outcome.v1',
+          status: 'preview-review-submission-attempt-outcome-blocked',
+          outcomeMode: 'dry-run-result-without-submission-write',
+          attemptedAction: 'submit-preview-only-backup-setup-review',
+          outcome: 'blocked',
+          submissionRecorded: false,
+          writeAttempted: false,
+          safeToRetryAfterAction: 'fill-preview-only-setup-form',
+          operatorMessage:
+            'Preview submission remains blocked until all gates, closure steps, and review packet requirements are complete.',
+          failedChecks: [
+            {
+              checkKey: 'submission-gates-resolved',
+              status: 'blocked',
+              blockingCount: 3,
+              nextAction: 'fill-preview-only-setup-form',
+            },
+            {
+              checkKey: 'closure-handoff-ready',
+              status: 'blocked',
+              blockingCount: 3,
+              nextAction: 'fill-preview-only-setup-form',
+            },
+            {
+              checkKey: 'review-packet-complete',
+              status: 'blocked',
+              blockingCount: 3,
+              nextAction: 'fill-preview-only-setup-form',
+            },
+          ],
+          nextOutcomeAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',
