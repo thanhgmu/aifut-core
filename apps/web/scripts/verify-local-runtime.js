@@ -28,6 +28,30 @@ async function readHtml(path) {
   return (await readResponse(webBase, path)).text();
 }
 
+async function verifyBackupPreviewRejection() {
+  const path = "/integrations/backup-setup-preview";
+  const expectedMessage = "Backup setup preview tenantSlug must be a string.";
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tenantSlug: 42, values: {} }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const payload = await response.json();
+
+  if (response.status !== 400) {
+    throw new Error(`${path} returned HTTP ${response.status}, expected 400`);
+  }
+
+  if (payload?.message !== expectedMessage) {
+    throw new Error(
+      `${path} returned ${JSON.stringify(payload?.message)}, expected ${JSON.stringify(expectedMessage)}`,
+    );
+  }
+
+  return { path, status: response.status, message: payload.message };
+}
+
 function requireText(html, path, text) {
   if (!html.includes(text)) {
     throw new Error(`${path} did not render ${JSON.stringify(text)}`);
@@ -53,11 +77,17 @@ function readMetric(html, title) {
 }
 
 async function main() {
-  const [interfacesResponse, contractsResponse, templatesResponse] =
+  const [
+    interfacesResponse,
+    contractsResponse,
+    templatesResponse,
+    backupPreviewRejection,
+  ] =
     await Promise.all([
       readJson("/connectors/adapter-interfaces"),
       readJson("/connectors/adapter-contracts"),
       readJson("/connectors/templates"),
+      verifyBackupPreviewRejection(),
     ]);
   const interfaces = interfacesResponse?.adapterInterfaces?.adapterInterfaces;
   const contractNext = contractsResponse?.adapterContracts?.next;
@@ -122,6 +152,7 @@ async function main() {
           interfaceCount: interfaces.length,
           templateCount: templates.length,
         },
+        backupPreviewRejection,
       },
       null,
       2,
