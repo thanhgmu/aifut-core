@@ -326,6 +326,20 @@ type BackupSetupActivationChecklist = {
     }>;
     nextSignalCoverageAction?: string;
   };
+  previewReviewFieldCoverage?: {
+    coverageVersion?: string;
+    status?: string;
+    fieldCount?: number;
+    rows?: Array<{
+      fieldKey?: string;
+      signalKey?: string;
+      reviewCheckKey?: string;
+      evidenceKey?: string;
+      actionKey?: string;
+      currentStatus?: string;
+    }>;
+    nextFieldCoverageAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1138,6 +1152,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSignalChecklist;
   const previewReviewSignalCoverage =
     activationChecklist.previewReviewSignalCoverage;
+  const previewReviewFieldCoverage =
+    activationChecklist.previewReviewFieldCoverage;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1564,6 +1580,35 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSignalCoverage.nextSignalCoverageAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewFieldCoverage ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review field coverage
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewFieldCoverage.status ??
+              "review-fields-linked-to-signals-and-actions"}{" "}
+            / fields {previewReviewFieldCoverage.fieldCount ?? 0}
+          </div>
+          {(previewReviewFieldCoverage.rows ?? []).slice(0, 5).map((row) => (
+            <div
+              key={row.fieldKey ?? row.signalKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.fieldKey ?? "field"} / signal{" "}
+              {row.signalKey ?? "required-signal"} /{" "}
+              {row.currentStatus ?? "missing"}
+              {row.actionKey ? ` / action ${row.actionKey}` : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewFieldCoverage.nextFieldCoverageAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
