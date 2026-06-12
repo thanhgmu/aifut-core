@@ -109,3 +109,20 @@ For runtime-facing follow-up:
   - contract version `backup-center-preview-evidence-traceability.v1`
 - Next smallest safe slice from this updated state:
   - expose a phase-aware blocker matrix so operators can see which evidence and gate families are keeping each activation phase blocked before any write-zone review starts.
+
+## 2026-06-12 update
+
+- Backup-center lane still remains the safest active lane because it continues to improve natural-language-friendly operator guidance without opening Prisma/schema/migration/auth/storage write zones.
+- Current pushed HEAD after the latest checkpoint: `02653c9` (`feat(app): checklist backup review signals`).
+- Current live local runtime truth was rechecked directly:
+  - PostgreSQL is listening on `5432`
+  - API `127.0.0.1:3002` is serving and returned `200`
+  - Web `127.0.0.1:3000` is serving and returned `200`
+- Latest code artifact already live:
+  - `activationChecklist.previewReviewSignalChecklist`
+  - contract version `backup-center-preview-review-signal-checklist.v1`
+- Operator meaning:
+  - each pending review check now exposes its required signal, missing state, required evidence fields, and next action
+  - the lane keeps turning the multi-lane plan into executable preview-only review guidance rather than broad roadmap text
+- Next smallest safe slice from this updated state:
+  - keep extending preview-only review guidance around the same backup-center checklist family while preserving the current no-touch boundary on persistence/auth/storage zones.
