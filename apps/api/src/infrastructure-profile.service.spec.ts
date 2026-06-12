@@ -1589,6 +1589,21 @@ describe('InfrastructureProfileService', () => {
           ],
           nextReleaseAction: 'fill-preview-only-setup-form',
         },
+        previewReviewSubmissionRetryReleaseSummary: {
+          releaseSummaryVersion:
+            'backup-center-preview-review-submission-retry-release-summary.v1',
+          status: 'preview-review-submission-retry-release-summary-blocked',
+          releaseDecision: 'blocked',
+          releaseAllowed: false,
+          firstBlockingCheck: 'submission-gates-resolved',
+          firstBlockingAction: 'fill-preview-only-setup-form',
+          blockedReleaseCheckCount: 3,
+          passedReleaseCheckCount: 0,
+          operatorSummary:
+            'Preview retry release is blocked until submission gates, closure handoff, and review packet checks pass.',
+          safeRetryAction: 'submit-preview-only-backup-setup-review',
+          nextReleaseAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',

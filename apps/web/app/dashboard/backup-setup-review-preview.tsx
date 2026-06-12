@@ -542,6 +542,19 @@ type BackupSetupActivationChecklist = {
     }>;
     nextReleaseAction?: string;
   };
+  previewReviewSubmissionRetryReleaseSummary?: {
+    releaseSummaryVersion?: string;
+    status?: string;
+    releaseDecision?: string;
+    releaseAllowed?: boolean;
+    firstBlockingCheck?: string;
+    firstBlockingAction?: string;
+    blockedReleaseCheckCount?: number;
+    passedReleaseCheckCount?: number;
+    operatorSummary?: string;
+    safeRetryAction?: string;
+    nextReleaseAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1380,6 +1393,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionRetryQueue;
   const previewReviewSubmissionRetryReleaseChecklist =
     activationChecklist.previewReviewSubmissionRetryReleaseChecklist;
+  const previewReviewSubmissionRetryReleaseSummary =
+    activationChecklist.previewReviewSubmissionRetryReleaseSummary;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2252,6 +2267,42 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionRetryReleaseChecklist.nextReleaseAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryReleaseSummary ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry release summary
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryReleaseSummary.status ??
+              "preview-review-submission-retry-release-summary-blocked"}{" "}
+            / decision{" "}
+            {previewReviewSubmissionRetryReleaseSummary.releaseDecision ??
+              "blocked"}{" "}
+            / release{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionRetryReleaseSummary.releaseAllowed,
+            )}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            First blocker:{" "}
+            {previewReviewSubmissionRetryReleaseSummary.firstBlockingCheck ??
+              "submission-gates-resolved"}{" "}
+            / action{" "}
+            {previewReviewSubmissionRetryReleaseSummary.firstBlockingAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryReleaseSummary.operatorSummary ??
+              "Preview retry release remains blocked until release checks pass."}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryReleaseSummary.nextReleaseAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
