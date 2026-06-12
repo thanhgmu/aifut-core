@@ -1347,6 +1347,53 @@ export class InfrastructureProfileService {
         ],
         nextSignalAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSignalCoverage: {
+        coverageVersion: 'backup-center-preview-review-signal-coverage.v1',
+        status: 'review-signals-linked-to-checks-evidence-and-unlocks',
+        signalCount: 3,
+        rows: [
+          {
+            signalKey: 'owner-confirmation-present',
+            reviewCheckKeys: ['target-ownership-confirmed'],
+            evidenceKeys: ['validated-backup-target-preview'],
+            actionKeys: ['fill-preview-only-setup-form'],
+            packetItemKeys: ['validated-backup-target-preview'],
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+          {
+            signalKey: 'scope-key-and-reason-present',
+            reviewCheckKeys: ['backup-scope-clear'],
+            evidenceKeys: ['policy-scope-selection'],
+            actionKeys: ['review-readiness-summary'],
+            packetItemKeys: ['policy-scope-selection'],
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+          {
+            signalKey: 'owner-role-and-channel-present',
+            reviewCheckKeys: ['restore-approval-accountable'],
+            evidenceKeys: ['restore-approval-owner'],
+            actionKeys: ['restore-approval-review'],
+            packetItemKeys: ['restore-approval-owner'],
+            unlockKeys: [
+              'all-preview-evidence-recorded',
+              'all-preview-evidence-checks-passed',
+              'preview-review-packet-complete',
+            ],
+            dependencyCount: 3,
+          },
+        ],
+        nextSignalCoverageAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',

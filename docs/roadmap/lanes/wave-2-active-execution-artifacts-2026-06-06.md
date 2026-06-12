@@ -126,3 +126,23 @@ For runtime-facing follow-up:
   - the lane keeps turning the multi-lane plan into executable preview-only review guidance rather than broad roadmap text
 - Next smallest safe slice from this updated state:
   - keep extending preview-only review guidance around the same backup-center checklist family while preserving the current no-touch boundary on persistence/auth/storage zones.
+
+## 2026-06-12 code continuation
+
+- Backup-center lane stayed on the same low-collision checklist family and landed a signal-first coverage surface instead of opening any new write-path zone.
+- Current local code checkpoint after this slice: `activationChecklist.previewReviewSignalCoverage`.
+- Contract version: `backup-center-preview-review-signal-coverage.v1`.
+- Local proof after restart from current production builds:
+  - API `127.0.0.1:3002/integrations/backup-readiness?tenantSlug=acme` returned `backup-center-preview-review-signal-coverage.v1`
+  - Web `127.0.0.1:3000/dashboard` rendered `Review signal coverage`
+  - `npm run local:verify-runtime --workspace apps/api` returned `ok: true`
+- Verification stayed green for the touched surfaces:
+  - targeted API spec `7/7`
+  - full API Jest `27/27` suites / `385/385` tests
+  - API build
+  - Web check-types
+  - Web production build
+- Why this slice was chosen:
+  - it improves operator clarity by showing how each review signal drives checks, evidence, packet readiness, and submission unlocks
+  - it reuses the existing backup checklist semantics and avoids redundant business logic
+  - it preserves the serialized no-touch boundary on Prisma/schema/migration/auth/storage zones

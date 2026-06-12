@@ -311,6 +311,21 @@ type BackupSetupActivationChecklist = {
     }>;
     nextSignalAction?: string;
   };
+  previewReviewSignalCoverage?: {
+    coverageVersion?: string;
+    status?: string;
+    signalCount?: number;
+    rows?: Array<{
+      signalKey?: string;
+      reviewCheckKeys?: string[];
+      evidenceKeys?: string[];
+      actionKeys?: string[];
+      packetItemKeys?: string[];
+      unlockKeys?: string[];
+      dependencyCount?: number;
+    }>;
+    nextSignalCoverageAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1121,6 +1136,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewCheckCoverage;
   const previewReviewSignalChecklist =
     activationChecklist.previewReviewSignalChecklist;
+  const previewReviewSignalCoverage =
+    activationChecklist.previewReviewSignalCoverage;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1514,6 +1531,39 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSignalChecklist.nextSignalAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSignalCoverage ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review signal coverage
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSignalCoverage.status ??
+              "review-signals-linked-to-checks-evidence-and-unlocks"}{" "}
+            / signals {previewReviewSignalCoverage.signalCount ?? 0}
+          </div>
+          {(previewReviewSignalCoverage.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.signalKey ?? String(row.dependencyCount)}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.signalKey ?? "required-signal"} / links{" "}
+              {row.dependencyCount ?? 0}
+              {row.reviewCheckKeys?.length
+                ? ` / checks ${row.reviewCheckKeys.join(", ")}`
+                : ""}
+              {row.evidenceKeys?.length
+                ? ` / evidence ${row.evidenceKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSignalCoverage.nextSignalCoverageAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
