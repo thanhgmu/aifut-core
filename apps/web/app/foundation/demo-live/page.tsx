@@ -1,24 +1,39 @@
 import { API_BASE, getJson, type AdapterInterfaceRegistryResponse, type HealthResponse } from "../../../lib/runtime-data";
 
+type AdapterInterfacesResponse = {
+  adapterInterfaces?: AdapterInterfaceRegistryResponse;
+};
+
+type AdapterContractsResponse = {
+  adapterContracts?: {
+    next?: string[];
+  };
+};
+
+type TemplatesResponse = {
+  templates?: {
+    templates?: unknown[];
+  };
+};
+
 async function getLiveDemoData() {
   const [health, interfacesResponse, contractsResponse, templatesResponse] = await Promise.all([
     getJson<HealthResponse>("/health"),
-    getJson<any>("/connectors/adapter-interfaces"),
-    getJson<any>("/connectors/adapter-contracts"),
-    getJson<any>("/connectors/templates"),
+    getJson<AdapterInterfacesResponse>("/connectors/adapter-interfaces"),
+    getJson<AdapterContractsResponse>("/connectors/adapter-contracts"),
+    getJson<TemplatesResponse>("/connectors/templates"),
   ]);
 
   return {
     health,
     interfaces: interfacesResponse?.adapterInterfaces,
-    contracts: contractsResponse?.adapterContracts,
-    contractsNext: contractsResponse?.next,
-    templates: templatesResponse?.templates,
+    contractsNext: contractsResponse?.adapterContracts?.next,
+    templates: templatesResponse?.templates?.templates,
   };
 }
 
 export default async function DemoLivePage() {
-  const { health, interfaces, contracts, contractsNext, templates } = await getLiveDemoData();
+  const { health, interfaces, contractsNext, templates } = await getLiveDemoData();
   const records = interfaces?.adapterInterfaces ?? [];
 
   return (
