@@ -132,6 +132,32 @@ export class IntegrationsController {
       );
     }
 
+    if (
+      body.tenantSlug !== undefined &&
+      typeof body.tenantSlug !== 'string'
+    ) {
+      throw new BadRequestException(
+        'Backup setup preview tenantSlug must be a string.',
+      );
+    }
+
+    if (
+      tenantSlugHeader !== undefined &&
+      body.tenantSlug !== undefined &&
+      tenantSlugHeader.trim().toLowerCase() !==
+        body.tenantSlug.trim().toLowerCase()
+    ) {
+      throw new BadRequestException(
+        'Backup setup preview tenant header and body must match.',
+      );
+    }
+
+    if (body.values !== undefined && body.formValues !== undefined) {
+      throw new BadRequestException(
+        'Backup setup preview accepts either values or formValues, not both.',
+      );
+    }
+
     return this.infrastructureProfileService.previewBackupSetup({
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
       values: body.values !== undefined ? body.values : (body.formValues ?? {}),

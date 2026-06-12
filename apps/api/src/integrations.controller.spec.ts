@@ -236,7 +236,7 @@ describe('IntegrationsController', () => {
 
     const result = await controller.backupSetupPreview(
       {
-        tenantSlug: 'body-tenant',
+        tenantSlug: ' HEADER-TENANT ',
         values: {
           targetClass: 'user-local',
           cadence: 'daily',
@@ -293,6 +293,34 @@ describe('IntegrationsController', () => {
       values: null,
       decision: undefined,
     });
+  });
+
+  it('should reject conflicting backup preview tenant sources', async () => {
+    await expect(
+      controller.backupSetupPreview(
+        { tenantSlug: 'body-tenant', values: {} },
+        'header-tenant',
+      ),
+    ).rejects.toThrow(
+      'Backup setup preview tenant header and body must match.',
+    );
+    expect(
+      infrastructureProfileService.previewBackupSetup,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('should reject ambiguous backup preview value sources', async () => {
+    await expect(
+      controller.backupSetupPreview(
+        { values: {}, formValues: {} },
+        'acme',
+      ),
+    ).rejects.toThrow(
+      'Backup setup preview accepts either values or formValues, not both.',
+    );
+    expect(
+      infrastructureProfileService.previewBackupSetup,
+    ).not.toHaveBeenCalled();
   });
 
   it('should resolve tenant connections from the active tenant', async () => {
