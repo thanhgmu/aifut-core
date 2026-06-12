@@ -356,6 +356,24 @@ type BackupSetupActivationChecklist = {
     }>;
     nextFieldAction?: string;
   };
+  previewReviewActionDependencySummary?: {
+    summaryVersion?: string;
+    status?: string;
+    actionCount?: number;
+    totalDependencyCount?: number;
+    rows?: Array<{
+      actionKey?: string;
+      rank?: number;
+      missingFieldKeys?: string[];
+      reviewCheckKey?: string;
+      signalKey?: string;
+      evidenceKey?: string;
+      packetItemKey?: string;
+      unlockKeys?: string[];
+      dependencyCount?: number;
+    }>;
+    nextDependencyAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1172,6 +1190,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewFieldCoverage;
   const previewReviewFieldActionMap =
     activationChecklist.previewReviewFieldActionMap;
+  const previewReviewActionDependencySummary =
+    activationChecklist.previewReviewActionDependencySummary;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1658,6 +1678,41 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewFieldActionMap.nextFieldAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewActionDependencySummary ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review action dependency summary
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewActionDependencySummary.status ??
+              "preview-actions-linked-to-review-dependencies"}{" "}
+            / actions {previewReviewActionDependencySummary.actionCount ?? 0} /
+            links{" "}
+            {previewReviewActionDependencySummary.totalDependencyCount ?? 0}
+          </div>
+          {(previewReviewActionDependencySummary.rows ?? [])
+            .slice(0, 3)
+            .map((row) => (
+              <div
+                key={row.actionKey ?? row.reviewCheckKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {row.actionKey ?? "operator-action"} / dependencies{" "}
+                {row.dependencyCount ?? 0}
+                {row.reviewCheckKey ? ` / check ${row.reviewCheckKey}` : ""}
+                {row.missingFieldKeys?.length
+                  ? ` / fields ${row.missingFieldKeys.join(", ")}`
+                  : ""}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewActionDependencySummary.nextDependencyAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

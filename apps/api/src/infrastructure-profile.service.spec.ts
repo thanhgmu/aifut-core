@@ -1176,6 +1176,73 @@ describe('InfrastructureProfileService', () => {
           ],
           nextFieldAction: 'fill-preview-only-setup-form',
         },
+        previewReviewActionDependencySummary: {
+          summaryVersion:
+            'backup-center-preview-review-action-dependency-summary.v1',
+          status: 'preview-actions-linked-to-review-dependencies',
+          actionCount: 3,
+          totalDependencyCount: 18,
+          rows: [
+            {
+              actionKey: 'fill-preview-only-setup-form',
+              rank: 1,
+              missingFieldKeys: [
+                'targetClass',
+                'targetRefPreview',
+                'ownerConfirmation',
+              ],
+              reviewCheckKey: 'target-ownership-confirmed',
+              signalKey: 'owner-confirmation-present',
+              evidenceKey: 'validated-backup-target-preview',
+              packetItemKey: 'validated-backup-target-preview',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              dependencyCount: 6,
+            },
+            {
+              actionKey: 'review-readiness-summary',
+              rank: 2,
+              missingFieldKeys: [
+                'policyKeys',
+                'includedConfigScopes',
+                'scopeRationale',
+              ],
+              reviewCheckKey: 'backup-scope-clear',
+              signalKey: 'scope-key-and-reason-present',
+              evidenceKey: 'policy-scope-selection',
+              packetItemKey: 'policy-scope-selection',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              dependencyCount: 6,
+            },
+            {
+              actionKey: 'restore-approval-review',
+              rank: 3,
+              missingFieldKeys: [
+                'approvalRequiredFor',
+                'approverRole',
+                'approvalChannel',
+              ],
+              reviewCheckKey: 'restore-approval-accountable',
+              signalKey: 'owner-role-and-channel-present',
+              evidenceKey: 'restore-approval-owner',
+              packetItemKey: 'restore-approval-owner',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              dependencyCount: 6,
+            },
+          ],
+          nextDependencyAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',
