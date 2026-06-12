@@ -441,6 +441,22 @@ type BackupSetupActivationChecklist = {
     finalOperatorAction?: string;
     nextGateAction?: string;
   };
+  previewReviewSubmissionGateResolution?: {
+    resolutionVersion?: string;
+    status?: string;
+    resolutionMode?: string;
+    openGateCount?: number;
+    resolvedGateCount?: number;
+    remainingGateCount?: number;
+    rows?: Array<{
+      gateKey?: string;
+      gateStatus?: string;
+      requiredClosureStepKey?: string;
+      requiredOperatorAction?: string;
+      clearsWhen?: string;
+    }>;
+    nextResolutionAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1267,6 +1283,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewClosureHandoff;
   const previewReviewSubmissionGate =
     activationChecklist.previewReviewSubmissionGate;
+  const previewReviewSubmissionGateResolution =
+    activationChecklist.previewReviewSubmissionGateResolution;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1922,6 +1940,39 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionGate.nextGateAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionGateResolution ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission gate resolution
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionGateResolution.status ??
+              "preview-review-submission-gate-resolution-open"}{" "}
+            / remaining{" "}
+            {previewReviewSubmissionGateResolution.remainingGateCount ?? 0} /
+            open {previewReviewSubmissionGateResolution.openGateCount ?? 0}
+          </div>
+          {(previewReviewSubmissionGateResolution.rows ?? [])
+            .slice(0, 3)
+            .map((row) => (
+              <div
+                key={row.gateKey ?? row.requiredClosureStepKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {row.gateKey ?? "submission-gate"} /{" "}
+                {row.gateStatus ?? "open"} / action{" "}
+                {row.requiredOperatorAction ?? "fill-preview-only-setup-form"}
+                {row.clearsWhen ? ` / clears ${row.clearsWhen}` : ""}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionGateResolution.nextResolutionAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

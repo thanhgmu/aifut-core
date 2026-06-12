@@ -1389,6 +1389,39 @@ describe('InfrastructureProfileService', () => {
           finalOperatorAction: 'submit-preview-only-backup-setup-review',
           nextGateAction: 'fill-preview-only-setup-form',
         },
+        previewReviewSubmissionGateResolution: {
+          resolutionVersion:
+            'backup-center-preview-review-submission-gate-resolution.v1',
+          status: 'preview-review-submission-gate-resolution-open',
+          resolutionMode: 'resolve-open-preview-gates-before-submit',
+          openGateCount: 3,
+          resolvedGateCount: 0,
+          remainingGateCount: 3,
+          rows: [
+            {
+              gateKey: 'all-preview-evidence-recorded',
+              gateStatus: 'open',
+              requiredClosureStepKey: 'close-validated-backup-target-preview',
+              requiredOperatorAction: 'fill-preview-only-setup-form',
+              clearsWhen: 'validated-backup-target-preview-recorded',
+            },
+            {
+              gateKey: 'all-preview-evidence-checks-passed',
+              gateStatus: 'open',
+              requiredClosureStepKey: 'close-policy-scope-selection',
+              requiredOperatorAction: 'review-readiness-summary',
+              clearsWhen: 'policy-scope-selection-reviewed',
+            },
+            {
+              gateKey: 'preview-review-packet-complete',
+              gateStatus: 'open',
+              requiredClosureStepKey: 'close-restore-approval-owner',
+              requiredOperatorAction: 'restore-approval-review',
+              clearsWhen: 'restore-approval-owner-packeted',
+            },
+          ],
+          nextResolutionAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',
