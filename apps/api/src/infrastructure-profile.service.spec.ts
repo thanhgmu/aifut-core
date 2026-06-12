@@ -2520,4 +2520,15 @@ describe('InfrastructureProfileService', () => {
       },
     });
   });
+
+  it('should reject non-object backup setup preview values before lookup', async () => {
+    const service = new InfrastructureProfileService({} as never);
+
+    await expect(
+      service.previewBackupSetup({
+        tenantSlug: 'acme',
+        values: [] as never,
+      }),
+    ).rejects.toThrow('Backup setup preview values must be a JSON object.');
+  });
 });

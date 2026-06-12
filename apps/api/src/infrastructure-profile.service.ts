@@ -2443,6 +2443,17 @@ export class InfrastructureProfileService {
     values?: BackupSetupPreviewValues;
     decision?: string;
   }) {
+    if (
+      params.values !== undefined &&
+      (params.values === null ||
+        typeof params.values !== 'object' ||
+        Array.isArray(params.values))
+    ) {
+      throw new BadRequestException(
+        'Backup setup preview values must be a JSON object.',
+      );
+    }
+
     const readiness = await this.getBackupReadinessPolicy(params.tenantSlug);
     const setupIntent = readiness.backup.setupIntent;
     const formSchema = setupIntent.formSchema;
