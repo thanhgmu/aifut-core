@@ -1815,6 +1815,48 @@ export class InfrastructureProfileService {
         ],
         nextOutcomeAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionRetryPlan: {
+        retryPlanVersion:
+          'backup-center-preview-review-submission-retry-plan.v1',
+        status: 'preview-review-submission-retry-blocked',
+        retryMode: 'retry-after-preview-gate-resolution',
+        retryAllowedNow: false,
+        retryAction: 'submit-preview-only-backup-setup-review',
+        currentFailureOutcome:
+          'preview-review-submission-attempt-outcome-blocked',
+        requiredRetryStepCount: 3,
+        completedRetryStepCount: 0,
+        remainingRetryStepCount: 3,
+        steps: [
+          {
+            stepKey: 'resolve-submission-gates',
+            rank: 1,
+            sourceFailedCheck: 'submission-gates-resolved',
+            requiredOperatorAction: 'fill-preview-only-setup-form',
+            retryStepStatus: 'pending',
+          },
+          {
+            stepKey: 'complete-closure-handoff',
+            rank: 2,
+            sourceFailedCheck: 'closure-handoff-ready',
+            requiredOperatorAction: 'review-readiness-summary',
+            retryStepStatus: 'pending',
+          },
+          {
+            stepKey: 'complete-review-packet',
+            rank: 3,
+            sourceFailedCheck: 'review-packet-complete',
+            requiredOperatorAction: 'restore-approval-review',
+            retryStepStatus: 'pending',
+          },
+        ],
+        retryWhen: [
+          'no-failed-submission-attempt-checks',
+          'submission-gate-resolution-complete',
+          'preview-review-packet-complete',
+        ],
+        nextRetryAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',

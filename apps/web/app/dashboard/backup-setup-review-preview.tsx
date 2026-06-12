@@ -488,6 +488,26 @@ type BackupSetupActivationChecklist = {
     }>;
     nextOutcomeAction?: string;
   };
+  previewReviewSubmissionRetryPlan?: {
+    retryPlanVersion?: string;
+    status?: string;
+    retryMode?: string;
+    retryAllowedNow?: boolean;
+    retryAction?: string;
+    currentFailureOutcome?: string;
+    requiredRetryStepCount?: number;
+    completedRetryStepCount?: number;
+    remainingRetryStepCount?: number;
+    steps?: Array<{
+      stepKey?: string;
+      rank?: number;
+      sourceFailedCheck?: string;
+      requiredOperatorAction?: string;
+      retryStepStatus?: string;
+    }>;
+    retryWhen?: string[];
+    nextRetryAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1320,6 +1340,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionAttempt;
   const previewReviewSubmissionAttemptOutcome =
     activationChecklist.previewReviewSubmissionAttemptOutcome;
+  const previewReviewSubmissionRetryPlan =
+    activationChecklist.previewReviewSubmissionRetryPlan;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2084,6 +2106,46 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionAttemptOutcome.nextOutcomeAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryPlan ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry plan
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryPlan.status ??
+              "preview-review-submission-retry-blocked"}{" "}
+            / retry{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionRetryPlan.retryAllowedNow,
+            )}{" "}
+            / remaining{" "}
+            {previewReviewSubmissionRetryPlan.remainingRetryStepCount ?? 0}
+          </div>
+          {(previewReviewSubmissionRetryPlan.steps ?? [])
+            .slice(0, 3)
+            .map((step) => (
+              <div
+                key={step.stepKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {step.stepKey ?? "retry-step"} /{" "}
+                {step.retryStepStatus ?? "pending"} / action{" "}
+                {step.requiredOperatorAction ?? "fill-preview-only-setup-form"}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Retry when:{" "}
+            {(previewReviewSubmissionRetryPlan.retryWhen ?? []).join(", ") ||
+              "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryPlan.nextRetryAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
