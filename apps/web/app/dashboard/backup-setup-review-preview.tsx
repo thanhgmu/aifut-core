@@ -374,6 +374,24 @@ type BackupSetupActivationChecklist = {
     }>;
     nextDependencyAction?: string;
   };
+  previewReviewDependencyClosure?: {
+    closureVersion?: string;
+    status?: string;
+    closureMode?: string;
+    dependencyGroupCount?: number;
+    openDependencyGroupCount?: number;
+    totalOpenDependencyCount?: number;
+    rows?: Array<{
+      actionKey?: string;
+      rank?: number;
+      dependencyGroupKey?: string;
+      closureStatus?: string;
+      openDependencyKeys?: string[];
+      unlockKey?: string;
+      nextClosureAction?: string;
+    }>;
+    nextClosureAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1192,6 +1210,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewFieldActionMap;
   const previewReviewActionDependencySummary =
     activationChecklist.previewReviewActionDependencySummary;
+  const previewReviewDependencyClosure =
+    activationChecklist.previewReviewDependencyClosure;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1713,6 +1733,41 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewActionDependencySummary.nextDependencyAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewDependencyClosure ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review dependency closure
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewDependencyClosure.status ??
+              "preview-review-dependencies-open"}{" "}
+            / groups {previewReviewDependencyClosure.openDependencyGroupCount ?? 0}
+            / open links{" "}
+            {previewReviewDependencyClosure.totalOpenDependencyCount ?? 0}
+          </div>
+          {(previewReviewDependencyClosure.rows ?? [])
+            .slice(0, 3)
+            .map((row) => (
+              <div
+                key={row.dependencyGroupKey ?? row.actionKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {row.dependencyGroupKey ?? "dependency-group"} /{" "}
+                {row.closureStatus ?? "open"} / action{" "}
+                {row.actionKey ?? "operator-action"}
+                {row.openDependencyKeys?.length
+                  ? ` / open ${row.openDependencyKeys.length}`
+                  : ""}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewDependencyClosure.nextClosureAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
