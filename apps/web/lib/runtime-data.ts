@@ -43,6 +43,28 @@ export type JsonResult<T> = {
   error: string | null;
 };
 
+async function getResponseError(res: Response): Promise<string> {
+  const fallback = `HTTP ${res.status}`;
+
+  try {
+    const payload = (await res.json()) as { message?: unknown };
+    const messages = Array.isArray(payload.message)
+      ? payload.message.filter(
+          (message): message is string =>
+            typeof message === "string" && message.trim().length > 0,
+        )
+      : [];
+    const message =
+      typeof payload.message === "string" && payload.message.trim().length > 0
+        ? payload.message.trim()
+        : messages.join("; ");
+
+    return message ? `${fallback}: ${message}` : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function getJsonResult<T>(path: string): Promise<JsonResult<T>> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -53,7 +75,7 @@ export async function getJsonResult<T>(path: string): Promise<JsonResult<T>> {
       return {
         data: null,
         status: res.status,
-        error: `HTTP ${res.status}`,
+        error: await getResponseError(res),
       };
     }
 
@@ -89,7 +111,7 @@ export async function postJsonResult<T>(
       return {
         data: null,
         status: res.status,
-        error: `HTTP ${res.status}`,
+        error: await getResponseError(res),
       };
     }
 
