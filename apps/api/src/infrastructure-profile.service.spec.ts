@@ -1422,6 +1422,27 @@ describe('InfrastructureProfileService', () => {
           ],
           nextResolutionAction: 'fill-preview-only-setup-form',
         },
+        previewReviewSubmissionAttempt: {
+          attemptVersion: 'backup-center-preview-review-submission-attempt.v1',
+          status: 'preview-review-submission-attempt-blocked',
+          attemptMode: 'dry-run-submit-readiness-check',
+          submissionAction: 'submit-preview-only-backup-setup-review',
+          attemptAllowed: false,
+          operatorCanAttemptNow: false,
+          blockingGateCount: 3,
+          blockingClosureStepCount: 3,
+          blockingReasons: [
+            'preview-review-closure-handoff-blocked',
+            'preview-review-submission-gate-resolution-open',
+            'preview-review-packet:incomplete',
+          ],
+          requiredBeforeAttempt: [
+            'resolve-all-preview-submission-gates',
+            'complete-preview-review-closure-handoff',
+            'complete-preview-review-packet',
+          ],
+          nextAttemptAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',

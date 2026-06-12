@@ -457,6 +457,19 @@ type BackupSetupActivationChecklist = {
     }>;
     nextResolutionAction?: string;
   };
+  previewReviewSubmissionAttempt?: {
+    attemptVersion?: string;
+    status?: string;
+    attemptMode?: string;
+    submissionAction?: string;
+    attemptAllowed?: boolean;
+    operatorCanAttemptNow?: boolean;
+    blockingGateCount?: number;
+    blockingClosureStepCount?: number;
+    blockingReasons?: string[];
+    requiredBeforeAttempt?: string[];
+    nextAttemptAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1285,6 +1298,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionGate;
   const previewReviewSubmissionGateResolution =
     activationChecklist.previewReviewSubmissionGateResolution;
+  const previewReviewSubmissionAttempt =
+    activationChecklist.previewReviewSubmissionAttempt;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1973,6 +1988,40 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionGateResolution.nextResolutionAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionAttempt ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission attempt
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionAttempt.status ??
+              "preview-review-submission-attempt-blocked"}{" "}
+            / attempt{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionAttempt.attemptAllowed,
+            )}{" "}
+            / gates {previewReviewSubmissionAttempt.blockingGateCount ?? 0}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Required:{" "}
+            {(previewReviewSubmissionAttempt.requiredBeforeAttempt ?? []).join(
+              ", ",
+            ) || "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Blocked by:{" "}
+            {(previewReviewSubmissionAttempt.blockingReasons ?? []).join(
+              ", ",
+            ) || "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionAttempt.nextAttemptAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
