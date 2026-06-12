@@ -2444,6 +2444,21 @@ export class InfrastructureProfileService {
     decision?: string;
   }) {
     if (
+      params.tenantSlug !== undefined &&
+      typeof params.tenantSlug !== 'string'
+    ) {
+      throw new BadRequestException(
+        'Backup setup preview tenantSlug must be a string.',
+      );
+    }
+
+    if (params.decision !== undefined && typeof params.decision !== 'string') {
+      throw new BadRequestException(
+        'Backup setup preview decision must be a string.',
+      );
+    }
+
+    if (
       params.values !== undefined &&
       (params.values === null ||
         typeof params.values !== 'object' ||

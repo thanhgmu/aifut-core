@@ -2531,4 +2531,18 @@ describe('InfrastructureProfileService', () => {
       }),
     ).rejects.toThrow('Backup setup preview values must be a JSON object.');
   });
+
+  it('should reject malformed backup setup preview metadata before lookup', async () => {
+    const service = new InfrastructureProfileService({} as never);
+
+    await expect(
+      service.previewBackupSetup({ tenantSlug: 42 as never }),
+    ).rejects.toThrow('Backup setup preview tenantSlug must be a string.');
+    await expect(
+      service.previewBackupSetup({
+        tenantSlug: 'acme',
+        decision: false as never,
+      }),
+    ).rejects.toThrow('Backup setup preview decision must be a string.');
+  });
 });
