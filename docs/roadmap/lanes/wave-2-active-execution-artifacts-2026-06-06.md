@@ -146,3 +146,11 @@ For runtime-facing follow-up:
   - it improves operator clarity by showing how each review signal drives checks, evidence, packet readiness, and submission unlocks
   - it reuses the existing backup checklist semantics and avoids redundant business logic
   - it preserves the serialized no-touch boundary on Prisma/schema/migration/auth/storage zones
+
+## 2026-06-12 retry release runbook checkpoint
+
+- Current code checkpoint: `activationChecklist.previewReviewSubmissionRetryReleaseRunbook`.
+- Contract version: `backup-center-preview-review-submission-retry-release-runbook.v1`.
+- The runbook exposes a bounded operator sequence, explicit stop conditions, and completion criteria without enabling persistence, restore execution, credential storage, or external writes.
+- Verification passed: targeted API spec `7/7`, full API Jest `27/27` suites / `385/385` tests, API build, Web type-check, Web production build, live API proof, dashboard `200`, and PostgreSQL-backed runtime verifier `ok: true`.
+- Automation safety correction: the autonomous job was restarted after an OpenClaw bundle update, then paused during review to prevent line-ending churn. Future runs must preserve existing line endings and avoid whole-file formatting.
