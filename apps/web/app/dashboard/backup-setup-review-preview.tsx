@@ -296,6 +296,21 @@ type BackupSetupActivationChecklist = {
     }>;
     nextCheckAction?: string;
   };
+  previewReviewSignalChecklist?: {
+    checklistVersion?: string;
+    status?: string;
+    pendingSignalCount?: number;
+    rows?: Array<{
+      reviewCheckKey?: string;
+      signalKey?: string;
+      currentStatus?: string;
+      requiredEvidenceFields?: string[];
+      missingReason?: string;
+      unlockKeys?: string[];
+      nextOperatorAction?: string;
+    }>;
+    nextSignalAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1104,6 +1119,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewEvidenceUnlockDependencies;
   const previewReviewCheckCoverage =
     activationChecklist.previewReviewCheckCoverage;
+  const previewReviewSignalChecklist =
+    activationChecklist.previewReviewSignalChecklist;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1466,6 +1483,37 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewCheckCoverage.nextCheckAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSignalChecklist ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review signal checklist
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSignalChecklist.status ??
+              "preview-review-signals-pending"}{" "}
+            / pending {previewReviewSignalChecklist.pendingSignalCount ?? 0}
+          </div>
+          {(previewReviewSignalChecklist.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.signalKey ?? row.reviewCheckKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.reviewCheckKey ?? "review-check"} / signal{" "}
+              {row.signalKey ?? "required-signal"} /{" "}
+              {row.currentStatus ?? "missing"}
+              {row.requiredEvidenceFields?.length
+                ? ` / fields ${row.requiredEvidenceFields.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSignalChecklist.nextSignalAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

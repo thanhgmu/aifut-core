@@ -938,6 +938,69 @@ describe('InfrastructureProfileService', () => {
           ],
           nextCheckAction: 'fill-preview-only-setup-form',
         },
+        previewReviewSignalChecklist: {
+          checklistVersion:
+            'backup-center-preview-review-signal-checklist.v1',
+          status: 'preview-review-signals-pending',
+          pendingSignalCount: 3,
+          rows: [
+            {
+              reviewCheckKey: 'target-ownership-confirmed',
+              signalKey: 'owner-confirmation-present',
+              currentStatus: 'missing',
+              requiredEvidenceFields: [
+                'targetClass',
+                'targetRefPreview',
+                'ownerConfirmation',
+              ],
+              missingReason:
+                'validated-backup-target-preview evidence has not been submitted for review.',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              nextOperatorAction: 'fill-preview-only-setup-form',
+            },
+            {
+              reviewCheckKey: 'backup-scope-clear',
+              signalKey: 'scope-key-and-reason-present',
+              currentStatus: 'missing',
+              requiredEvidenceFields: [
+                'policyKeys',
+                'includedConfigScopes',
+                'scopeRationale',
+              ],
+              missingReason:
+                'policy-scope-selection evidence has not been submitted for review.',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              nextOperatorAction: 'review-readiness-summary',
+            },
+            {
+              reviewCheckKey: 'restore-approval-accountable',
+              signalKey: 'owner-role-and-channel-present',
+              currentStatus: 'missing',
+              requiredEvidenceFields: [
+                'approvalRequiredFor',
+                'approverRole',
+                'approvalChannel',
+              ],
+              missingReason:
+                'restore-approval-owner evidence has not been submitted for review.',
+              unlockKeys: [
+                'all-preview-evidence-recorded',
+                'all-preview-evidence-checks-passed',
+                'preview-review-packet-complete',
+              ],
+              nextOperatorAction: 'restore-approval-review',
+            },
+          ],
+          nextSignalAction: 'fill-preview-only-setup-form',
+        },
         operatorHandoff: {
           handoffVersion: 'backup-center-activation-operator-handoff.v1',
           mode: 'preview-only',
