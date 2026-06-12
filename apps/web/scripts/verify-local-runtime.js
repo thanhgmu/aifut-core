@@ -52,6 +52,69 @@ async function verifyBackupPreviewRejection() {
   return { path, status: response.status, message: payload.message };
 }
 
+async function verifyBackupPreviewResolution() {
+  const path = "/integrations/backup-setup-preview";
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tenantSlug: "acme",
+      decision: "defer-setup",
+      values: {
+        targetClass: "user-local",
+        targetRefPreview: "local://acme-backups",
+        cadence: "daily",
+        timezone: "Asia/Bangkok",
+        retentionDays: 14,
+        includedConfigScopes: ["workflows", "skills"],
+        bundleFormat: "manifest-and-archive",
+        approvalRequiredFor: ["database-snapshot"],
+        approverRole: "owner",
+      },
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const payload = await response.json();
+  const safety = payload?.safety;
+  const unsafeFlags = [
+    "persistenceAllowed",
+    "schedulePersistenceAllowed",
+    "restoreExecutionAllowed",
+    "credentialStorageAllowed",
+    "externalCloudWritesAllowed",
+    "databaseWritesAllowed",
+  ].filter((key) => safety?.[key] !== false);
+
+  if (!response.ok || payload?.status !== "resolved") {
+    throw new Error(`${path} did not resolve a valid preview request`);
+  }
+
+  if (payload?.preview?.validationIssues?.length !== 0) {
+    throw new Error(`${path} returned validation issues for valid inputs`);
+  }
+
+  if (
+    payload?.preview?.inputSummary?.requiredCount !== 9 ||
+    payload?.preview?.inputSummary?.providedCount !== 9
+  ) {
+    throw new Error(`${path} did not accept all nine required preview inputs`);
+  }
+
+  if (safety?.projectionOnly !== true || unsafeFlags.length > 0) {
+    throw new Error(`${path} enabled safety flags: ${unsafeFlags.join(", ")}`);
+  }
+
+  return {
+    path,
+    status: response.status,
+    previewStatus: payload.status,
+    statusLabel: payload.preview.reviewSummary.statusLabel,
+    requiredInputCount: payload.preview.inputSummary.requiredCount,
+    providedInputCount: payload.preview.inputSummary.providedCount,
+    safetyLocksVerified: 6,
+  };
+}
+
 function requireText(html, path, text) {
   if (!html.includes(text)) {
     throw new Error(`${path} did not render ${JSON.stringify(text)}`);
@@ -82,12 +145,14 @@ async function main() {
     contractsResponse,
     templatesResponse,
     backupPreviewRejection,
+    backupPreviewResolution,
   ] =
     await Promise.all([
       readJson("/connectors/adapter-interfaces"),
       readJson("/connectors/adapter-contracts"),
       readJson("/connectors/templates"),
       verifyBackupPreviewRejection(),
+      verifyBackupPreviewResolution(),
     ]);
   const interfaces = interfacesResponse?.adapterInterfaces?.adapterInterfaces;
   const contractNext = contractsResponse?.adapterContracts?.next;
@@ -153,6 +218,7 @@ async function main() {
           templateCount: templates.length,
         },
         backupPreviewRejection,
+        backupPreviewResolution,
       },
       null,
       2,
