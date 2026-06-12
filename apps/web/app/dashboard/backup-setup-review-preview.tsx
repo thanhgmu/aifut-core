@@ -392,6 +392,26 @@ type BackupSetupActivationChecklist = {
     }>;
     nextClosureAction?: string;
   };
+  previewReviewClosureSequence?: {
+    sequenceVersion?: string;
+    status?: string;
+    sequenceMode?: string;
+    stepCount?: number;
+    completedStepCount?: number;
+    remainingStepCount?: number;
+    steps?: Array<{
+      stepKey?: string;
+      rank?: number;
+      actionKey?: string;
+      dependencyGroupKey?: string;
+      closesOpenDependencyCount?: number;
+      closesUnlockKey?: string;
+      stepStatus?: string;
+      nextStepAction?: string;
+    }>;
+    finalSequenceAction?: string;
+    nextSequenceAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1212,6 +1232,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewActionDependencySummary;
   const previewReviewDependencyClosure =
     activationChecklist.previewReviewDependencyClosure;
+  const previewReviewClosureSequence =
+    activationChecklist.previewReviewClosureSequence;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1768,6 +1790,38 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewDependencyClosure.nextClosureAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewClosureSequence ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review closure sequence
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewClosureSequence.status ??
+              "preview-review-closure-sequence-open"}{" "}
+            / remaining {previewReviewClosureSequence.remainingStepCount ?? 0} /
+            steps {previewReviewClosureSequence.stepCount ?? 0}
+          </div>
+          {(previewReviewClosureSequence.steps ?? []).slice(0, 3).map((step) => (
+            <div
+              key={step.stepKey ?? step.actionKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {step.stepKey ?? "closure-step"} /{" "}
+              {step.stepStatus ?? "pending"} / action{" "}
+              {step.actionKey ?? "operator-action"}
+              {step.closesOpenDependencyCount !== undefined
+                ? ` / closes ${step.closesOpenDependencyCount}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewClosureSequence.nextSequenceAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
