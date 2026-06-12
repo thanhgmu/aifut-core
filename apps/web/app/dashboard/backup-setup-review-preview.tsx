@@ -340,6 +340,22 @@ type BackupSetupActivationChecklist = {
     }>;
     nextFieldCoverageAction?: string;
   };
+  previewReviewFieldActionMap?: {
+    mapVersion?: string;
+    status?: string;
+    actionCount?: number;
+    totalFieldCount?: number;
+    rows?: Array<{
+      actionKey?: string;
+      rank?: number;
+      fieldKeys?: string[];
+      signalKey?: string;
+      reviewCheckKey?: string;
+      evidenceKey?: string;
+      missingFieldCount?: number;
+    }>;
+    nextFieldAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1154,6 +1170,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSignalCoverage;
   const previewReviewFieldCoverage =
     activationChecklist.previewReviewFieldCoverage;
+  const previewReviewFieldActionMap =
+    activationChecklist.previewReviewFieldActionMap;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1609,6 +1627,37 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewFieldCoverage.nextFieldCoverageAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewFieldActionMap ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review field action map
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewFieldActionMap.status ??
+              "review-fields-grouped-by-preview-action"}{" "}
+            / actions {previewReviewFieldActionMap.actionCount ?? 0} / fields{" "}
+            {previewReviewFieldActionMap.totalFieldCount ?? 0}
+          </div>
+          {(previewReviewFieldActionMap.rows ?? []).slice(0, 3).map((row) => (
+            <div
+              key={row.actionKey ?? row.signalKey}
+              style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+            >
+              {row.actionKey ?? "operator-action"} / fields{" "}
+              {row.missingFieldCount ?? 0}
+              {row.fieldKeys?.length
+                ? ` / ${row.fieldKeys.join(", ")}`
+                : ""}
+            </div>
+          ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewFieldActionMap.nextFieldAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
