@@ -427,6 +427,20 @@ type BackupSetupActivationChecklist = {
     readyWhen?: string[];
     nextHandoffAction?: string;
   };
+  previewReviewSubmissionGate?: {
+    gateVersion?: string;
+    status?: string;
+    gateMode?: string;
+    submissionAction?: string;
+    submissionAllowed?: boolean;
+    closureHandoffStatus?: string;
+    requiredClosureStepCount?: number;
+    remainingClosureStepCount?: number;
+    openGateKeys?: string[];
+    blockedBy?: string[];
+    finalOperatorAction?: string;
+    nextGateAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1251,6 +1265,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewClosureSequence;
   const previewReviewClosureHandoff =
     activationChecklist.previewReviewClosureHandoff;
+  const previewReviewSubmissionGate =
+    activationChecklist.previewReviewSubmissionGate;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -1874,6 +1890,38 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewClosureHandoff.nextHandoffAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionGate ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission gate
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionGate.status ??
+              "preview-review-submission-gate-closed"}{" "}
+            / submit{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionGate.submissionAllowed,
+            )}{" "}
+            / remaining {previewReviewSubmissionGate.remainingClosureStepCount ?? 0}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Open gates:{" "}
+            {(previewReviewSubmissionGate.openGateKeys ?? []).join(", ") ||
+              "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Blocked by:{" "}
+            {(previewReviewSubmissionGate.blockedBy ?? []).join(", ") ||
+              "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionGate.nextGateAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

@@ -1705,6 +1705,28 @@ export class InfrastructureProfileService {
         ],
         nextHandoffAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionGate: {
+        gateVersion: 'backup-center-preview-review-submission-gate.v1',
+        status: 'preview-review-submission-gate-closed',
+        gateMode: 'preview-only-submit-after-closure-handoff',
+        submissionAction: 'submit-preview-only-backup-setup-review',
+        submissionAllowed: false,
+        closureHandoffStatus: 'preview-review-closure-handoff-blocked',
+        requiredClosureStepCount: 3,
+        remainingClosureStepCount: 3,
+        openGateKeys: [
+          'all-preview-evidence-recorded',
+          'all-preview-evidence-checks-passed',
+          'preview-review-packet-complete',
+        ],
+        blockedBy: [
+          'preview-review-closure-handoff-blocked',
+          'all-closure-steps-complete:not-satisfied',
+          'submission-unlocks:blocked',
+        ],
+        finalOperatorAction: 'submit-preview-only-backup-setup-review',
+        nextGateAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',
