@@ -555,6 +555,24 @@ type BackupSetupActivationChecklist = {
     safeRetryAction?: string;
     nextReleaseAction?: string;
   };
+  previewReviewSubmissionRetryReleaseHandoff?: {
+    releaseHandoffVersion?: string;
+    status?: string;
+    handoffMode?: string;
+    releaseDecision?: string;
+    currentQueueStatus?: string;
+    firstBlockingCheck?: string;
+    firstOperatorAction?: string;
+    safeRetryAction?: string;
+    handoffSteps?: Array<{
+      stepKey?: string;
+      rank?: number;
+      operatorAction?: string;
+      requiredBeforeRelease?: string;
+    }>;
+    disabledUntil?: string[];
+    nextHandoffAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1395,6 +1413,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionRetryReleaseChecklist;
   const previewReviewSubmissionRetryReleaseSummary =
     activationChecklist.previewReviewSubmissionRetryReleaseSummary;
+  const previewReviewSubmissionRetryReleaseHandoff =
+    activationChecklist.previewReviewSubmissionRetryReleaseHandoff;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2303,6 +2323,46 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionRetryReleaseSummary.nextReleaseAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryReleaseHandoff ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry release handoff
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryReleaseHandoff.status ??
+              "preview-review-submission-retry-release-handoff-blocked"}{" "}
+            / decision{" "}
+            {previewReviewSubmissionRetryReleaseHandoff.releaseDecision ??
+              "blocked"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Queue:{" "}
+            {previewReviewSubmissionRetryReleaseHandoff.currentQueueStatus ??
+              "preview-review-submission-retry-queue-blocked"}{" "}
+            / first action{" "}
+            {previewReviewSubmissionRetryReleaseHandoff.firstOperatorAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+          {(previewReviewSubmissionRetryReleaseHandoff.handoffSteps ?? [])
+            .slice(0, 3)
+            .map((step) => (
+              <div
+                key={step.stepKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {step.rank ?? "-"} / {step.stepKey ?? "release-step"} /{" "}
+                {step.operatorAction ?? "operator-action"} / needs{" "}
+                {step.requiredBeforeRelease ?? "not reported"}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryReleaseHandoff.nextHandoffAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

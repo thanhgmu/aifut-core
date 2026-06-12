@@ -1942,6 +1942,43 @@ export class InfrastructureProfileService {
         safeRetryAction: 'submit-preview-only-backup-setup-review',
         nextReleaseAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionRetryReleaseHandoff: {
+        releaseHandoffVersion:
+          'backup-center-preview-review-submission-retry-release-handoff.v1',
+        status: 'preview-review-submission-retry-release-handoff-blocked',
+        handoffMode: 'preview-only-retry-release-operator-handoff',
+        releaseDecision: 'blocked',
+        currentQueueStatus: 'preview-review-submission-retry-queue-blocked',
+        firstBlockingCheck: 'submission-gates-resolved',
+        firstOperatorAction: 'fill-preview-only-setup-form',
+        safeRetryAction: 'submit-preview-only-backup-setup-review',
+        handoffSteps: [
+          {
+            stepKey: 'resolve-submission-gates',
+            rank: 1,
+            operatorAction: 'fill-preview-only-setup-form',
+            requiredBeforeRelease: 'submission-gate-resolution-complete',
+          },
+          {
+            stepKey: 'complete-closure-handoff',
+            rank: 2,
+            operatorAction: 'review-readiness-summary',
+            requiredBeforeRelease: 'preview-review-closure-handoff-ready',
+          },
+          {
+            stepKey: 'complete-review-packet',
+            rank: 3,
+            operatorAction: 'restore-approval-review',
+            requiredBeforeRelease: 'preview-review-packet-complete',
+          },
+        ],
+        disabledUntil: [
+          'submission-gate-resolution-complete',
+          'preview-review-closure-handoff-ready',
+          'preview-review-packet-complete',
+        ],
+        nextHandoffAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',
