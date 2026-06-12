@@ -1979,6 +1979,31 @@ export class InfrastructureProfileService {
         ],
         nextHandoffAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionRetryReleaseRunbook: {
+        releaseRunbookVersion:
+          'backup-center-preview-review-submission-retry-release-runbook.v1',
+        status: 'preview-review-submission-retry-release-runbook-blocked',
+        runbookMode: 'preview-only-retry-release-operator-sequence',
+        releaseDecision: 'blocked',
+        firstOperatorAction: 'fill-preview-only-setup-form',
+        safeSequence: [
+          'resolve-submission-gates',
+          'complete-closure-handoff',
+          'complete-review-packet',
+          'submit-preview-only-backup-setup-review',
+        ],
+        stopConditions: [
+          'submission-gate-resolution-incomplete',
+          'preview-review-closure-handoff-incomplete',
+          'preview-review-packet-incomplete',
+        ],
+        completionCriteria: [
+          'all-release-checks-passed',
+          'retry-queue-ready',
+          'preview-only-retry-released',
+        ],
+        nextRunbookAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',

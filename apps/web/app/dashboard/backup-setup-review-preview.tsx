@@ -573,6 +573,17 @@ type BackupSetupActivationChecklist = {
     disabledUntil?: string[];
     nextHandoffAction?: string;
   };
+  previewReviewSubmissionRetryReleaseRunbook?: {
+    releaseRunbookVersion?: string;
+    status?: string;
+    runbookMode?: string;
+    releaseDecision?: string;
+    firstOperatorAction?: string;
+    safeSequence?: string[];
+    stopConditions?: string[];
+    completionCriteria?: string[];
+    nextRunbookAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1415,6 +1426,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionRetryReleaseSummary;
   const previewReviewSubmissionRetryReleaseHandoff =
     activationChecklist.previewReviewSubmissionRetryReleaseHandoff;
+  const previewReviewSubmissionRetryReleaseRunbook =
+    activationChecklist.previewReviewSubmissionRetryReleaseRunbook;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2363,6 +2376,45 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionRetryReleaseHandoff.nextHandoffAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryReleaseRunbook ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry release runbook
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryReleaseRunbook.status ??
+              "preview-review-submission-retry-release-runbook-blocked"}{" "}
+            / decision{" "}
+            {previewReviewSubmissionRetryReleaseRunbook.releaseDecision ??
+              "blocked"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Sequence:{" "}
+            {(previewReviewSubmissionRetryReleaseRunbook.safeSequence ?? []).join(
+              " -> ",
+            ) || "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Stop when:{" "}
+            {(
+              previewReviewSubmissionRetryReleaseRunbook.stopConditions ?? []
+            ).join(", ") || "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Complete when:{" "}
+            {(
+              previewReviewSubmissionRetryReleaseRunbook.completionCriteria ??
+              []
+            ).join(", ") || "not reported"}
+          </div>
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryReleaseRunbook.nextRunbookAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
