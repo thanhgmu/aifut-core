@@ -269,6 +269,32 @@ describe('IntegrationsController', () => {
     });
   });
 
+  it('should reject malformed backup setup preview bodies', async () => {
+    await expect(
+      controller.backupSetupPreview(null as never, undefined),
+    ).rejects.toThrow('Backup setup preview body must be a JSON object.');
+    expect(
+      infrastructureProfileService.previewBackupSetup,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('should preserve explicit null preview values for service validation', async () => {
+    infrastructureProfileService.previewBackupSetup.mockResolvedValue({});
+
+    await controller.backupSetupPreview(
+      { tenantSlug: 'acme', values: null as never },
+      undefined,
+    );
+
+    expect(
+      infrastructureProfileService.previewBackupSetup,
+    ).toHaveBeenCalledWith({
+      tenantSlug: 'acme',
+      values: null,
+      decision: undefined,
+    });
+  });
+
   it('should resolve tenant connections from the active tenant', async () => {
     connectionInstances.listTenantConnections.mockResolvedValue([
       { id: 'conn_1', slug: 'nexovaflow-main' },

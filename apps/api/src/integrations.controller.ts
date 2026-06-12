@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -125,9 +126,15 @@ export class IntegrationsController {
     },
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
   ) {
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      throw new BadRequestException(
+        'Backup setup preview body must be a JSON object.',
+      );
+    }
+
     return this.infrastructureProfileService.previewBackupSetup({
       tenantSlug: tenantSlugHeader ?? body.tenantSlug,
-      values: body.values ?? body.formValues ?? {},
+      values: body.values !== undefined ? body.values : (body.formValues ?? {}),
       decision: body.decision,
     });
   }
