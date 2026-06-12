@@ -1857,6 +1857,42 @@ export class InfrastructureProfileService {
         ],
         nextRetryAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionRetryQueue: {
+        retryQueueVersion:
+          'backup-center-preview-review-submission-retry-queue.v1',
+        status: 'preview-review-submission-retry-queue-blocked',
+        queueMode: 'ordered-preview-retry-dependency-queue',
+        queuedItemCount: 3,
+        readyItemCount: 0,
+        blockedItemCount: 3,
+        items: [
+          {
+            queuePosition: 1,
+            stepKey: 'resolve-submission-gates',
+            sourceFailedCheck: 'submission-gates-resolved',
+            requiredOperatorAction: 'fill-preview-only-setup-form',
+            queueStatus: 'blocked-by-preview-review-gate',
+            releaseCondition: 'submission-gate-resolution-complete',
+          },
+          {
+            queuePosition: 2,
+            stepKey: 'complete-closure-handoff',
+            sourceFailedCheck: 'closure-handoff-ready',
+            requiredOperatorAction: 'review-readiness-summary',
+            queueStatus: 'blocked-by-preview-review-gate',
+            releaseCondition: 'preview-review-closure-handoff-ready',
+          },
+          {
+            queuePosition: 3,
+            stepKey: 'complete-review-packet',
+            sourceFailedCheck: 'review-packet-complete',
+            requiredOperatorAction: 'restore-approval-review',
+            queueStatus: 'blocked-by-preview-review-gate',
+            releaseCondition: 'preview-review-packet-complete',
+          },
+        ],
+        nextQueueAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',

@@ -508,6 +508,23 @@ type BackupSetupActivationChecklist = {
     retryWhen?: string[];
     nextRetryAction?: string;
   };
+  previewReviewSubmissionRetryQueue?: {
+    retryQueueVersion?: string;
+    status?: string;
+    queueMode?: string;
+    queuedItemCount?: number;
+    readyItemCount?: number;
+    blockedItemCount?: number;
+    items?: Array<{
+      queuePosition?: number;
+      stepKey?: string;
+      sourceFailedCheck?: string;
+      requiredOperatorAction?: string;
+      queueStatus?: string;
+      releaseCondition?: string;
+    }>;
+    nextQueueAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1342,6 +1359,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionAttemptOutcome;
   const previewReviewSubmissionRetryPlan =
     activationChecklist.previewReviewSubmissionRetryPlan;
+  const previewReviewSubmissionRetryQueue =
+    activationChecklist.previewReviewSubmissionRetryQueue;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2146,6 +2165,38 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionRetryPlan.nextRetryAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryQueue ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry queue
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryQueue.status ??
+              "preview-review-submission-retry-queue-blocked"}{" "}
+            / queued {previewReviewSubmissionRetryQueue.queuedItemCount ?? 0} /
+            blocked {previewReviewSubmissionRetryQueue.blockedItemCount ?? 0} /
+            ready {previewReviewSubmissionRetryQueue.readyItemCount ?? 0}
+          </div>
+          {(previewReviewSubmissionRetryQueue.items ?? [])
+            .slice(0, 3)
+            .map((item) => (
+              <div
+                key={item.stepKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                #{item.queuePosition ?? 0} {item.stepKey ?? "retry-step"} /{" "}
+                {item.queueStatus ?? "blocked-by-preview-review-gate"} /
+                release {item.releaseCondition ?? "not reported"}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryQueue.nextQueueAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>
