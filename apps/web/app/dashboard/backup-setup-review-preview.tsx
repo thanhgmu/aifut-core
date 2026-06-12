@@ -525,6 +525,23 @@ type BackupSetupActivationChecklist = {
     }>;
     nextQueueAction?: string;
   };
+  previewReviewSubmissionRetryReleaseChecklist?: {
+    releaseChecklistVersion?: string;
+    status?: string;
+    releaseMode?: string;
+    releaseAllowed?: boolean;
+    requiredReleaseCheckCount?: number;
+    passedReleaseCheckCount?: number;
+    blockedReleaseCheckCount?: number;
+    checks?: Array<{
+      checkKey?: string;
+      status?: string;
+      queueStepKey?: string;
+      requiredOperatorAction?: string;
+      clearsWhen?: string;
+    }>;
+    nextReleaseAction?: string;
+  };
   operatorHandoff?: {
     handoffVersion?: string;
     mode?: string;
@@ -1361,6 +1378,8 @@ function ActivationChecklistReadout({
     activationChecklist.previewReviewSubmissionRetryPlan;
   const previewReviewSubmissionRetryQueue =
     activationChecklist.previewReviewSubmissionRetryQueue;
+  const previewReviewSubmissionRetryReleaseChecklist =
+    activationChecklist.previewReviewSubmissionRetryReleaseChecklist;
   const operatorHandoff = activationChecklist.operatorHandoff;
   const customerImpactPreview = activationChecklist.customerImpactPreview;
   const operatorReadinessDigest =
@@ -2197,6 +2216,42 @@ function ActivationChecklistReadout({
           <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
             Next:{" "}
             {previewReviewSubmissionRetryQueue.nextQueueAction ??
+              "fill-preview-only-setup-form"}
+          </div>
+        </div>
+      ) : null}
+
+      {previewReviewSubmissionRetryReleaseChecklist ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
+            Review submission retry release checklist
+          </div>
+          <div style={{ color: "#dfe6ff", fontSize: 13, lineHeight: 1.5 }}>
+            {previewReviewSubmissionRetryReleaseChecklist.status ??
+              "preview-review-submission-retry-release-blocked"}{" "}
+            / release{" "}
+            {formatOptionalAllowed(
+              previewReviewSubmissionRetryReleaseChecklist.releaseAllowed,
+            )}{" "}
+            / blocked{" "}
+            {previewReviewSubmissionRetryReleaseChecklist
+              .blockedReleaseCheckCount ?? 0}
+          </div>
+          {(previewReviewSubmissionRetryReleaseChecklist.checks ?? [])
+            .slice(0, 3)
+            .map((check) => (
+              <div
+                key={check.checkKey}
+                style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}
+              >
+                {check.checkKey ?? "release-check"} /{" "}
+                {check.status ?? "blocked"} / clears{" "}
+                {check.clearsWhen ?? "not reported"}
+              </div>
+            ))}
+          <div style={{ color: "#c8d2ff", fontSize: 12, lineHeight: 1.5 }}>
+            Next:{" "}
+            {previewReviewSubmissionRetryReleaseChecklist.nextReleaseAction ??
               "fill-preview-only-setup-form"}
           </div>
         </div>

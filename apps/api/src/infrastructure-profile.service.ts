@@ -1893,6 +1893,40 @@ export class InfrastructureProfileService {
         ],
         nextQueueAction: 'fill-preview-only-setup-form',
       },
+      previewReviewSubmissionRetryReleaseChecklist: {
+        releaseChecklistVersion:
+          'backup-center-preview-review-submission-retry-release-checklist.v1',
+        status: 'preview-review-submission-retry-release-blocked',
+        releaseMode: 'preview-retry-release-readiness-check',
+        releaseAllowed: false,
+        requiredReleaseCheckCount: 3,
+        passedReleaseCheckCount: 0,
+        blockedReleaseCheckCount: 3,
+        checks: [
+          {
+            checkKey: 'submission-gates-resolved',
+            status: 'blocked',
+            queueStepKey: 'resolve-submission-gates',
+            requiredOperatorAction: 'fill-preview-only-setup-form',
+            clearsWhen: 'submission-gate-resolution-complete',
+          },
+          {
+            checkKey: 'closure-handoff-ready',
+            status: 'blocked',
+            queueStepKey: 'complete-closure-handoff',
+            requiredOperatorAction: 'review-readiness-summary',
+            clearsWhen: 'preview-review-closure-handoff-ready',
+          },
+          {
+            checkKey: 'review-packet-complete',
+            status: 'blocked',
+            queueStepKey: 'complete-review-packet',
+            requiredOperatorAction: 'restore-approval-review',
+            clearsWhen: 'preview-review-packet-complete',
+          },
+        ],
+        nextReleaseAction: 'fill-preview-only-setup-form',
+      },
       operatorHandoff: {
         handoffVersion: 'backup-center-activation-operator-handoff.v1',
         mode: 'preview-only',
