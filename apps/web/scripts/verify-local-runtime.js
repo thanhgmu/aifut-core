@@ -115,6 +115,74 @@ async function verifyBackupPreviewResolution() {
   };
 }
 
+async function verifyIntegrationDraftPreview() {
+  const path = "/integrations/ai-draft";
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tenantSlug: "acme",
+      workspaceSlug: "ops",
+      storagePolicyKey: "assets",
+      connectorKey: "shopify",
+      prompt:
+        "Connect customer, order, and product events so support can respond faster while writes remain reviewed.",
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const payload = await response.json();
+  const artifact = payload?.setupExecutionArtifact;
+  const safety = artifact?.reviewBoundaries;
+
+  if (!response.ok || payload?.status !== "drafted") {
+    throw new Error(`${path} did not draft a valid integration preview`);
+  }
+
+  if (artifact?.consumerContract?.contractVersion !== "integration-setup-artifact.v1") {
+    throw new Error(`${path} returned an unexpected consumer contract`);
+  }
+
+  if (!Array.isArray(artifact?.executionSteps) || artifact.executionSteps.length !== 5) {
+    throw new Error(`${path} did not return the five ordered execution steps`);
+  }
+
+  if (
+    safety?.previewOnly !== true ||
+    safety?.requiresHumanReview !== true ||
+    safety?.activationAllowed !== false ||
+    safety?.externalActionsAllowed !== false
+  ) {
+    throw new Error(`${path} returned unsafe integration preview boundaries`);
+  }
+
+  return {
+    path,
+    status: response.status,
+    connectorKey: payload.connector.key,
+    contractVersion: artifact.consumerContract.contractVersion,
+    executionStepCount: artifact.executionSteps.length,
+    activationAllowed: safety.activationAllowed,
+    externalActionsAllowed: safety.externalActionsAllowed,
+  };
+}
+
+async function verifyIntegrationDraftRejection() {
+  const path = "/integrations/ai-draft";
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connectorKey: "shopify", prompt: "" }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const payload = await response.json();
+
+  if (response.status !== 400 || payload?.message !== "Missing prompt.") {
+    throw new Error(`${path} did not reject an empty natural-language prompt`);
+  }
+
+  return { path, status: response.status, message: payload.message };
+}
+
 function requireText(html, path, text) {
   if (!html.includes(text)) {
     throw new Error(`${path} did not render ${JSON.stringify(text)}`);
@@ -144,6 +212,8 @@ async function main() {
     interfacesResponse,
     contractsResponse,
     templatesResponse,
+    integrationDraftPreview,
+    integrationDraftRejection,
     backupPreviewRejection,
     backupPreviewResolution,
   ] =
@@ -151,6 +221,8 @@ async function main() {
       readJson("/connectors/adapter-interfaces"),
       readJson("/connectors/adapter-contracts"),
       readJson("/connectors/templates"),
+      verifyIntegrationDraftPreview(),
+      verifyIntegrationDraftRejection(),
       verifyBackupPreviewRejection(),
       verifyBackupPreviewResolution(),
     ]);
@@ -172,7 +244,7 @@ async function main() {
 
   const pageExpectations = [
     ["/", "AIFUT"],
-    ["/dashboard", "Backup Center", "Tenant scope"],
+    ["/dashboard", "Describe the integration in natural language", "Prepare integration preview"],
     ["/foundation", "AIFUT Foundation"],
     ["/login", "AIFUT Login"],
     ["/register", "AIFUT Register"],
@@ -220,6 +292,8 @@ async function main() {
           interfaceCount: interfaces.length,
           templateCount: templates.length,
         },
+        integrationDraftPreview,
+        integrationDraftRejection,
         backupPreviewRejection,
         backupPreviewResolution,
       },

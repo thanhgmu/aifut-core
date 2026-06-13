@@ -1,5 +1,6 @@
 import { API_BASE, getJson, getJsonResult, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
 import { BackupSetupReviewPreview, type BackupSetupFormSchema } from "./backup-setup-review-preview";
+import { IntegrationSetupDraftPreview, type ConnectorOption, type IntegrationAiDraftResponse } from "./integration-setup-draft-preview";
 import { RuntimeBindingPreviewEditor } from "./runtime-binding-preview-editor";
 
 type LaneCard = {
@@ -102,57 +103,6 @@ type RuntimeBindingSetupPreviewResponse = {
       providedCount?: number;
       missingInputKeys?: string[];
       invalidInputKeys?: string[];
-    };
-  };
-};
-
-type IntegrationAiDraftResponse = {
-  status?: string;
-  connector?: {
-    key?: string;
-    name?: string;
-    category?: string;
-  };
-  setupExecutionArtifact?: {
-    artifactKey?: string;
-    artifactStatus?: string;
-    setupTrack?: string;
-    customerExperienceGoal?: string;
-    reviewBoundaries?: {
-      previewOnly?: boolean;
-      activationAllowed?: boolean;
-      externalActionsAllowed?: boolean;
-      requiresHumanReview?: boolean;
-    };
-    dataContract?: {
-      connectorKey?: string;
-      connectorName?: string;
-      connectorCategory?: string;
-      objects?: string[];
-      syncMode?: string;
-      storagePolicyKey?: string | null;
-    };
-    consumerContract?: {
-      contractVersion?: string;
-      sourceArtifactKey?: string;
-      consumerSurfaces?: string[];
-      reviewStatus?: string;
-      displaySummary?: {
-        title?: string;
-        subtitle?: string;
-        statusLabel?: string;
-      };
-      primaryActionKey?: string;
-      requiredActionKeys?: string[];
-      blockedActionKeys?: string[];
-      runtimeBindingHandoff?: {
-        mode?: string;
-        setupKeySource?: string;
-        previewEndpoint?: string;
-        requiredInputKeys?: string[];
-        activationAllowed?: boolean;
-        externalActionsAllowed?: boolean;
-      };
     };
   };
 };
@@ -323,6 +273,7 @@ async function getDashboardData() {
   const [
     health,
     adapterInterfacesResponse,
+    connectorRegistryResponse,
     root,
     blueprintPreviewResult,
     integrationDraftResult,
@@ -330,6 +281,7 @@ async function getDashboardData() {
   ] = await Promise.all([
     getJson<HealthResponse>("/health"),
     getJson<{ adapterInterfaces?: AdapterInterfaceRegistryResponse }>("/connectors/adapter-interfaces"),
+    getJson<{ registry?: { connectors?: ConnectorOption[] } }>("/connectors/registry"),
     getJson<RootResponse>("/"),
     postJsonResult<BusinessSystemBlueprintPreviewResponse>(
       "/orchestration/business-systems/draft-preview",
@@ -350,6 +302,7 @@ async function getDashboardData() {
   return {
     health,
     adapterInterfaces,
+    connectors: connectorRegistryResponse?.registry?.connectors ?? [],
     root,
     blueprintPreviewResult,
     integrationDraftResult,
@@ -401,6 +354,7 @@ export default async function DashboardPage() {
   const {
     health,
     adapterInterfaces,
+    connectors,
     root,
     blueprintPreviewResult,
     integrationDraftResult,
@@ -507,54 +461,11 @@ export default async function DashboardPage() {
 
         <section style={{ marginTop: 28 }}>
           <Panel title="Natural-language integration setup artifact">
-            {integrationArtifact ? (
-              <div style={{ display: "grid", gap: 16 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-                  <MetricCard title="Connector" value={integrationDraftResult.data?.connector?.name ?? "unknown"} note={integrationDraftResult.data?.connector?.category ?? "integration"} />
-                  <MetricCard title="Artifact" value={integrationArtifact.artifactStatus ?? "review-ready"} note={integrationArtifact.setupTrack ?? "ai-assisted"} />
-                  <MetricCard title="Contract" value={integrationConsumerContract?.contractVersion ?? "unavailable"} note={integrationConsumerContract?.reviewStatus ?? "review required"} />
-                  <MetricCard title="Activation" value={integrationArtifact.reviewBoundaries?.activationAllowed ? "Allowed" : "Blocked"} note="preview-only setup artifact" />
-                </div>
-
-                <div style={cardStyle}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 800 }}>
-                        {integrationConsumerContract?.displaySummary?.title ?? "Integration setup review"}
-                      </div>
-                      <div style={{ marginTop: 8, color: "#c8d2ff", fontSize: 13, lineHeight: 1.6 }}>
-                        {integrationConsumerContract?.displaySummary?.subtitle ?? integrationArtifact.customerExperienceGoal ?? "Review before activation."}
-                      </div>
-                    </div>
-                    <span style={{ color: "#9fb0ff", fontSize: 12, fontWeight: 800 }}>
-                      {integrationConsumerContract?.displaySummary?.statusLabel ?? "Preview only"}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 16 }}>
-                    <Readout label="Source artifact" value={integrationConsumerContract?.sourceArtifactKey ?? integrationArtifact.artifactKey ?? "unassigned"} />
-                    <Readout label="Primary action" value={integrationConsumerContract?.primaryActionKey ?? "review"} />
-                    <Readout label="Sync mode" value={integrationArtifact.dataContract?.syncMode ?? "manual-review"} />
-                    <Readout label="Setup key source" value={integrationConsumerContract?.runtimeBindingHandoff?.setupKeySource ?? "runtime-binding queue"} />
-                  </div>
-
-                  <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
-                    <KeyList label="Required artifact actions" items={integrationConsumerContract?.requiredActionKeys} />
-                    <KeyList label="Blocked until review" items={integrationConsumerContract?.blockedActionKeys} />
-                    <KeyList label="Runtime-binding inputs" items={integrationConsumerContract?.runtimeBindingHandoff?.requiredInputKeys} />
-                    <KeyList label="Consumer surfaces" items={integrationConsumerContract?.consumerSurfaces} />
-                  </div>
-
-                  <div style={{ marginTop: 16, color: "#9fb0ff", fontSize: 13, lineHeight: 1.6 }}>
-                    Handoff: {integrationConsumerContract?.runtimeBindingHandoff?.previewEndpoint ?? "runtime-binding setup preview"} / activation {integrationConsumerContract?.runtimeBindingHandoff?.activationAllowed ? "allowed" : "blocked"} / external actions {integrationConsumerContract?.runtimeBindingHandoff?.externalActionsAllowed ? "allowed" : "disabled"}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ color: "#c8d2ff" }}>
-                Integration setup artifact is unavailable: {formatReadFailure(integrationDraftResult)}.
-              </div>
-            )}
+            <IntegrationSetupDraftPreview
+              connectors={connectors}
+              initialRequest={SAMPLE_INTEGRATION_DRAFT_REQUEST}
+              initialResult={integrationDraftResult}
+            />
           </Panel>
         </section>
 
