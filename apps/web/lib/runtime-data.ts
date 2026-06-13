@@ -96,6 +96,7 @@ export async function getJsonResult<T>(path: string): Promise<JsonResult<T>> {
 export async function postJsonResult<T>(
   path: string,
   body: Record<string, unknown>,
+  headers?: Record<string, string>,
 ): Promise<JsonResult<T>> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -103,6 +104,7 @@ export async function postJsonResult<T>(
       cache: "no-store",
       headers: {
         "content-type": "application/json",
+        ...headers,
       },
       body: JSON.stringify(body),
     });

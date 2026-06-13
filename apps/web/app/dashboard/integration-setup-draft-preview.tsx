@@ -120,6 +120,10 @@ export function IntegrationSetupDraftPreview({
       await postJsonResult<IntegrationAiDraftResponse>(
         "/integrations/ai-draft",
         request,
+        {
+          "x-tenant-slug": request.tenantSlug,
+          "x-workspace-slug": request.workspaceSlug,
+        },
       ),
     );
     setIsLoading(false);

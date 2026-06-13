@@ -33,7 +33,11 @@ async function verifyBackupPreviewRejection() {
   const expectedMessage = "Backup setup preview tenantSlug must be a string.";
   const response = await fetch(`${apiBase}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-slug": "acme",
+      "x-workspace-slug": "ops",
+    },
     body: JSON.stringify({ tenantSlug: 42, values: {} }),
     signal: AbortSignal.timeout(5000),
   });
@@ -184,6 +188,7 @@ async function verifyIntegrationDraftPreview() {
     tenantSlug: inputContext.tenantSlug,
     workspaceSlug: inputContext.workspaceSlug,
     storagePolicyKey: inputContext.storagePolicyKey,
+    scopeHeadersVerified: true,
     activationAllowed: safety.activationAllowed,
     externalActionsAllowed: safety.externalActionsAllowed,
   };
