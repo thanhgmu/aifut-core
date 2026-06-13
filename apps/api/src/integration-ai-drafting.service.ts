@@ -105,10 +105,12 @@ export class IntegrationAiDraftingService {
       missingInformation: this.buildMissingInformation(
         connector.key,
         normalizedPrompt,
+        inputContext.workspaceSlug,
       ),
       operatorQuestions: this.buildOperatorQuestions(
         connector.key,
         normalizedPrompt,
+        inputContext.workspaceSlug,
       ),
       readiness: {
         canCreateDraftConnection: true,
@@ -430,10 +432,14 @@ export class IntegrationAiDraftingService {
       .replace(/đ/g, 'd');
   }
 
-  private buildMissingInformation(connectorKey: string, prompt: string) {
+  private buildMissingInformation(
+    connectorKey: string,
+    prompt: string,
+    workspaceSlug: string | null,
+  ) {
     const missing = ['baseUrl', 'credentialReference'];
 
-    if (!prompt.includes('workspace')) {
+    if (!workspaceSlug && !prompt.includes('workspace')) {
       missing.push('workspace-scope-confirmation');
     }
 
@@ -445,12 +451,19 @@ export class IntegrationAiDraftingService {
     return missing;
   }
 
-  private buildOperatorQuestions(connectorKey: string, prompt: string) {
+  private buildOperatorQuestions(
+    connectorKey: string,
+    prompt: string,
+    workspaceSlug: string | null,
+  ) {
     const questions = [
-      'Which workspace should own this integration?',
       'Should writes stay platform-managed, tenant-managed, or hybrid?',
       'Which authentication method is acceptable for the first rollout?',
     ];
+
+    if (!workspaceSlug) {
+      questions.unshift('Which workspace should own this integration?');
+    }
 
     if (!prompt.includes('lead')) {
       questions.push('Do you want leads included in the first sync scope?');

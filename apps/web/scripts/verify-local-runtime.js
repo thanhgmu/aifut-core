@@ -171,6 +171,15 @@ async function verifyIntegrationDraftPreview() {
   }
 
   if (
+    payload?.missingInformation?.includes("workspace-scope-confirmation") ||
+    payload?.operatorQuestions?.includes(
+      "Which workspace should own this integration?",
+    )
+  ) {
+    throw new Error(`${path} requested workspace scope that was already bound`);
+  }
+
+  if (
     safety?.previewOnly !== true ||
     safety?.requiresHumanReview !== true ||
     safety?.activationAllowed !== false ||
@@ -188,6 +197,7 @@ async function verifyIntegrationDraftPreview() {
     syncMode: payload.draft.mappingProfile.syncPolicy.mode,
     automationGuidance: true,
     vietnamesePromptPreserved: true,
+    boundWorkspaceQuestionsResolved: true,
     tenantSlug: inputContext.tenantSlug,
     workspaceSlug: inputContext.workspaceSlug,
     storagePolicyKey: inputContext.storagePolicyKey,

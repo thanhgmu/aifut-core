@@ -130,6 +130,12 @@ describe('IntegrationAiDraftingService', () => {
           },
         },
       },
+      missingInformation: expect.not.arrayContaining([
+        'workspace-scope-confirmation',
+      ]),
+      operatorQuestions: expect.not.arrayContaining([
+        'Which workspace should own this integration?',
+      ]),
     });
   });
 
@@ -147,6 +153,20 @@ describe('IntegrationAiDraftingService', () => {
         prompt: 'connect leads',
       }),
     ).toThrow(NotFoundException);
+  });
+
+  it('should request workspace confirmation when scope is unresolved', () => {
+    const result = service.draftFromNaturalLanguage({
+      connectorKey: 'shopify',
+      prompt: 'Connect customers and orders both ways.',
+    });
+
+    expect(result.missingInformation).toContain(
+      'workspace-scope-confirmation',
+    );
+    expect(result.operatorQuestions).toContain(
+      'Which workspace should own this integration?',
+    );
   });
 
   it('should recognize Vietnamese integration intent without diacritics', () => {
