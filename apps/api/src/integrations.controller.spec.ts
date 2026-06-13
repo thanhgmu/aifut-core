@@ -32,6 +32,7 @@ describe('IntegrationsController', () => {
   };
   let integrationSetup: { buildSetupSession: jest.Mock };
   let integrationDiagnostics: { diagnose: jest.Mock };
+  let integrationAiDrafting: { draftFromNaturalLanguage: jest.Mock };
   let integrationWorkflow: {
     saveSetupDraft: jest.Mock;
     recordDiagnosticRun: jest.Mock;
@@ -71,6 +72,10 @@ describe('IntegrationsController', () => {
       diagnose: jest.fn(),
     };
 
+    integrationAiDrafting = {
+      draftFromNaturalLanguage: jest.fn(),
+    };
+
     integrationWorkflow = {
       saveSetupDraft: jest.fn(),
       recordDiagnosticRun: jest.fn(),
@@ -104,7 +109,7 @@ describe('IntegrationsController', () => {
         },
         {
           provide: IntegrationAiDraftingService,
-          useValue: { draftFromNaturalLanguage: jest.fn() },
+          useValue: integrationAiDrafting,
         },
         { provide: IntegrationWorkflowService, useValue: integrationWorkflow },
         {
@@ -311,15 +316,82 @@ describe('IntegrationsController', () => {
 
   it('should reject ambiguous backup preview value sources', async () => {
     await expect(
-      controller.backupSetupPreview(
-        { values: {}, formValues: {} },
-        'acme',
-      ),
+      controller.backupSetupPreview({ values: {}, formValues: {} }, 'acme'),
     ).rejects.toThrow(
       'Backup setup preview accepts either values or formValues, not both.',
     );
     expect(
       infrastructureProfileService.previewBackupSetup,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('should route integration AI drafts with matching locked scope', () => {
+    integrationAiDrafting.draftFromNaturalLanguage.mockReturnValue({
+      status: 'drafted',
+    });
+
+    const result = controller.aiDraft(
+      {
+        tenantSlug: ' ACME ',
+        workspaceSlug: ' Ops ',
+        connectorKey: 'shopify',
+        prompt: 'Connect orders both ways.',
+        storagePolicyKey: 'assets',
+      },
+      'acme',
+      'ops',
+    );
+
+    expect(integrationAiDrafting.draftFromNaturalLanguage).toHaveBeenCalledWith(
+      {
+        tenantSlug: 'acme',
+        workspaceSlug: 'ops',
+        connectorKey: 'shopify',
+        prompt: 'Connect orders both ways.',
+        storagePolicyKey: 'assets',
+      },
+    );
+    expect(result).toEqual({ status: 'drafted' });
+  });
+
+  it('should reject malformed or conflicting integration AI draft scope', () => {
+    expect(() => controller.aiDraft(null as never)).toThrow(
+      'Integration AI draft body must be a JSON object.',
+    );
+    expect(() =>
+      controller.aiDraft(
+        {
+          connectorKey: 'shopify',
+          prompt: 42 as never,
+        },
+        undefined,
+        undefined,
+      ),
+    ).toThrow('Integration AI draft prompt must be a string.');
+    expect(() =>
+      controller.aiDraft(
+        {
+          tenantSlug: 'other',
+          connectorKey: 'shopify',
+          prompt: 'Connect orders.',
+        },
+        'acme',
+        undefined,
+      ),
+    ).toThrow('Integration AI draft tenant header and body must match.');
+    expect(() =>
+      controller.aiDraft(
+        {
+          workspaceSlug: 'other',
+          connectorKey: 'shopify',
+          prompt: 'Connect orders.',
+        },
+        undefined,
+        'ops',
+      ),
+    ).toThrow('Integration AI draft workspace header and body must match.');
+    expect(
+      integrationAiDrafting.draftFromNaturalLanguage,
     ).not.toHaveBeenCalled();
   });
 

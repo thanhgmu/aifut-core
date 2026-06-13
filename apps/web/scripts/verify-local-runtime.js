@@ -193,14 +193,25 @@ async function verifyIntegrationDraftRejection() {
   const path = "/integrations/ai-draft";
   const response = await fetch(`${apiBase}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ connectorKey: "shopify", prompt: "" }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-slug": "acme",
+    },
+    body: JSON.stringify({
+      tenantSlug: "other",
+      connectorKey: "shopify",
+      prompt: "Connect orders both ways.",
+    }),
     signal: AbortSignal.timeout(5000),
   });
   const payload = await response.json();
 
-  if (response.status !== 400 || payload?.message !== "Missing prompt.") {
-    throw new Error(`${path} did not reject an empty natural-language prompt`);
+  if (
+    response.status !== 400 ||
+    payload?.message !==
+      "Integration AI draft tenant header and body must match."
+  ) {
+    throw new Error(`${path} did not reject conflicting tenant scope`);
   }
 
   return { path, status: response.status, message: payload.message };

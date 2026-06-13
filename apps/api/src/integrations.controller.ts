@@ -132,10 +132,7 @@ export class IntegrationsController {
       );
     }
 
-    if (
-      body.tenantSlug !== undefined &&
-      typeof body.tenantSlug !== 'string'
-    ) {
+    if (body.tenantSlug !== undefined && typeof body.tenantSlug !== 'string') {
       throw new BadRequestException(
         'Backup setup preview tenantSlug must be a string.',
       );
@@ -305,6 +302,48 @@ export class IntegrationsController {
     @Headers('x-tenant-slug') tenantSlugHeader?: string,
     @Headers('x-workspace-slug') workspaceSlugHeader?: string,
   ) {
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      throw new BadRequestException(
+        'Integration AI draft body must be a JSON object.',
+      );
+    }
+
+    for (const field of [
+      'connectorKey',
+      'prompt',
+      'tenantSlug',
+      'workspaceSlug',
+      'storagePolicyKey',
+    ] as const) {
+      if (body[field] !== undefined && typeof body[field] !== 'string') {
+        throw new BadRequestException(
+          `Integration AI draft ${field} must be a string.`,
+        );
+      }
+    }
+
+    if (
+      tenantSlugHeader !== undefined &&
+      body.tenantSlug !== undefined &&
+      tenantSlugHeader.trim().toLowerCase() !==
+        body.tenantSlug.trim().toLowerCase()
+    ) {
+      throw new BadRequestException(
+        'Integration AI draft tenant header and body must match.',
+      );
+    }
+
+    if (
+      workspaceSlugHeader !== undefined &&
+      body.workspaceSlug !== undefined &&
+      workspaceSlugHeader.trim().toLowerCase() !==
+        body.workspaceSlug.trim().toLowerCase()
+    ) {
+      throw new BadRequestException(
+        'Integration AI draft workspace header and body must match.',
+      );
+    }
+
     return this.integrationAiDrafting.draftFromNaturalLanguage({
       connectorKey: body.connectorKey,
       prompt: body.prompt,
