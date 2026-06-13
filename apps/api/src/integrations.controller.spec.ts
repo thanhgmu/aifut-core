@@ -395,6 +395,22 @@ describe('IntegrationsController', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('should reject unsupported integration AI draft fields', () => {
+    expect(() =>
+      controller.aiDraft({
+        connectorKey: 'shopify',
+        prompt: 'Connect orders.',
+        connectorKy: 'typo',
+        storagePolicy: 'assets',
+      } as never),
+    ).toThrow(
+      'Integration AI draft contains unsupported fields: connectorKy, storagePolicy.',
+    );
+    expect(
+      integrationAiDrafting.draftFromNaturalLanguage,
+    ).not.toHaveBeenCalled();
+  });
+
   it('should resolve tenant connections from the active tenant', async () => {
     connectionInstances.listTenantConnections.mockResolvedValue([
       { id: 'conn_1', slug: 'nexovaflow-main' },

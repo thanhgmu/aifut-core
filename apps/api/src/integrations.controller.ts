@@ -308,13 +308,27 @@ export class IntegrationsController {
       );
     }
 
-    for (const field of [
+    const supportedFields = [
       'connectorKey',
       'prompt',
       'tenantSlug',
       'workspaceSlug',
       'storagePolicyKey',
-    ] as const) {
+    ] as const;
+    const unknownFields = Object.keys(body)
+      .filter(
+        (field) =>
+          !supportedFields.includes(field as (typeof supportedFields)[number]),
+      )
+      .sort();
+
+    if (unknownFields.length > 0) {
+      throw new BadRequestException(
+        `Integration AI draft contains unsupported fields: ${unknownFields.join(', ')}.`,
+      );
+    }
+
+    for (const field of supportedFields) {
       if (body[field] !== undefined && typeof body[field] !== 'string') {
         throw new BadRequestException(
           `Integration AI draft ${field} must be a string.`,

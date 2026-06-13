@@ -217,6 +217,33 @@ async function verifyIntegrationDraftRejection() {
   return { path, status: response.status, message: payload.message };
 }
 
+async function verifyIntegrationDraftUnknownFieldRejection() {
+  const path = "/integrations/ai-draft";
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tenantSlug: "acme",
+      workspaceSlug: "ops",
+      connectorKey: "shopify",
+      prompt: "Connect orders both ways.",
+      storagePolicy: "assets",
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const payload = await response.json();
+
+  if (
+    response.status !== 400 ||
+    payload?.message !==
+      "Integration AI draft contains unsupported fields: storagePolicy."
+  ) {
+    throw new Error(`${path} did not reject an unsupported request field`);
+  }
+
+  return { path, status: response.status, message: payload.message };
+}
+
 async function verifyIntegrationScopeControls() {
   const path = "/dashboard";
   const html = await readHtml(path);
@@ -270,6 +297,7 @@ async function main() {
     templatesResponse,
     integrationDraftPreview,
     integrationDraftRejection,
+    integrationDraftUnknownFieldRejection,
     integrationScopeControls,
     backupPreviewRejection,
     backupPreviewResolution,
@@ -280,6 +308,7 @@ async function main() {
       readJson("/connectors/templates"),
       verifyIntegrationDraftPreview(),
       verifyIntegrationDraftRejection(),
+      verifyIntegrationDraftUnknownFieldRejection(),
       verifyIntegrationScopeControls(),
       verifyBackupPreviewRejection(),
       verifyBackupPreviewResolution(),
@@ -352,6 +381,7 @@ async function main() {
         },
         integrationDraftPreview,
         integrationDraftRejection,
+        integrationDraftUnknownFieldRejection,
         integrationScopeControls,
         backupPreviewRejection,
         backupPreviewResolution,
