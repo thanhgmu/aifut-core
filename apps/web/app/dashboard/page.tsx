@@ -290,6 +290,10 @@ async function getDashboardData() {
     postJsonResult<IntegrationAiDraftResponse>(
       "/integrations/ai-draft",
       SAMPLE_INTEGRATION_DRAFT_REQUEST,
+      {
+        "x-tenant-slug": SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug,
+        "x-workspace-slug": SAMPLE_INTEGRATION_DRAFT_REQUEST.workspaceSlug,
+      },
     ),
     getJsonResult<BackupReadinessResponse>(
       `/integrations/backup-readiness?tenantSlug=${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,

@@ -252,6 +252,7 @@ async function verifyIntegrationDraftUnknownFieldRejection() {
 async function verifyIntegrationScopeControls() {
   const path = "/dashboard";
   const html = await readHtml(path);
+  requireText(html, path, "acme / ops");
   const controls = [
     { label: "Tenant scope", value: "acme" },
     { label: "Workspace scope", value: "ops" },
@@ -268,7 +269,7 @@ async function verifyIntegrationScopeControls() {
     }
   }
 
-  return { path, controls };
+  return { path, controls, initialPreviewScope: "acme / ops" };
 }
 
 function requireText(html, path, text) {
