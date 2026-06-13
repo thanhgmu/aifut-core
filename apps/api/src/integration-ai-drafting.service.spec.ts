@@ -164,4 +164,21 @@ describe('IntegrationAiDraftingService', () => {
       'Consider adding workflow bridge handoff after initial sync succeeds.',
     );
   });
+
+  it('should recognize and preserve Vietnamese integration intent with diacritics', () => {
+    const prompt =
+      'Đồng bộ khách hàng và đơn hàng hai chiều, sau đó tự động hóa quy trình hỗ trợ.';
+    const result = service.draftFromNaturalLanguage({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      connectorKey: 'shopify',
+      prompt,
+    });
+
+    expect(result.inputContext.prompt).toBe(prompt);
+    expect(result.draft.mappingProfile.syncPolicy.mode).toBe('bidirectional');
+    expect(result.draft.workflowHints).toContain(
+      'Consider adding workflow bridge handoff after initial sync succeeds.',
+    );
+  });
 });

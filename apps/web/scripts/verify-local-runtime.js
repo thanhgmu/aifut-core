@@ -130,7 +130,7 @@ async function verifyIntegrationDraftPreview() {
       storagePolicyKey: "assets",
       connectorKey: "shopify",
       prompt:
-        "Dong bo khach hang va don hang hai chieu, sau do tu dong hoa quy trinh ho tro.",
+        "Đồng bộ khách hàng và đơn hàng hai chiều, sau đó tự động hóa quy trình hỗ trợ.",
     }),
     signal: AbortSignal.timeout(5000),
   });
@@ -163,9 +163,11 @@ async function verifyIntegrationDraftPreview() {
   if (
     inputContext?.tenantSlug !== "acme" ||
     inputContext?.workspaceSlug !== "ops" ||
-    inputContext?.storagePolicyKey !== "assets"
+    inputContext?.storagePolicyKey !== "assets" ||
+    inputContext?.prompt !==
+      "Đồng bộ khách hàng và đơn hàng hai chiều, sau đó tự động hóa quy trình hỗ trợ."
   ) {
-    throw new Error(`${path} did not preserve the requested integration scope`);
+    throw new Error(`${path} did not preserve the requested integration input`);
   }
 
   if (
@@ -185,6 +187,7 @@ async function verifyIntegrationDraftPreview() {
     executionStepCount: artifact.executionSteps.length,
     syncMode: payload.draft.mappingProfile.syncPolicy.mode,
     automationGuidance: true,
+    vietnamesePromptPreserved: true,
     tenantSlug: inputContext.tenantSlug,
     workspaceSlug: inputContext.workspaceSlug,
     storagePolicyKey: inputContext.storagePolicyKey,
