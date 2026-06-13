@@ -35,7 +35,7 @@ export class IntegrationAiDraftingService {
       );
     }
 
-    const normalizedPrompt = prompt.toLowerCase();
+    const normalizedPrompt = this.normalizePromptForMatching(prompt);
     const suggestedObjects = this.suggestObjects(
       connector.category,
       normalizedPrompt,
@@ -309,7 +309,7 @@ export class IntegrationAiDraftingService {
   ) {
     if (
       prompt.includes('both') ||
-      prompt.includes('hai chiều') ||
+      prompt.includes('hai chieu') ||
       prompt.includes('bidirectional')
     ) {
       return supportedDirections.includes('bidirectional')
@@ -412,7 +412,7 @@ export class IntegrationAiDraftingService {
       ];
     }
 
-    if (prompt.includes('workflow') || prompt.includes('tự động')) {
+    if (prompt.includes('workflow') || prompt.includes('tu dong')) {
       return [
         'Consider adding workflow bridge handoff after initial sync succeeds.',
         'Expose operator-visible event mapping before enabling automatic writes.',
@@ -420,6 +420,14 @@ export class IntegrationAiDraftingService {
     }
 
     return ['Review workflow automation after basic connection health passes.'];
+  }
+
+  private normalizePromptForMatching(prompt: string) {
+    return prompt
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/đ/g, 'd');
   }
 
   private buildMissingInformation(connectorKey: string, prompt: string) {

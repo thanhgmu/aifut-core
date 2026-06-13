@@ -148,4 +148,20 @@ describe('IntegrationAiDraftingService', () => {
       }),
     ).toThrow(NotFoundException);
   });
+
+  it('should recognize Vietnamese integration intent without diacritics', () => {
+    const result = service.draftFromNaturalLanguage({
+      tenantSlug: 'acme',
+      workspaceSlug: 'ops',
+      connectorKey: 'shopify',
+      prompt:
+        'Dong bo khach hang va don hang hai chieu, sau do tu dong hoa quy trinh ho tro.',
+    });
+
+    expect(result.inputContext.prompt).toContain('hai chieu');
+    expect(result.draft.mappingProfile.syncPolicy.mode).toBe('bidirectional');
+    expect(result.draft.workflowHints).toContain(
+      'Consider adding workflow bridge handoff after initial sync succeeds.',
+    );
+  });
 });

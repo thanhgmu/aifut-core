@@ -126,7 +126,7 @@ async function verifyIntegrationDraftPreview() {
       storagePolicyKey: "assets",
       connectorKey: "shopify",
       prompt:
-        "Connect customer, order, and product events so support can respond faster while writes remain reviewed.",
+        "Dong bo khach hang va don hang hai chieu, sau do tu dong hoa quy trinh ho tro.",
     }),
     signal: AbortSignal.timeout(5000),
   });
@@ -145,6 +145,15 @@ async function verifyIntegrationDraftPreview() {
 
   if (!Array.isArray(artifact?.executionSteps) || artifact.executionSteps.length !== 5) {
     throw new Error(`${path} did not return the five ordered execution steps`);
+  }
+
+  if (
+    payload?.draft?.mappingProfile?.syncPolicy?.mode !== "bidirectional" ||
+    !payload?.draft?.workflowHints?.includes(
+      "Consider adding workflow bridge handoff after initial sync succeeds.",
+    )
+  ) {
+    throw new Error(`${path} did not interpret Vietnamese automation intent`);
   }
 
   if (
@@ -170,6 +179,8 @@ async function verifyIntegrationDraftPreview() {
     connectorKey: payload.connector.key,
     contractVersion: artifact.consumerContract.contractVersion,
     executionStepCount: artifact.executionSteps.length,
+    syncMode: payload.draft.mappingProfile.syncPolicy.mode,
+    automationGuidance: true,
     tenantSlug: inputContext.tenantSlug,
     workspaceSlug: inputContext.workspaceSlug,
     storagePolicyKey: inputContext.storagePolicyKey,
