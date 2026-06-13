@@ -13,6 +13,11 @@ export type ConnectorOption = {
 export type IntegrationAiDraftResponse = {
   status?: string;
   connector?: ConnectorOption;
+  inputContext?: {
+    tenantSlug?: string | null;
+    workspaceSlug?: string | null;
+    storagePolicyKey?: string | null;
+  };
   setupExecutionArtifact?: {
     artifactKey?: string;
     artifactStatus?: string;
@@ -157,24 +162,17 @@ export function IntegrationSetupDraftPreview({
               ))}
             </select>
           </label>
-          <TextField
-            label="Tenant"
+          <ReadOnlyField
+            label="Tenant scope"
             value={request.tenantSlug}
-            onChange={(tenantSlug) => setRequest({ ...request, tenantSlug })}
           />
-          <TextField
-            label="Workspace"
+          <ReadOnlyField
+            label="Workspace scope"
             value={request.workspaceSlug}
-            onChange={(workspaceSlug) =>
-              setRequest({ ...request, workspaceSlug })
-            }
           />
-          <TextField
+          <ReadOnlyField
             label="Storage policy"
             value={request.storagePolicyKey}
-            onChange={(storagePolicyKey) =>
-              setRequest({ ...request, storagePolicyKey })
-            }
           />
         </div>
 
@@ -270,6 +268,16 @@ export function IntegrationSetupDraftPreview({
                   : "Blocked"
               }
             />
+            <Readout
+              label="Scope"
+              value={`${result.data?.inputContext?.tenantSlug ?? "unresolved"} / ${result.data?.inputContext?.workspaceSlug ?? "unresolved"}`}
+            />
+            <Readout
+              label="Storage policy"
+              value={
+                result.data?.inputContext?.storagePolicyKey ?? "unassigned"
+              }
+            />
           </div>
 
           <List
@@ -313,23 +321,21 @@ function FieldLabel({ children }: { children: string }) {
   );
 }
 
-function TextField({
+function ReadOnlyField({
   label,
   value,
-  onChange,
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
 }) {
   return (
     <label>
       <FieldLabel>{label}</FieldLabel>
       <input
         aria-label={label}
+        readOnly
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={fieldStyle}
+        style={{ ...fieldStyle, color: "#c8d2ff", cursor: "not-allowed" }}
       />
     </label>
   );

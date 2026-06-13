@@ -133,6 +133,7 @@ async function verifyIntegrationDraftPreview() {
   const payload = await response.json();
   const artifact = payload?.setupExecutionArtifact;
   const safety = artifact?.reviewBoundaries;
+  const inputContext = payload?.inputContext;
 
   if (!response.ok || payload?.status !== "drafted") {
     throw new Error(`${path} did not draft a valid integration preview`);
@@ -144,6 +145,14 @@ async function verifyIntegrationDraftPreview() {
 
   if (!Array.isArray(artifact?.executionSteps) || artifact.executionSteps.length !== 5) {
     throw new Error(`${path} did not return the five ordered execution steps`);
+  }
+
+  if (
+    inputContext?.tenantSlug !== "acme" ||
+    inputContext?.workspaceSlug !== "ops" ||
+    inputContext?.storagePolicyKey !== "assets"
+  ) {
+    throw new Error(`${path} did not preserve the requested integration scope`);
   }
 
   if (
@@ -161,6 +170,9 @@ async function verifyIntegrationDraftPreview() {
     connectorKey: payload.connector.key,
     contractVersion: artifact.consumerContract.contractVersion,
     executionStepCount: artifact.executionSteps.length,
+    tenantSlug: inputContext.tenantSlug,
+    workspaceSlug: inputContext.workspaceSlug,
+    storagePolicyKey: inputContext.storagePolicyKey,
     activationAllowed: safety.activationAllowed,
     externalActionsAllowed: safety.externalActionsAllowed,
   };
@@ -181,6 +193,28 @@ async function verifyIntegrationDraftRejection() {
   }
 
   return { path, status: response.status, message: payload.message };
+}
+
+async function verifyIntegrationScopeControls() {
+  const path = "/dashboard";
+  const html = await readHtml(path);
+  const controls = [
+    { label: "Tenant scope", value: "acme" },
+    { label: "Workspace scope", value: "ops" },
+    { label: "Storage policy", value: "assets" },
+  ];
+
+  for (const control of controls) {
+    const pattern = new RegExp(
+      `aria-label="${control.label}"[^>]*readOnly=""[^>]*value="${control.value}"`,
+    );
+
+    if (!pattern.test(html)) {
+      throw new Error(`${path} did not lock ${control.label}`);
+    }
+  }
+
+  return { path, controls };
 }
 
 function requireText(html, path, text) {
@@ -214,6 +248,7 @@ async function main() {
     templatesResponse,
     integrationDraftPreview,
     integrationDraftRejection,
+    integrationScopeControls,
     backupPreviewRejection,
     backupPreviewResolution,
   ] =
@@ -223,6 +258,7 @@ async function main() {
       readJson("/connectors/templates"),
       verifyIntegrationDraftPreview(),
       verifyIntegrationDraftRejection(),
+      verifyIntegrationScopeControls(),
       verifyBackupPreviewRejection(),
       verifyBackupPreviewResolution(),
     ]);
@@ -244,7 +280,7 @@ async function main() {
 
   const pageExpectations = [
     ["/", "AIFUT"],
-    ["/dashboard", "Describe the integration in natural language", "Prepare integration preview"],
+    ["/dashboard", "Describe the integration in natural language", "Tenant scope"],
     ["/foundation", "AIFUT Foundation"],
     ["/login", "AIFUT Login"],
     ["/register", "AIFUT Register"],
@@ -294,6 +330,7 @@ async function main() {
         },
         integrationDraftPreview,
         integrationDraftRejection,
+        integrationScopeControls,
         backupPreviewRejection,
         backupPreviewResolution,
       },
