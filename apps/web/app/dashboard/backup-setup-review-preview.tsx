@@ -817,9 +817,11 @@ type FieldDraft = Record<string, string | boolean>;
 export function BackupSetupReviewPreview({
   setupContract,
   setupIntent,
+  tenantSlug,
 }: {
   setupContract: BackupSetupContract;
   setupIntent?: BackupSetupIntent;
+  tenantSlug: string;
 }) {
   const operatorActions = useMemo(
     () =>
@@ -899,6 +901,7 @@ export function BackupSetupReviewPreview({
     setEndpointMessage("");
 
     const result = await postJsonResult<BackupSetupPreviewResponse>(endpoint, {
+      tenantSlug,
       previewOnly: true,
       intentKey: setupIntent?.intentKey ?? null,
       contractVersion: setupContract.contractVersion ?? null,
@@ -975,6 +978,7 @@ export function BackupSetupReviewPreview({
           label="Decision scope"
           value={setupIntent?.decisionScope ?? "backup-center-setup-preview"}
         />
+        <Readout label="Tenant scope" value={tenantSlug} />
         <Readout
           label="Input review"
           value={`${previewResponse ? previewProvidedCount : providedCount}/${previewResponse ? previewRequiredCount : requiredCount} required`}

@@ -592,7 +592,14 @@ export default async function DashboardPage() {
                   </div>
 
                   {backupSetupContract ? (
-                    <BackupSetupReviewPreview setupContract={backupSetupContract} setupIntent={backupSetupIntent} />
+                    <BackupSetupReviewPreview
+                      setupContract={backupSetupContract}
+                      setupIntent={backupSetupIntent}
+                      tenantSlug={
+                        backupReadinessResult.data?.tenant?.slug ??
+                        SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug
+                      }
+                    />
                   ) : null}
 
                   <div style={{ display: "grid", gap: 10, marginTop: 16 }}>

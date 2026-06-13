@@ -172,17 +172,20 @@ async function main() {
 
   const pageExpectations = [
     ["/", "AIFUT"],
-    ["/dashboard", "Backup Center"],
+    ["/dashboard", "Backup Center", "Tenant scope"],
     ["/foundation", "AIFUT Foundation"],
     ["/login", "AIFUT Login"],
     ["/register", "AIFUT Register"],
     ["/session", "Current Session"],
   ];
   const pageChecks = await Promise.all(
-    pageExpectations.map(async ([path, expectedText]) => {
+    pageExpectations.map(async ([path, expectedText, additionalText]) => {
       const html = await readHtml(path);
       requireText(html, path, expectedText);
-      return { path, expectedText };
+      if (additionalText) {
+        requireText(html, path, additionalText);
+      }
+      return { path, expectedText, additionalText };
     }),
   );
   const demoHtml = await readHtml("/foundation/demo-live");
