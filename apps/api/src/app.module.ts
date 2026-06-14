@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
 import { AuditModule } from './audit.module';
+import { BillingModule } from './billing/billing.module';
 import { AuthModule } from './auth/auth.module';
 import { BackupModule } from './backups/backup.module';
 import { ConnectorsModule } from './connectors.module';
@@ -20,6 +21,7 @@ import { WorkflowModule } from './workflows/workflow.module';
     AiGovernanceModule,
     GlobalizationModule,
     OrchestrationModule,
+    BillingModule,
     BackupModule,
     AuthModule,
     MembershipsModule,

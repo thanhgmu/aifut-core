@@ -95,6 +95,10 @@ model Tenant {
   workflowExecutions  WorkflowExecution[]
   backupSchedules     BackupSchedule[]
   backupJobs          BackupJob[]
+  billingAccount      BillingAccount?
+  subscriptions       Subscription[]
+  invoices            Invoice[]
+  usageRecords        UsageRecord[]
 }
 
 model Workspace {
@@ -661,4 +665,118 @@ model BackupJob {
   @@index([tenantId, status])
   @@index([workspaceId])
   @@index([startedAt])
+}
+
+model BillingAccount {
+  id              String     @id @default(cuid())
+  tenantId        String     @unique
+  currency        String     @default("VND")
+  balance         Float      @default(0)
+  billingEmail    String?
+  paymentMethod   String?
+  nextBillingDate DateTime?
+  billingPeriod   String     @default("monthly") // monthly, yearly, one-time
+  status          String     @default("active") // active, past_due, suspended, cancelled
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptions   Subscription[]
+  invoices        Invoice[]
+  usageRecords    UsageRecord[]
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+model SubscriptionPlan {
+  id              String            @id @default(cuid())
+  key             String            @unique
+  name            String
+  description     String?
+  price           Float
+  currency        String            @default("VND")
+  interval        BillingInterval   @default(MONTHLY)
+  features        Json?             // feature flags
+  limits          Json?             // usage limits
+  maxUsers        Int               @default(1)
+  maxWorkflows    Int               @default(5)
+  aiCallsMonthly  Int               @default(1000)
+  storageGB       Int               @default(10)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id              String            @id @default(cuid())
+  accountId       String
+  planKey         String
+  tenantId        String
+  status          String            @default("active") // active, trialing, past_due, cancelled, expired
+  startedAt       DateTime?
+  expiresAt       DateTime?
+  autoRenew       Boolean           @default(true)
+  trialEndsAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan  @relation(fields: [planKey], references: [key])
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices        Invoice[]
+
+  @@index([accountId, status])
+  @@index([tenantId, status])
+  @@index([planKey])
+}
+
+model Invoice {
+  id              String            @id @default(cuid())
+  accountId       String
+  subscriptionId  String?
+  tenantId        String
+  number          String            @unique
+  amount          Float
+  currency        String            @default("VND")
+  status          String            @default("pending") // pending, paid, failed, refunded
+  description     String?
+  dueDate         DateTime?
+  paidAt          DateTime?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  subscription    Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([tenantId, status])
+  @@index([dueDate])
+}
+
+model UsageRecord {
+  id              String            @id @default(cuid())
+  accountId       String
+  tenantId        String
+  category        String            // 'ai', 'storage', 'workflow', 'notification'
+  metric          String            // 'tokens', 'mb', 'executions', 'messages'
+  value           Float
+  recordedAt      DateTime
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+
+  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, category])
+  @@index([tenantId, recordedAt])
+  @@index([category, recordedAt])
 }
