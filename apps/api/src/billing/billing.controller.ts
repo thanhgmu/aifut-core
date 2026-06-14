@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Headers, Param, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Headers, Param, Body, NotFoundException, Query } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { BillingService } from './billing.service';
 import { BILLING_ROADMAP } from './billing.constants';
@@ -22,8 +22,8 @@ export class BillingController {
   }
 
   @Get('plans')
-  async listPlans() {
-    return this.billing.listPlans();
+  async listPlans(@Query('currency') currency?: string) {
+    return this.billing.listPlans(currency as any);
   }
 
   @Get('plans/:key')
@@ -49,6 +49,21 @@ export class BillingController {
   @Post('subscription/:id/cancel')
   async cancelSubscription(@Param('id') id: string) {
     return this.billing.cancelSubscription(id);
+  }
+
+  @Get('account')
+  async getAccount(@Headers('x-tenant-slug') slug: string) {
+    const tenantId = await this.resolveTenantId(slug);
+    return this.billing.getOrCreateAccount(tenantId);
+  }
+
+  @Put('account/currency')
+  async setCurrency(
+    @Headers('x-tenant-slug') slug: string,
+    @Body() body: { currency: string },
+  ) {
+    const tenantId = await this.resolveTenantId(slug);
+    return this.billing.getOrCreateAccount(tenantId, body.currency as any);
   }
 
   @Post('usage')

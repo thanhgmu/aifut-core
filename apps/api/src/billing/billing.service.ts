@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { SUPPORTED_CURRENCIES, Currency, EXCHANGE_RATES, CURRENCY_SYMBOLS } from './billing.constants';
 
 @Injectable()
 export class BillingService {
@@ -7,11 +8,16 @@ export class BillingService {
 
   // ── Account ────────────────────────────────────────────────────────────────
 
-  async getOrCreateAccount(tenantId: string) {
+  async getOrCreateAccount(tenantId: string, preferredCurrency?: Currency) {
     let acct = await this.prisma.billingAccount.findUnique({ where: { tenantId } });
     if (!acct) {
       acct = await this.prisma.billingAccount.create({
-        data: { tenantId, currency: 'VND', billingPeriod: 'monthly' },
+        data: { tenantId, currency: preferredCurrency ?? 'VND', billingPeriod: 'monthly' },
+      });
+    } else if (preferredCurrency && acct.currency !== preferredCurrency) {
+      acct = await this.prisma.billingAccount.update({
+        where: { id: acct.id },
+        data: { currency: preferredCurrency },
       });
     }
     return acct;
@@ -76,8 +82,32 @@ export class BillingService {
     return this.prisma.subscriptionPlan.findMany({ orderBy: { price: 'asc' } });
   }
 
-  async listPlans() {
-    return this.prisma.subscriptionPlan.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } });
+  /** Convert VND price to target currency */
+  convertPrice(vndPrice: number, targetCurrency: Currency): number {
+    if (targetCurrency === 'VND') return vndPrice;
+    const usdPrice = vndPrice / EXCHANGE_RATES.VND;
+    const rate = EXCHANGE_RATES[targetCurrency] ?? 1;
+    return Math.round(usdPrice * rate);
+  }
+
+  /** Format price with currency symbol */
+  formatPrice(amount: number, currency: Currency): string {
+    const symbol = CURRENCY_SYMBOLS[currency] ?? currency;
+    if (currency === 'VND') return `${amount.toLocaleString('vi-VN')}${symbol}`;
+    return `${symbol}${amount.toFixed(2)}`;
+  }
+
+  async listPlans(targetCurrency?: Currency) {
+    const plans = await this.prisma.subscriptionPlan.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } });
+    if (!targetCurrency) return plans;
+    return plans.map((p) => ({
+      ...p,
+      priceDisplay: this.formatPrice(this.convertPrice(p.price, targetCurrency), targetCurrency),
+      priceInCurrency: this.convertPrice(p.price, targetCurrency),
+      prices: Object.fromEntries(
+        SUPPORTED_CURRENCIES.map((c) => [c, { amount: this.convertPrice(p.price, c), display: this.formatPrice(p.price, c) }]),
+      ),
+    }));
   }
 
   async getPlan(key: string) {
