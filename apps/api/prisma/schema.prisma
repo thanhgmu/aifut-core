@@ -100,6 +100,7 @@ model Tenant {
   invoices            Invoice[]
   usageRecords        UsageRecord[]
   marketplaceListings MarketplaceListing[]
+  resellerAccount     ResellerAccount?
 }
 
 model Workspace {
@@ -780,6 +781,39 @@ model UsageRecord {
   @@index([accountId, category])
   @@index([tenantId, recordedAt])
   @@index([category, recordedAt])
+}
+
+model ResellerAccount {
+  id              String     @id @default(cuid())
+  tenantId        String     @unique
+  status          String     @default("active") // active, suspended, pending
+  commissionRate  Float      @default(0.2)  // 20%
+  commissionType  String     @default("recurring") // recurring, one-time
+  discountRate    Float      @default(0.3)  // 30% for reseller pricing
+  subTenantCount  Int        @default(0)
+  totalCommission Float      @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subTenants      ResellerSubTenant[]
+}
+
+model ResellerSubTenant {
+  id              String        @id @default(cuid())
+  resellerId      String
+  subTenantSlug   String
+  subTenantName   String
+  status          String        @default("active")
+  subscriptionKey String?
+  revenueAmount   Float         @default(0)
+  commissionEarned Float        @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reseller        ResellerAccount @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+
+  @@index([resellerId, status])
 }
 
 model MarketplaceListing {

@@ -16,6 +16,8 @@ import { TenancyModule } from './tenancy.module';
 import { NotificationModule } from './notifications/notification.module';
 import { WorkflowModule } from './workflows/workflow.module';
 
+import { ResellerModule } from './reseller/reseller.module';
+
 @Module({
   imports: [
     TenancyModule,
@@ -29,6 +31,7 @@ import { WorkflowModule } from './workflows/workflow.module';
     AuditModule,
     IntegrationsModule,
     MarketplaceModule,
+    ResellerModule,
     ConnectorsModule,
     EntitlementsModule,
     NotificationModule,
