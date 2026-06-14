@@ -128,14 +128,14 @@ export class WorkflowService {
     });
 
     // Execute steps asynchronously (inline for now; background worker later)
-    this.runExecutionSteps(tpl.id, execution.id, tpl.nodes).catch((err) => {
+    this.runExecutionSteps(tpl.id, execution.id, tpl.nodes, tenantId).catch((err) => {
       console.error(`[Workflow] Execution ${execution.id} failed:`, err.message);
     });
 
     return execution;
   }
 
-  private async runExecutionSteps(workflowId: string, executionId: string, nodes: any[]) {
+  private async runExecutionSteps(workflowId: string, executionId: string, nodes: any[], tenantId: string) {
     await this.prisma.workflowExecution.update({
       where: { id: executionId },
       data: { status: 'RUNNING', startedAt: new Date() },
@@ -155,7 +155,7 @@ export class WorkflowService {
       });
 
       try {
-        const output = await this.executeNodeStep(node, executionId);
+        const output = await this.executeNodeStep(node, executionId, tenantId);
         await this.prisma.workflowExecutionStep.update({
           where: { id: step.id },
           data: { status: 'COMPLETED', output: output ?? {}, completedAt: new Date(), durationMs: 0 },
@@ -179,9 +179,9 @@ export class WorkflowService {
     });
   }
 
-  private async executeNodeStep(node: any, executionId: string): Promise<any> {
+  private async executeNodeStep(node: any, executionId: string, tenantId: string): Promise<any> {
     switch (node.nodeType) {
-      case 'SEND':
+      case 'SEND': {
         const ch = node.config?.channel ?? 'log';
         let notifResult;
         if (ch === 'webhook' || ch === 'email') {
@@ -192,6 +192,23 @@ export class WorkflowService {
             subject: node.config?.subject,
             webhookUrl: node.config?.webhookUrl,
           });
+        } else if (node.config?.url) {
+          // Connector call for SEND with explicit URL
+          const connResult = await this.connectorExecutor.callConnector({
+            tenantId,
+            connectorSlug: node.config?.connectorSlug,
+            action: node.key,
+            payload: node.config?.body ?? node.config?.template ?? {},
+            baseUrl: node.config.url,
+            method: node.config?.method ?? 'POST',
+            endpoint: node.config?.endpoint,
+            headers: node.config?.headers,
+          });
+          notifResult = {
+            success: connResult.success,
+            statusCode: connResult.statusCode,
+            messageId: connResult.data?.messageId,
+          };
         } else {
           // Simulate for Zalo, SMS, etc.
           const sim = await this.connectorExecutor.simulateCall({
@@ -212,6 +229,7 @@ export class WorkflowService {
           statusCode: notifResult.statusCode,
           timestamp: new Date().toISOString(),
         };
+      }
       case 'WAIT':
         // Sleep-based wait — for production: cron-based timer
         const ms = (node.config?.seconds ?? 1) * 1000;
@@ -223,7 +241,30 @@ export class WorkflowService {
         return { evaluated: true, pass: true };
       case 'TRIGGER':
         return { triggered: true };
-      case 'ACTION':
+      case 'ACTION': {
+        // Real connector execution for ACTION steps
+        const { url, method, endpoint, headers, body, connectorSlug } = node.config ?? {};
+        if (url || connectorSlug) {
+          const result = await this.connectorExecutor.callConnector({
+            tenantId,
+            connectorSlug,
+            action: node.key,
+            payload: body ?? {},
+            baseUrl: url,
+            method: method ?? 'POST',
+            endpoint,
+            headers,
+          });
+          return {
+            executed: result.success,
+            statusCode: result.statusCode,
+            data: result.data,
+            error: result.error,
+            durationMs: result.durationMs,
+          };
+        }
+        return { executed: true, action: node.config?.action ?? 'default' };
+      }
       default:
         return { executed: true, action: node.config?.action ?? 'default' };
     }
