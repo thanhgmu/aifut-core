@@ -91,6 +91,8 @@ model Tenant {
   domains            TenantDomain[]
   storagePolicies    TenantStoragePolicy[]
   packageAssignments TenantPackageAssignment[]
+  workflowTemplates   WorkflowTemplate[]
+  workflowExecutions  WorkflowExecution[]
 }
 
 model Workspace {
@@ -104,6 +106,8 @@ model Workspace {
   domains            TenantDomain[]
   storagePolicies    TenantStoragePolicy[]
   packageAssignments TenantPackageAssignment[]
+  workflowTemplates   WorkflowTemplate[]
+  workflowExecutions  WorkflowExecution[]
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
@@ -407,6 +411,168 @@ model AiUsageEvent {
   @@index([featureKey, taskType])
   @@index([executionLane])
   @@index([status])
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  DISABLED
+  ARCHIVED
+}
+
+enum WorkflowExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+enum WorkflowNodeType {
+  TRIGGER
+  ACTION
+  CONDITION
+  WAIT
+  SEND
+  TRANSFORM
+  LOOP
+  SUB_WORKFLOW
+}
+
+enum WorkflowTriggerKind {
+  SCHEDULE
+  WEBHOOK
+  EVENT
+  MANUAL
+}
+
+model WorkflowTemplate {
+  id              String                @id @default(cuid())
+  tenantId        String
+  workspaceId     String?
+  key             String
+  name            String
+  description     String?
+  category        String?
+  industry        String?
+  status          WorkflowStatus        @default(DRAFT)
+  version         Int                   @default(1)
+  tags            String[]              @default([])
+  metadata        Json?
+  source          String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace       Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  nodes           WorkflowNode[]
+  executions      WorkflowExecution[]
+  triggers        WorkflowTrigger[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status])
+  @@index([workspaceId])
+  @@index([industry])
+}
+
+model WorkflowNode {
+  id              String                @id @default(cuid())
+  workflowId      String
+  key             String
+  name            String
+  nodeType        WorkflowNodeType
+  position        Int                   @default(0)
+  config          Json?
+  inputMapping    Json?
+  outputMapping   Json?
+  retryPolicy     Json?
+  timeoutSeconds  Int                   @default(300)
+  dependsOn       String[]              @default([])
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  workflow        WorkflowTemplate      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, key])
+  @@index([workflowId, nodeType])
+  @@index([workflowId, position])
+}
+
+model WorkflowTrigger {
+  id              String                @id @default(cuid())
+  workflowId      String
+  kind            WorkflowTriggerKind
+  config          Json?
+  schedule        String?               // cron expression
+  webhookSecret   String?
+  eventType       String?
+  enabled         Boolean               @default(true)
+  lastFiredAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  workflow        WorkflowTemplate      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, kind])
+  @@index([eventType])
+}
+
+model WorkflowExecution {
+  id              String                    @id @default(cuid())
+  workflowId      String
+  tenantId        String
+  workspaceId     String?
+  triggerKind     WorkflowTriggerKind?
+  triggeredBy     String?
+  status          WorkflowExecutionStatus   @default(PENDING)
+  input           Json?
+  output          Json?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  timeoutAt       DateTime?
+  retryCount      Int                       @default(0)
+  maxRetries      Int                       @default(3)
+  metadata        Json?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  workflow        WorkflowTemplate          @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace       Workspace?                @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  steps           WorkflowExecutionStep[]
+
+  @@index([workflowId, status])
+  @@index([tenantId, status])
+  @@index([workspaceId])
+  @@index([createdAt])
+  @@index([triggerKind])
+}
+
+model WorkflowExecutionStep {
+  id              String                    @id @default(cuid())
+  executionId     String
+  nodeId          String?
+  nodeKey         String
+  status          WorkflowExecutionStatus   @default(PENDING)
+  input           Json?
+  output          Json?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+  retryCount      Int                       @default(0)
+  metadata        Json?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  execution       WorkflowExecution         @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, nodeKey])
+  @@index([executionId, status])
 }
 
 model AuditLog {
