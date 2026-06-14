@@ -93,6 +93,8 @@ model Tenant {
   packageAssignments TenantPackageAssignment[]
   workflowTemplates   WorkflowTemplate[]
   workflowExecutions  WorkflowExecution[]
+  backupSchedules     BackupSchedule[]
+  backupJobs          BackupJob[]
 }
 
 model Workspace {
@@ -108,6 +110,8 @@ model Workspace {
   packageAssignments TenantPackageAssignment[]
   workflowTemplates   WorkflowTemplate[]
   workflowExecutions  WorkflowExecution[]
+  backupSchedules     BackupSchedule[]
+  backupJobs          BackupJob[]
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
@@ -592,4 +596,69 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action])
   @@index([createdAt])
+}
+
+enum BackupJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+model BackupSchedule {
+  id              String        @id @default(cuid())
+  tenantId        String
+  workspaceId     String?
+  key             String
+  name            String
+  description     String?
+  cronExpression  String?       // null = manual only
+  targetRef       String        // storage target reference
+  backupMode      String        // 'full', 'incremental', 'diff'
+  retentionDays   Int           @default(30)
+  maxBackups      Int           @default(10)
+  enabled         Boolean       @default(true)
+  lastRunAt       DateTime?
+  lastStatus      String?
+  config          Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace       Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  jobs            BackupJob[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, enabled])
+  @@index([workspaceId])
+}
+
+model BackupJob {
+  id              String           @id @default(cuid())
+  scheduleId      String
+  tenantId        String
+  workspaceId     String?
+  status          BackupJobStatus  @default(PENDING)
+  backupTarget    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  totalSize       Int?             // bytes
+  fileCount       Int?
+  error           String?
+  log             String?
+  retryCount      Int              @default(0)
+  triggeredBy     String?          // 'schedule', 'manual', 'api'
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  schedule        BackupSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([scheduleId, status])
+  @@index([tenantId, status])
+  @@index([workspaceId])
+  @@index([startedAt])
 }

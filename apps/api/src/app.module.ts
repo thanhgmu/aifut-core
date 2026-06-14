@@ -3,6 +3,7 @@ import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
 import { AuditModule } from './audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BackupModule } from './backups/backup.module';
 import { ConnectorsModule } from './connectors.module';
 import { EntitlementsModule } from './entitlements.module';
 import { GlobalizationModule } from './globalization.module';
@@ -19,6 +20,7 @@ import { WorkflowModule } from './workflows/workflow.module';
     AiGovernanceModule,
     GlobalizationModule,
     OrchestrationModule,
+    BackupModule,
     AuthModule,
     MembershipsModule,
     AuditModule,
