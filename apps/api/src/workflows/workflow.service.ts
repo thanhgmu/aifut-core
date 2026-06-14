@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ConnectorExecutorService } from '../connector-executor.service';
 import { WorkflowStatus, WorkflowNodeType, WorkflowTriggerKind } from '@prisma/client';
 
 @Injectable()
 export class WorkflowService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly connectorExecutor: ConnectorExecutorService,
+  ) {}
 
   // ── Template CRUD ──────────────────────────────────────────────────────────
 
@@ -176,8 +180,20 @@ export class WorkflowService {
   private async executeNodeStep(node: any, executionId: string): Promise<any> {
     switch (node.nodeType) {
       case 'SEND':
-        // Notification/connector dispatch — stub for connector execution phase
-        return { sent: true, channel: node.config?.channel ?? 'default' };
+        // Connector dispatch via simulate (no real credentials in dev)
+        const channel_s = node.config?.channel ?? 'webhook';
+        const simResult = await this.connectorExecutor.simulateCall({
+          action: 'send',
+          payload: { channel: channel_s, ...(node.config?.template ?? {}) },
+          channel: channel_s,
+        });
+        return {
+          sent: simResult.success,
+          channel: channel_s,
+          simulated: true,
+          messageId: simResult.data?.messageId,
+          timestamp: new Date().toISOString(),
+        };
       case 'WAIT':
         // Sleep-based wait — for production: cron-based timer
         const ms = (node.config?.seconds ?? 1) * 1000;
