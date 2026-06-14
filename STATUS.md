@@ -326,3 +326,22 @@ Last updated: 2026-06-06
 - Focused metadata coverage confirms all three read routes carry the intended policy contract.
 - Local PostgreSQL drift was corrected by applying committed migrations `20260521075800_add_runtime_snapshot_recorded_at` and `20260530184200_add_ai_governance_persistence`; `prisma migrate status`, `runtime-history:check`, and runtime verifier are green.
 - Verification: targeted `33/33`, full API Jest `24/24` suites and `321/321` tests, API build, and live guarded runtime history/diagnostics/approval-history reads all passing.
+
+## 2026-06-14 Backup Center activation checklist UI checkpoint
+- Web dashboard now renders the full `activationChecklist` from `GET /integrations/backup-readiness` via the existing `ActivationChecklistReadout` component.
+- Dashboard surfaces: activation gates summary, phase summaries, phase blocker matrix, operator action priority, submission impact forecast, preview submission unlock matrix, evidence checklist, unblock plan, evidence capture guide, review rubric, evidence traceability, submission decision summary, operator handoff, customer impact preview, operator readiness digest, and preview review packet.
+- The activation checklist panel sits between the Backup Center readiness setup contract panel and the Natural-language business blueprint preview panel on the dashboard.
+- Commit `cf57d39` (`feat(web): wire activation checklist into backup center dashboard`).
+- Runtime targets restored: API `3002` (200), Web `3000` (200), PostgreSQL `5432` (running).
+- Verification: web typecheck ✅, web production build ✅, live dashboard render `200` with activation checklist content.
+- Push blocked: local credential needs configuration for HTTPS origin.
+
+## 2026-06-14 AI governance policy listing checkpoints
+- Added `GET /ai-governance/routing-policies` endpoint: returns tenant-scoped AI routing policies with optional `workspaceSlug`, `featureKey`, and `taskType` query filters.
+- Added `GET /ai-governance/budget-policies` endpoint: returns tenant-scoped AI budget policies with optional `workspaceSlug` and `featureKey` query filters.
+- Added `listRoutingPolicies(...)` and `listBudgetPolicies(...)` methods to `AiGovernancePersistenceService` with scoped Prisma queries.
+- Extended `AiGovernancePrismaClient` type to include `findMany` for both `aiRoutingPolicy` and `aiBudgetPolicy` delegates.
+- Both endpoints use `@UseGuards(AccessPolicyGuard)` with `OPERATOR` minimum role and `operator-control` scope.
+- Commit `debc8e7` (`feat(api): add GET routing-policies and budget-policies endpoints`).
+- Verification: API build ✅, live endpoint proof: POST upsert routing policy → `200`, GET list → `policyCount: 1` with upserted policy, GET budget policies → `policyCount: 0` (empty).
+- Git push still blocked by local credential config.
