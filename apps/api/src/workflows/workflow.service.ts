@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ConnectorExecutorService } from '../connector-executor.service';
+import { NotificationService } from '../notifications/notification.service';
 import { WorkflowStatus, WorkflowNodeType, WorkflowTriggerKind } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class WorkflowService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly connectorExecutor: ConnectorExecutorService,
+    private readonly notif: NotificationService,
   ) {}
 
   // ── Template CRUD ──────────────────────────────────────────────────────────
@@ -180,18 +182,34 @@ export class WorkflowService {
   private async executeNodeStep(node: any, executionId: string): Promise<any> {
     switch (node.nodeType) {
       case 'SEND':
-        // Connector dispatch via simulate (no real credentials in dev)
-        const channel_s = node.config?.channel ?? 'webhook';
-        const simResult = await this.connectorExecutor.simulateCall({
-          action: 'send',
-          payload: { channel: channel_s, ...(node.config?.template ?? {}) },
-          channel: channel_s,
-        });
+        const ch = node.config?.channel ?? 'log';
+        let notifResult;
+        if (ch === 'webhook' || ch === 'email') {
+          notifResult = await this.notif.deliver({
+            channel: ch,
+            to: node.config?.to ?? 'admin@aifut.dev',
+            body: node.config?.template?.text ?? JSON.stringify(node.config?.template ?? {}),
+            subject: node.config?.subject,
+            webhookUrl: node.config?.webhookUrl,
+          });
+        } else {
+          // Simulate for Zalo, SMS, etc.
+          const sim = await this.connectorExecutor.simulateCall({
+            action: 'send',
+            payload: { channel: ch, ...(node.config?.template ?? {}) },
+            channel: ch,
+          });
+          notifResult = {
+            success: sim.success,
+            messageId: sim.data?.messageId,
+            statusCode: sim.statusCode,
+          };
+        }
         return {
-          sent: simResult.success,
-          channel: channel_s,
-          simulated: true,
-          messageId: simResult.data?.messageId,
+          sent: notifResult.success,
+          channel: ch,
+          messageId: notifResult.messageId,
+          statusCode: notifResult.statusCode,
           timestamp: new Date().toISOString(),
         };
       case 'WAIT':

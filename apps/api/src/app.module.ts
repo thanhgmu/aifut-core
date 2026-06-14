@@ -10,6 +10,7 @@ import { IntegrationsModule } from './integrations.module';
 import { MembershipsModule } from './memberships.module';
 import { OrchestrationModule } from './orchestration.module';
 import { TenancyModule } from './tenancy.module';
+import { NotificationModule } from './notifications/notification.module';
 import { WorkflowModule } from './workflows/workflow.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { WorkflowModule } from './workflows/workflow.module';
     IntegrationsModule,
     ConnectorsModule,
     EntitlementsModule,
+    NotificationModule,
     WorkflowModule,
   ],
   controllers: [AppController],
