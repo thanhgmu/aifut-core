@@ -7,7 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { BackupModule } from './backups/backup.module';
 import { ConnectorsModule } from './connectors.module';
 import { EntitlementsModule } from './entitlements.module';
-import { GlobalizationModule } from './globalization.module';
+import { GlobalizationModule } from './globalization/globalization.module';
 import { IntegrationsModule } from './integrations.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { MembershipsModule } from './memberships.module';
