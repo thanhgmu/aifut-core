@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { WorkflowService } from './workflow.service';
+import { AwlInterpreterService } from './awl-interpreter.service';
 import { WORKFLOW_FOUNDATION_ROADMAP } from './workflow.constants';
 
 @Controller('workflows')
@@ -19,6 +20,7 @@ export class WorkflowController {
   constructor(
     private readonly workflow: WorkflowService,
     private readonly prisma: PrismaService,
+    private readonly awl: AwlInterpreterService,
   ) {}
 
   // ── Template CRUD ──────────────────────────────────────────────────────────
@@ -103,6 +105,40 @@ export class WorkflowController {
   ) {
     const tenantId = await this.resolveTenantId(tenantSlug);
     return this.workflow.addNode(tenantId, key, body);
+  }
+
+  // ── AWL (AIFUT Workflow Language) ──────────────────────────────────────────
+
+  @Post('awl/deploy')
+  async awlDeploy(
+    @Headers('x-tenant-slug') tenantSlug: string,
+    @Body() body: any,
+  ) {
+    const tenantId = await this.resolveTenantId(tenantSlug);
+    return this.awl.deploy(tenantId, body);
+  }
+
+  @Post('awl/execute')
+  async awlExecute(
+    @Headers('x-tenant-slug') tenantSlug: string,
+    @Body() body: { document: any; payload?: any },
+  ) {
+    const tenantId = await this.resolveTenantId(tenantSlug);
+    return this.awl.executeDirect(tenantId, body.document, body.payload);
+  }
+
+  @Post('awl/validate')
+  awlValidate(@Body() body: any) {
+    return this.awl.validate(body);
+  }
+
+  @Get('templates/:key/export')
+  async exportAwl(
+    @Headers('x-tenant-slug') tenantSlug: string,
+    @Param('key') key: string,
+  ) {
+    const tenantId = await this.resolveTenantId(tenantSlug);
+    return this.awl.exportToAwl(tenantId, key);
   }
 
   // ── Execution ──────────────────────────────────────────────────────────────
