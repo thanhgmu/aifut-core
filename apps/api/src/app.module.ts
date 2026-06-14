@@ -5,6 +5,7 @@ import { AuditModule } from './audit.module';
 import { BillingModule } from './billing/billing.module';
 import { AuthModule } from './auth/auth.module';
 import { BackupModule } from './backups/backup.module';
+import { DeveloperModule } from './developer/developer.module';
 import { ConnectorsModule } from './connectors.module';
 import { EntitlementsModule } from './entitlements.module';
 import { GlobalizationModule } from './globalization/globalization.module';
@@ -25,6 +26,7 @@ import { ResellerModule } from './reseller/reseller.module';
     GlobalizationModule,
     OrchestrationModule,
     BillingModule,
+    DeveloperModule,
     BackupModule,
     AuthModule,
     MembershipsModule,
