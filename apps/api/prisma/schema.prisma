@@ -99,6 +99,7 @@ model Tenant {
   subscriptions       Subscription[]
   invoices            Invoice[]
   usageRecords        UsageRecord[]
+  marketplaceListings MarketplaceListing[]
 }
 
 model Workspace {
@@ -779,4 +780,35 @@ model UsageRecord {
   @@index([accountId, category])
   @@index([tenantId, recordedAt])
   @@index([category, recordedAt])
+}
+
+model MarketplaceListing {
+  id              String            @id @default(cuid())
+  tenantId        String?
+  type            String            // 'connector', 'template', 'workflow'
+  key             String            @unique
+  name            String
+  description     String?
+  category        String?
+  industry        String?
+  price           Float             @default(0)
+  currency        String            @default("VND")
+  authorName      String?
+  authorEmail     String?
+  version         String            @default("1.0.0")
+  tags            String[]          @default([])
+  config          Json?
+  downloads       Int               @default(0)
+  rating          Float?
+  isPublished     Boolean           @default(false)
+  isOfficial      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([type, category])
+  @@index([isPublished])
+  @@index([industry])
+  @@index([downloads])
 }

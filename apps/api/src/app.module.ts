@@ -9,6 +9,7 @@ import { ConnectorsModule } from './connectors.module';
 import { EntitlementsModule } from './entitlements.module';
 import { GlobalizationModule } from './globalization.module';
 import { IntegrationsModule } from './integrations.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
 import { MembershipsModule } from './memberships.module';
 import { OrchestrationModule } from './orchestration.module';
 import { TenancyModule } from './tenancy.module';
@@ -27,6 +28,7 @@ import { WorkflowModule } from './workflows/workflow.module';
     MembershipsModule,
     AuditModule,
     IntegrationsModule,
+    MarketplaceModule,
     ConnectorsModule,
     EntitlementsModule,
     NotificationModule,
