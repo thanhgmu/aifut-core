@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
 import { AuditModule } from './audit.module';
-import { AuthModule } from './auth.module';
+import { AuthModule } from './auth/auth.module';
 import { ConnectorsModule } from './connectors.module';
 import { EntitlementsModule } from './entitlements.module';
 import { GlobalizationModule } from './globalization.module';

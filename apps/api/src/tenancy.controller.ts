@@ -23,6 +23,7 @@ import { TENANCY_FOUNDATION_ROADMAP } from './tenancy.constants';
 import { TenancyOperationsService } from './tenancy-operations.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 import { normalizeTenantDomainHostname } from './tenant-domain-hostname';
+import { verifyAuthToken } from './auth/jwt.util';
 import { evaluateTenantDomainReadiness } from './tenant-domain-readiness';
 
 @Controller('tenancy')
@@ -353,6 +354,64 @@ export class TenancyController {
       userEmail: userEmailHeader ?? body.userEmail,
       workspaceSlug: workspaceSlugHeader ?? body.workspaceSlug,
     });
+  }
+
+  @Get('workspaces')
+  async listWorkspaces(
+    @Headers('authorization') authorizationHeader?: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+    @Headers('x-forwarded-host') forwardedHostHeader?: string,
+    @Headers('host') hostHeader?: string,
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('userEmail') userEmailQuery?: string,
+    @Query('hostname') hostnameQuery?: string,
+  ) {
+    // Extract bearer token for authUserId resolution
+    const authHeader = authorizationHeader;
+    let authUserId: string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        authUserId = verifyAuthToken(token).sub;
+      } catch {
+        // invalid token — proceed without authUserId
+      }
+    }
+
+    const ctx = await this.actorContext.resolve({
+      tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+      userEmail: userEmailHeader ?? userEmailQuery,
+      hostname: forwardedHostHeader ?? hostHeader ?? hostnameQuery,
+      authUserId,
+    });
+
+    if (!ctx.tenant) {
+      return { workspaces: [], total: 0, resolution: ctx.resolution };
+    }
+
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId: ctx.user?.id, tenantId: ctx.tenant.id },
+      include: { workspace: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const workspaces = memberships
+      .map((m) => m.workspace)
+      .filter(Boolean)
+      .map((ws) => ({
+        id: ws!.id,
+        slug: ws!.slug,
+        name: ws!.name,
+        tenantId: ws!.tenantId,
+        createdAt: ws!.createdAt,
+      }));
+
+    return {
+      workspaces,
+      total: workspaces.length,
+      tenant: { id: ctx.tenant.id, slug: ctx.tenant.slug, name: ctx.tenant.name },
+    };
   }
 
   @Get('roadmap')
