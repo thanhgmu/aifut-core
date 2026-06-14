@@ -150,7 +150,7 @@ type BackupSetupPersistencePrerequisiteReview = {
   guardrails?: BackupSetupDesignLockFlags;
 };
 
-type BackupSetupActivationChecklist = {
+export type BackupSetupActivationChecklist = {
   checklistVersion?: string;
   mode?: string;
   status?: string;
@@ -1369,7 +1369,7 @@ function PersistencePrerequisiteReviewReadout({
   );
 }
 
-function ActivationChecklistReadout({
+export function ActivationChecklistReadout({
   activationChecklist,
 }: {
   activationChecklist?: BackupSetupActivationChecklist;

@@ -1,5 +1,5 @@
 import { API_BASE, getJson, getJsonResult, postJsonResult, type AdapterInterfaceRegistryResponse, type HealthResponse, type JsonResult } from "../../lib/runtime-data";
-import { BackupSetupReviewPreview, type BackupSetupFormSchema } from "./backup-setup-review-preview";
+import { BackupSetupReviewPreview, ActivationChecklistReadout, type BackupSetupActivationChecklist, type BackupSetupFormSchema } from "./backup-setup-review-preview";
 import { IntegrationSetupDraftPreview, type ConnectorOption, type IntegrationAiDraftResponse } from "./integration-setup-draft-preview";
 import { RuntimeBindingPreviewEditor } from "./runtime-binding-preview-editor";
 
@@ -178,6 +178,7 @@ type BackupReadinessResponse = {
       };
     };
   };
+  activationChecklist?: BackupSetupActivationChecklist;
 };
 
 type RootResponse = {
@@ -534,6 +535,14 @@ export default async function DashboardPage() {
                 Backup readiness is unavailable: {formatReadFailure(backupReadinessResult)}.
               </div>
             )}
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
+          <Panel title="Backup Center activation checklist">
+            <ActivationChecklistReadout
+              activationChecklist={backupReadinessResult.data?.activationChecklist}
+            />
           </Panel>
         </section>
 
