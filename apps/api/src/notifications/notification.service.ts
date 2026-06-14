@@ -166,6 +166,9 @@ export class NotificationService {
       case 'sms':
         result = await this.deliverSms(input, recipients, start, body);
         break;
+      case 'slack':
+        result = await this.deliverSlack(input, recipients, start, body);
+        break;
       case 'log':
         result = await this.deliverLog(input, recipients, start, renderedBody);
         break;
@@ -180,12 +183,43 @@ export class NotificationService {
         };
     }
 
+    // Retry logic for failed deliveries
+    if (!result.success && input.metadata?.maxRetries != null) {
+      const maxRetries = Math.min(input.metadata.maxRetries as number, 5);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 15000);
+        await new Promise((r) => setTimeout(r, backoffMs));
+        const retryResult = await this.deliverOne(input, recipients, start, renderedBody, finalSubject, format);
+        result = retryResult;
+        if (result.success) break;
+      }
+    }
+
     // Persist delivery log
     this.persistLog(input, recipients, renderedBody, result, finalSubject).catch(
       (err) => console.error('[Notif] Failed to persist delivery log:', err.message),
     );
 
     return result;
+  }
+
+  // Route to the right delivery method
+  private async deliverOne(
+    input: NotifInput,
+    recipients: string[],
+    start: number,
+    body: string,
+    subject?: string,
+    format?: string,
+  ): Promise<DeliveryResult> {
+    switch (input.channel) {
+      case 'webhook': return this.deliverWebhook(input, recipients, Date.now(), body);
+      case 'email': return this.deliverEmail(input, recipients, Date.now(), body, subject, format);
+      case 'zalo': return this.deliverZalo(input, recipients, Date.now(), body);
+      case 'sms': return this.deliverSms(input, recipients, Date.now(), body);
+      case 'slack': return this.deliverSlack(input, recipients, Date.now(), body);
+      default: return this.deliverLog(input, recipients, Date.now(), body);
+    }
   }
 
   // ---------- Webhook ----------
@@ -350,6 +384,61 @@ export class NotificationService {
     } catch (err: any) {
       return { success: false, channel: 'sms', error: err.message, durationMs: Date.now() - start };
     }
+  }
+
+  // ---------- Slack ----------
+  private async deliverSlack(
+    input: NotifInput,
+    recipients: string[],
+    start: number,
+    body: string,
+  ): Promise<DeliveryResult> {
+    const webhookUrl = input.webhookUrl || recipients[0];
+    if (!webhookUrl) {
+      return { success: false, channel: 'slack', error: 'No Slack webhook URL', durationMs: Date.now() - start };
+    }
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: body,
+          username: input.metadata?.username || 'AIFUT',
+          icon_emoji: input.metadata?.icon || ':robot_face:',
+          attachments: input.metadata?.attachments || undefined,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return {
+        success: res.ok,
+        channel: 'slack',
+        provider: 'slack-webhook',
+        statusCode: res.status,
+        messageId: `sl_${Date.now()}`,
+        durationMs: Date.now() - start,
+      };
+    } catch (err: any) {
+      return { success: false, channel: 'slack', error: err.message, durationMs: Date.now() - start };
+    }
+  }
+
+  // ---------- Batch delivery ----------
+  async deliverBatch(inputs: NotifInput[]): Promise<DeliveryResult[]> {
+    const concurrency = 5;
+    const results: DeliveryResult[] = [];
+    for (let i = 0; i < inputs.length; i += concurrency) {
+      const batch = inputs.slice(i, i + concurrency);
+      const batchResults = await Promise.allSettled(batch.map((inp) => this.deliver(inp)));
+      for (const r of batchResults) {
+        results.push(r.status === 'fulfilled' ? r.value : {
+          success: false,
+          channel: 'batch',
+          error: r.reason?.message ?? 'Batch delivery failed',
+          durationMs: 0,
+        });
+      }
+    }
+    return results;
   }
 
   // ---------- Log ----------

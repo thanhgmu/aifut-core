@@ -16,6 +16,7 @@ export class NotificationController {
     template?: string;
     templateData?: Record<string, any>;
     webhookUrl?: string;
+    metadata?: Record<string, any>;
   }) {
     return this.notif.deliver({
       tenantId: body.tenantId,
@@ -26,7 +27,28 @@ export class NotificationController {
       template: body.template,
       templateData: body.templateData,
       webhookUrl: body.webhookUrl,
+      metadata: body.metadata,
     });
+  }
+
+  @Post('batch')
+  async batch(@Body() body: { notifications: Array<{
+    tenantId: string;
+    channel: string;
+    to: string | string[];
+    subject?: string;
+    body?: string;
+    template?: string;
+    templateData?: Record<string, any>;
+    webhookUrl?: string;
+    metadata?: Record<string, any>;
+  }> }) {
+    return this.notif.deliverBatch(
+      body.notifications.map((n) => ({
+        ...n,
+        body: n.body ?? '',
+      })),
+    );
   }
 
   @Post('webhook')
@@ -49,6 +71,7 @@ export class NotificationController {
         webhook: { status: 'implemented', provider: 'http' },
         zalo: { status: 'implemented', provider: 'zalo-oa', envRequired: ['ZALO_APP_ID', 'ZALO_APP_SECRET', 'ZALO_REFRESH_TOKEN'] },
         sms: { status: 'implemented', provider: process.env.SMS_GATEWAY_URL ? 'http-gateway' : 'log' },
+        slack: { status: 'implemented', provider: 'slack-webhook' },
         log: { status: 'implemented', provider: 'console' },
       },
       templateEngine: { status: 'active', format: ['text', 'html', 'markdown'] },
