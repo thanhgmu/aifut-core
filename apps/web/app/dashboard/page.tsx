@@ -2,6 +2,7 @@ import { API_BASE, getJson, getJsonResult, postJsonResult, type AdapterInterface
 import { BackupSetupReviewPreview, ActivationChecklistReadout, type BackupSetupActivationChecklist, type BackupSetupFormSchema } from "./backup-setup-review-preview";
 import { IntegrationSetupDraftPreview, type ConnectorOption, type IntegrationAiDraftResponse } from "./integration-setup-draft-preview";
 import { RuntimeBindingPreviewEditor } from "./runtime-binding-preview-editor";
+import { NotificationOverview, NotificationQuickSend } from "./notification-panel";
 
 type LaneCard = {
   lane: string;
@@ -547,6 +548,15 @@ export default async function DashboardPage() {
         </section>
 
         <section style={{ marginTop: 28 }}>
+          <Panel title="Notification system — multi-channel delivery + templates">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 18, alignItems: "start" }}>
+              <NotificationOverview />
+              <NotificationQuickSend />
+            </div>
+          </Panel>
+        </section>
+
+        <section style={{ marginTop: 28 }}>
           <Panel title="Natural-language business blueprint preview">
             {blueprint ? (
               <div style={{ display: "grid", gap: 16 }}>
@@ -624,6 +634,9 @@ export default async function DashboardPage() {
                 `${API_BASE}/connectors/templates`,
                 `${API_BASE}/integrations/backup-readiness?tenantSlug=${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,
                 `${API_BASE}/orchestration/business-systems/draft-preview`,
+                `${API_BASE}/notifications/capabilities`,
+                `${API_BASE}/notifications/templates?tenantId=${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,
+                `${API_BASE}/notifications/logs/${SAMPLE_INTEGRATION_DRAFT_REQUEST.tenantSlug}`,
                 `${API_BASE}/orchestration/business-systems/runtime-binding-setup-preview`,
               ].map((href) => (
                 <a

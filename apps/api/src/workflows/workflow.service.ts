@@ -186,6 +186,7 @@ export class WorkflowService {
         let notifResult;
         if (ch === 'webhook' || ch === 'email') {
           notifResult = await this.notif.deliver({
+            tenantId,
             channel: ch,
             to: node.config?.to ?? 'admin@aifut.dev',
             body: node.config?.template?.text ?? JSON.stringify(node.config?.template ?? {}),

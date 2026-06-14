@@ -101,6 +101,8 @@ model Tenant {
   usageRecords        UsageRecord[]
   marketplaceListings MarketplaceListing[]
   resellerAccount     ResellerAccount?
+  notificationLogs    NotificationLog[]
+  notificationTemplates NotificationTemplate[]
 }
 
 model Workspace {
@@ -845,4 +847,66 @@ model MarketplaceListing {
   @@index([isPublished])
   @@index([industry])
   @@index([downloads])
+}
+
+enum NotificationChannel {
+  EMAIL
+  WEBHOOK
+  SMS
+  ZALO
+  SLACK
+  LOG
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+model NotificationTemplate {
+  id              String   @id @default(cuid())
+  tenantId        String
+  key             String   // unique slug per tenant, e.g. "welcome-email"
+  name            String   // human-readable name
+  channel         NotificationChannel
+  subjectTemplate String?  // optional subject template with {{placeholders}}
+  bodyTemplate    String   // body with {{placeholders}}, supports HTML
+  format          String   @default("text") // "text" | "html" | "markdown"
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+model NotificationLog {
+  id              String              @id @default(cuid())
+  tenantId        String
+  userId          String?
+  channel         NotificationChannel
+  to              String
+  subject         String?
+  templateKey     String?
+  renderedBody    String?
+  status          NotificationStatus  @default(PENDING)
+  provider        String?
+  providerMessageId String?
+  error           String?
+  durationMs      Int?
+  metadata        Json?
+  executionId     String?
+  executionStepId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, channel, status])
+  @@index([executionId])
 }
