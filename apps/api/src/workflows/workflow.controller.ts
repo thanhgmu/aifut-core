@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { WorkflowService } from './workflow.service';
 import { AwlInterpreterService } from './awl-interpreter.service';
+import { IndustryTemplatesService } from './industry-templates.service';
 import { WORKFLOW_FOUNDATION_ROADMAP } from './workflow.constants';
 
 @Controller('workflows')
@@ -21,6 +22,7 @@ export class WorkflowController {
     private readonly workflow: WorkflowService,
     private readonly prisma: PrismaService,
     private readonly awl: AwlInterpreterService,
+    private readonly industryTemplates: IndustryTemplatesService,
   ) {}
 
   // ── Template CRUD ──────────────────────────────────────────────────────────
@@ -139,6 +141,27 @@ export class WorkflowController {
   ) {
     const tenantId = await this.resolveTenantId(tenantSlug);
     return this.awl.exportToAwl(tenantId, key);
+  }
+
+  @Post('templates/seed')
+  async seedTemplates(
+    @Headers('x-tenant-slug') tenantSlug: string,
+    @Query('industry') industry?: string,
+  ) {
+    const tenantId = await this.resolveTenantId(tenantSlug);
+    const templates = industry
+      ? this.industryTemplates.getByIndustry(industry)
+      : this.industryTemplates.getAll();
+    const results: Array<{ slug: string; name: string; status: string; error?: string }> = [];
+    for (const tpl of templates) {
+      try {
+        const result = await this.awl.deploy(tenantId, tpl.document);
+        results.push({ slug: tpl.slug, name: tpl.name, status: 'deployed' });
+      } catch (e: any) {
+        results.push({ slug: tpl.slug, name: tpl.name, status: 'skipped', error: e.message });
+      }
+    }
+    return { seeded: results.length, results };
   }
 
   // ── Execution ──────────────────────────────────────────────────────────────
