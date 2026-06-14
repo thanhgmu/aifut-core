@@ -94,10 +94,12 @@ type AiGovernancePrismaClient = {
   aiRoutingPolicy: {
     upsert(input: unknown): Promise<unknown>;
     findFirst(input: unknown): Promise<Record<string, unknown> | null>;
+    findMany(input: unknown): Promise<Array<Record<string, unknown>>>;
   };
   aiBudgetPolicy: {
     upsert(input: unknown): Promise<unknown>;
     findFirst(input: unknown): Promise<Record<string, unknown> | null>;
+    findMany(input: unknown): Promise<Array<Record<string, unknown>>>;
   };
   aiUsageEvent: {
     create(input: unknown): Promise<Record<string, unknown>>;
@@ -348,6 +350,51 @@ export class AiGovernancePersistenceService {
         source: record.source,
         occurredAt: record.occurredAt,
       },
+    });
+  }
+
+  async listRoutingPolicies(input: {
+    tenantSlug?: string;
+    workspaceSlug?: string | null;
+    featureKey?: string;
+    taskType?: string;
+  }) {
+    const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const featureKey = this.normalizeKey(input.featureKey, 'general');
+    const taskType = this.normalizeKey(input.taskType, 'general');
+    const prisma = this.requirePrisma();
+
+    return prisma.aiRoutingPolicy.findMany({
+      where: {
+        tenantSlug: scope.tenantSlug,
+        ...(scope.workspaceSlug !== undefined
+          ? { workspaceSlug: scope.workspaceSlug }
+          : {}),
+        ...(featureKey !== 'general' ? { featureKey } : {}),
+        ...(taskType !== 'general' ? { taskType } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async listBudgetPolicies(input: {
+    tenantSlug?: string;
+    workspaceSlug?: string | null;
+    featureKey?: string;
+  }) {
+    const scope = this.resolveScope(input.tenantSlug, input.workspaceSlug);
+    const featureKey = this.normalizeKey(input.featureKey, 'general');
+    const prisma = this.requirePrisma();
+
+    return prisma.aiBudgetPolicy.findMany({
+      where: {
+        tenantSlug: scope.tenantSlug,
+        ...(scope.workspaceSlug !== undefined
+          ? { workspaceSlug: scope.workspaceSlug }
+          : {}),
+        ...(featureKey !== 'general' ? { featureKey } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

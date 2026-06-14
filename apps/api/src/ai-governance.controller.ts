@@ -140,6 +140,64 @@ export class AiGovernanceController {
     };
   }
 
+  @Get('routing-policies')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  async listRoutingPolicies(
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('featureKey') featureKeyQuery?: string,
+    @Query('taskType') taskTypeQuery?: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    const policies =
+      await this.governancePersistence.listRoutingPolicies({
+        tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+        workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+        featureKey: featureKeyQuery,
+        taskType: taskTypeQuery,
+      });
+
+    return {
+      capability: 'ai-governance',
+      status: 'routing-policies-listed',
+      policyCount: policies.length,
+      policies,
+    };
+  }
+
+  @Get('budget-policies')
+  @UseGuards(AccessPolicyGuard)
+  @RequireAccessPolicy({
+    minimumRole: MembershipRole.OPERATOR,
+    scope: 'operator-control',
+  })
+  async listBudgetPolicies(
+    @Query('tenantSlug') tenantSlugQuery?: string,
+    @Query('workspaceSlug') workspaceSlugQuery?: string,
+    @Query('featureKey') featureKeyQuery?: string,
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    const policies =
+      await this.governancePersistence.listBudgetPolicies({
+        tenantSlug: tenantSlugHeader ?? tenantSlugQuery,
+        workspaceSlug: workspaceSlugHeader ?? workspaceSlugQuery,
+        featureKey: featureKeyQuery,
+      });
+
+    return {
+      capability: 'ai-governance',
+      status: 'budget-policies-listed',
+      policyCount: policies.length,
+      policies,
+    };
+  }
+
   @Post('gateway-decision')
   @UseGuards(AccessPolicyGuard)
   @RequireAccessPolicy({
