@@ -9,20 +9,23 @@ description = "AIFUT Connector SDK — Build AIS-compliant connectors for the AI
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["aifut", "connector", "ais", "integration", "workflow"]
+keywords = ["aifut", "connector", "ais", "integration", "workflow", "automation"]
 
 authors = [
-  { name = "AIFUT", email = "dev@aifut.app" },
+  { name = "AIFUT Team", email = "dev@aifut.app" },
 ]
 
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: System :: Distributed Computing",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
 ]
 
 dependencies = [
@@ -34,8 +37,24 @@ dev = [
   "uvicorn[standard]>=0.27",
   "fastapi>=0.109",
   "pytest>=8.0",
+  "pytest-asyncio>=0.23",
   "httpx>=0.26",
+  "ruff>=0.3",
+  "mypy>=1.8",
 ]
+
+[project.urls]
+Homepage = "https://aifut.app"
+Documentation = "https://aifut.app/developer"
+Repository = "https://github.com/aifut/aifut-core"
+"Bug Tracker" = "https://github.com/aifut/aifut-core/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"aifut_connector_sdk" = ["py.typed"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

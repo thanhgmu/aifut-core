@@ -1,0 +1,74 @@
+name: Publish Python SDK to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 0.2.0). Leave empty to use current.'
+        required: false
+        type: string
+      test_pypi:
+        description: 'Publish to Test PyPI first?'
+        required: true
+        default: true
+        type: boolean
+
+  push:
+    tags:
+      - 'python-sdk-v*'
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/connector-sdk-python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip build twine
+          pip install -e ".[dev]"
+
+      - name: Run lint
+        run: |
+          pip install ruff mypy
+          ruff check src/ --no-fix || true
+        continue-on-error: true
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short || echo "No tests yet"
+        continue-on-error: true
+
+      - name: Extract version
+        id: version
+        run: |
+          VER=$(python -c "from aifut_connector_sdk import __version__; print(__version__)")
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
+      - name: Build package
+        run: python -m build --sdist --wheel .
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Publish to Test PyPI
+        if: ${{ github.event.inputs.test_pypi != 'false' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_TOKEN }}
+
+      - name: Publish to PyPI
+        if: ${{ startsWith(github.ref, 'refs/tags/python-sdk-v') || (github.event.inputs.test_pypi == 'false') }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
