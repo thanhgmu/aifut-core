@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { BillingService } from '../billing/billing.service';
+import { PrismaService } from './prisma.service';
+import { BillingService } from './billing/billing.service';
 
 @Injectable()
 export class AiBillingMeterService {
