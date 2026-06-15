@@ -1,5 +1,5 @@
 import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
-import { LocalModeConfig } from './local-mode.module';
+import type { LocalModeConfig } from './local-mode.module';
 
 @Injectable()
 export class LocalModeService implements OnModuleInit {
