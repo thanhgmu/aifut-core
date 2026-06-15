@@ -33,6 +33,26 @@ export class IndustryTemplatesService {
       this.travelAgency(),
       this.constructionProject(),
       this.insuranceRenewal(),
+      this.logisticsDelivery(),
+      this.ecommerceAbandonedCart(),
+      this.salonBooking(),
+      this.dentalClinic(),
+      this.vetClinic(),
+      this.coworkingSpace(),
+      this.carRental(),
+      this.daycarePreschool(),
+      this.laundryService(),
+      this.photographyStudio(),
+      this.cleaningService(),
+      this.weddingPlanning(),
+      this.foodDelivery(),
+      this.petGrooming(),
+      this.itSupport(),
+      this.recruitment(),
+      this.eventManagement(),
+      this.yogaStudio(),
+      this.tutoringCenter(),
+      this.warehouseManagement(),
     ];
   }
 
@@ -373,6 +393,458 @@ export class IndustryTemplatesService {
           { id: 'urgent', name: 'Nhắc khẩn còn 15 ngày', type: 'send', config: { channel: 'zalo', template: 'renewal_urgent_vi' }, depends_on: ['renewal'] },
           { id: 'cancel-check', name: 'Kiểm tra sau hết hạn', type: 'condition', config: { field: 'policy.renewed', equals: 'false' } },
           { id: 'reactivate', name: 'Gửi offer tái kích hoạt', type: 'send', config: { channel: 'email', template: 'reactivate_offer' }, depends_on: ['urgent', 'cancel-check'] },
+        ],
+      },
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 20 NEW INDUSTRY TEMPLATES (Phase 2 expansion - batch 2)
+  // ══════════════════════════════════════════════════════════════════════
+
+  private logisticsDelivery(): IndustryTemplate {
+    return {
+      slug: 'logistics-delivery-flow',
+      name: 'Logistics - Giao hàng realtime',
+      industry: 'logistics',
+      description: 'Xác nhận đơn giao, cập nhật trạng thái realtime, xác nhận nhận hàng, feedback',
+      document: {
+        awl: '0.1', workflow: 'logistics-delivery', name: 'Giao hàng realtime',
+        category: 'order', industry: 'logistics',
+        trigger: { kind: 'event', config: { event: 'delivery.created' } },
+        steps: [
+          { id: 'pickup', name: 'Xác nhận lấy hàng', type: 'send', config: { channel: 'zalo', template: 'pickup_confirm_vi' } },
+          { id: 'in-transit', name: 'Đang vận chuyển', type: 'send', config: { channel: 'zalo', template: 'in_transit_vi' } },
+          { id: 'out-for-delivery', name: 'Đang giao', type: 'send', config: { channel: 'zalo', template: 'out_for_delivery_vi' } },
+          { id: 'delivered', name: 'Xác nhận giao thành công', type: 'send', config: { channel: 'zalo', template: 'delivered_confirm_vi' } },
+          { id: 'wait-feedback', name: 'Chờ 2h sau giao', type: 'wait', config: { seconds: 7200 } },
+          { id: 'rating', name: 'Yêu cầu đánh giá', type: 'send', config: { channel: 'zalo', template: 'delivery_rating_vi' }, depends_on: ['delivered'] },
+        ],
+      },
+    };
+  }
+
+  private ecommerceAbandonedCart(): IndustryTemplate {
+    return {
+      slug: 'ecommerce-cart-recovery',
+      name: 'E-commerce - Recovery giỏ hàng',
+      industry: 'retail',
+      description: 'Phát hiện giỏ hàng bỏ quên sau 30 phút, nhắc 3 lần, tặng voucher giảm giá',
+      document: {
+        awl: '0.1', workflow: 'ecom-cart-recovery', name: 'Recovery giỏ hàng',
+        category: 'marketing', industry: 'retail',
+        trigger: { kind: 'event', config: { event: 'cart.abandoned' } },
+        steps: [
+          { id: 'wait-30m', name: 'Chờ 30 phút', type: 'wait', config: { seconds: 1800 } },
+          { id: 'first-nudge', name: 'Nhắc lần 1 - Bạn quên gì đó', type: 'send', config: { channel: 'zalo', template: 'cart_nudge1_vi' } },
+          { id: 'wait-4h', name: 'Chờ 4 tiếng', type: 'wait', config: { seconds: 14400 } },
+          { id: 'check-still', name: 'Kiểm tra giỏ hàng vẫn còn', type: 'condition', config: { field: 'cart.abandoned', equals: 'true' } },
+          { id: 'second-nudge', name: 'Nhắc lần 2 - Hàng sắp hết', type: 'send', config: { channel: 'email', template: 'cart_nudge2' }, depends_on: ['wait-4h', 'check-still'] },
+          { id: 'wait-24h', name: 'Chờ 24 tiếng', type: 'wait', config: { seconds: 86400 } },
+          { id: 'voucher', name: 'Tặng voucher 10% để chốt', type: 'send', config: { channel: 'zalo', template: 'cart_voucher_vi' }, depends_on: ['second-nudge'] },
+        ],
+      },
+    };
+  }
+
+  private salonBooking(): IndustryTemplate {
+    return {
+      slug: 'salon-booking-flow',
+      name: 'Salon/Tóc - Đặt lịch + Nhắc hẹn',
+      industry: 'beauty',
+      description: 'Xác nhận đặt lịch, nhắc trước 3 tiếng, gửi ảnh mẫu, feedback sau dịch vụ',
+      document: {
+        awl: '0.1', workflow: 'salon-booking', name: 'Đặt lịch Salon',
+        category: 'booking', industry: 'beauty',
+        trigger: { kind: 'event', config: { event: 'appointment.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch hẹn', type: 'send', config: { channel: 'zalo', template: 'salon_confirm_vi' } },
+          { id: 'style-suggest', name: 'Gửi ảnh mẫu kiểu tóc', type: 'send', config: { channel: 'zalo', template: 'style_suggest_vi' } },
+          { id: 'wait-3h', name: 'Chờ 3 tiếng', type: 'wait', config: { seconds: 10800 } },
+          { id: 'remind', name: 'Nhắc lịch + hướng dẫn đường', type: 'send', config: { channel: 'zalo', template: 'salon_remind_vi' }, depends_on: ['confirm'] },
+          { id: 'post-service', name: 'Feedback sau 4 tiếng', type: 'wait', config: { seconds: 14400 } },
+          { id: 'feedback', name: 'Gửi survey hài lòng', type: 'send', config: { channel: 'zalo', template: 'salon_feedback_vi' }, depends_on: ['post-service'] },
+        ],
+      },
+    };
+  }
+
+  private dentalClinic(): IndustryTemplate {
+    return {
+      slug: 'dental-clinic-flow',
+      name: 'Nha khoa - Lịch hẹn + Tái khám',
+      industry: 'healthcare',
+      description: 'Xác nhận lịch hẹn nha khoa, nhắc trước 1 ngày, hướng dẫn vệ sinh, nhắc tái khám 6 tháng',
+      document: {
+        awl: '0.1', workflow: 'dental-appt', name: 'Lịch hẹn nha khoa',
+        category: 'booking', industry: 'healthcare',
+        trigger: { kind: 'event', config: { event: 'dental_appointment.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch hẹn', type: 'send', config: { channel: 'zalo', template: 'dental_confirm_vi' } },
+          { id: 'day-before', name: 'Nhắc 1 ngày trước', type: 'wait', config: { seconds: 86400 } },
+          { id: 'remind', name: 'Nhắc + lưu ý trước khi đi', type: 'send', config: { channel: 'zalo', template: 'dental_remind_vi' } },
+          { id: 'post-care', name: 'Hướng dẫn chăm sóc sau hẹn', type: 'send', config: { channel: 'zalo', template: 'dental_postcare_vi' } },
+          { id: 'wait-6mo', name: 'Chờ 6 tháng', type: 'wait', config: { seconds: 15768000 } },
+          { id: 'recheck', name: 'Nhắc khám định kỳ 6 tháng', type: 'send', config: { channel: 'zalo', template: 'dental_recheck_vi' }, depends_on: ['post-care'] },
+        ],
+      },
+    };
+  }
+
+  private vetClinic(): IndustryTemplate {
+    return {
+      slug: 'vet-clinic-flow',
+      name: 'Phòng khám thú y - Lịch tiêm + Sức khỏe',
+      industry: 'healthcare',
+      description: 'Nhắc lịch tiêm phòng, theo dõi sức khỏe thú cưng, nhắc tái khám',
+      document: {
+        awl: '0.1', workflow: 'vet-clinic', name: 'Quy trình phòng khám thú y',
+        category: 'booking', industry: 'healthcare',
+        trigger: { kind: 'event', config: { event: 'pet_appointment.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch khám', type: 'send', config: { channel: 'zalo', template: 'vet_confirm_vi' } },
+          { id: 'prep', name: 'Hướng dẫn trước khám', type: 'send', config: { channel: 'zalo', template: 'vet_prep_vi' } },
+          { id: 'day-before', name: 'Nhắc 1 ngày trước', type: 'wait', config: { seconds: 86400 } },
+          { id: 'remind', name: 'Nhắc lịch + hướng dẫn', type: 'send', config: { channel: 'zalo', template: 'vet_remind_vi' } },
+          { id: 'vaccine-schedule', name: 'Lịch tiêm nhắc lại', type: 'send', config: { channel: 'zalo', template: 'vaccine_schedule_vi' } },
+          { id: 'wait-30d', name: 'Chờ 30 ngày', type: 'wait', config: { seconds: 2592000 } },
+          { id: 'health-check', name: 'Nhắc kiểm tra sức khỏe', type: 'send', config: { channel: 'zalo', template: 'pet_healthcheck_vi' }, depends_on: ['vaccine-schedule'] },
+        ],
+      },
+    };
+  }
+
+  private coworkingSpace(): IndustryTemplate {
+    return {
+      slug: 'coworking-space-flow',
+      name: 'Coworking - Đặt chỗ + Gia hạn',
+      industry: 'services',
+      description: 'Xác nhận đặt chỗ, nhắc check-in, thông báo hết giờ, offer gia hạn membership',
+      document: {
+        awl: '0.1', workflow: 'coworking-booking', name: 'Đặt chỗ Coworking',
+        category: 'booking', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'booking.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận đặt chỗ', type: 'send', config: { channel: 'zalo', template: 'coworking_confirm_vi' } },
+          { id: 'checkin-remind', name: 'Nhắc check-in sáng hôm sau', type: 'wait', config: { seconds: 43200 } },
+          { id: 'checkin', name: 'Gửi mã QR check-in', type: 'send', config: { channel: 'zalo', template: 'coworking_qr_vi' } },
+          { id: 'end-notify', name: 'Thông báo sắp hết giờ', type: 'send', config: { channel: 'zalo', template: 'coworking_end_vi' } },
+          { id: 'feedback', name: 'Feedback + extend offer', type: 'send', config: { channel: 'email', template: 'coworking_feedback' } },
+        ],
+      },
+    };
+  }
+
+  private carRental(): IndustryTemplate {
+    return {
+      slug: 'car-rental-flow',
+      name: 'Thuê xe tự lái - Nhận/Trả xe',
+      industry: 'automotive',
+      description: 'Xác nhận đặt xe, hướng dẫn nhận xe, nhắc trả xe, xử lý phí quá hạn',
+      document: {
+        awl: '0.1', workflow: 'car-rental', name: 'Quy trình thuê xe',
+        category: 'booking', industry: 'automotive',
+        trigger: { kind: 'event', config: { event: 'rental.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận đặt xe', type: 'send', config: { channel: 'zalo', template: 'rental_confirm_vi' } },
+          { id: 'day-before', name: 'Hướng dẫn nhận xe', type: 'send', config: { channel: 'zalo', template: 'rental_pickup_vi' } },
+          { id: 'pickup', name: 'Xác nhận đã nhận xe', type: 'send', config: { channel: 'zalo', template: 'rental_picked_vi' } },
+          { id: 'return-remind', name: 'Nhắc trả xe trước 2h', type: 'wait', config: { seconds: 7200 } },
+          { id: 'return', name: 'Hướng dẫn trả xe', type: 'send', config: { channel: 'zalo', template: 'rental_return_vi' } },
+          { id: 'overdue', name: 'Xử lý trả xe trễ', type: 'condition', config: { field: 'rental.returned_on_time', equals: 'false' } },
+          { id: 'late-fee', name: 'Thông báo phí quá hạn', type: 'send', config: { channel: 'zalo', template: 'rental_late_fee_vi' }, depends_on: ['return', 'overdue'] },
+        ],
+      },
+    };
+  }
+
+  private daycarePreschool(): IndustryTemplate {
+    return {
+      slug: 'daycare-preschool-flow',
+      name: 'Nhà trẻ/Mầm non - Điểm danh hàng ngày',
+      industry: 'education',
+      description: 'Điểm danh sáng/chiều, báo ăn uống, nhắc đóng học phí, báo cáo tháng',
+      document: {
+        awl: '0.1', workflow: 'daycare-daily', name: 'Điểm danh nhà trẻ',
+        category: 'attendance', industry: 'education',
+        trigger: { kind: 'schedule', config: { cron: '0 7 * * 1-5' } },
+        steps: [
+          { id: 'morning', name: 'Gửi thông báo đón/trả', type: 'send', config: { channel: 'zalo', template: 'daycare_morning_vi' } },
+          { id: 'meal-report', name: 'Báo ăn trưa', type: 'send', config: { channel: 'zalo', template: 'daycare_meal_vi' } },
+          { id: 'nap-report', name: 'Báo giấc ngủ', type: 'send', config: { channel: 'zalo', template: 'daycare_nap_vi' } },
+          { id: 'pickup', name: 'Báo giờ đón + hoạt động', type: 'send', config: { channel: 'zalo', template: 'daycare_pickup_vi' } },
+          { id: 'end-month', name: 'Báo cáo cuối tháng', type: 'send', config: { channel: 'email', template: 'daycare_monthly' } },
+        ],
+      },
+    };
+  }
+
+  private laundryService(): IndustryTemplate {
+    return {
+      slug: 'laundry-service-flow',
+      name: 'Giặt ủi - Nhận/Giao đồ',
+      industry: 'services',
+      description: 'Xác nhận nhận đồ, thông báo tiến độ giặt, thông báo giao hàng, feedback',
+      document: {
+        awl: '0.1', workflow: 'laundry-order', name: 'Quy trình giặt ủi',
+        category: 'order', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'laundry_order.created' } },
+        steps: [
+          { id: 'received', name: 'Xác nhận đã nhận đồ', type: 'send', config: { channel: 'zalo', template: 'laundry_received_vi' } },
+          { id: 'washing', name: 'Đang giặt', type: 'send', config: { channel: 'zalo', template: 'laundry_washing_vi' } },
+          { id: 'drying', name: 'Đang sấy/gấp', type: 'send', config: { channel: 'zalo', template: 'laundry_drying_vi' } },
+          { id: 'ready', name: 'Đồ đã sẵn sàng', type: 'send', config: { channel: 'zalo', template: 'laundry_ready_vi' } },
+          { id: 'delivery', name: 'Đang giao', type: 'send', config: { channel: 'zalo', template: 'laundry_delivery_vi' } },
+          { id: 'delivered', name: 'Xác nhận giao + feedback', type: 'send', config: { channel: 'zalo', template: 'laundry_done_vi' } },
+        ],
+      },
+    };
+  }
+
+  private photographyStudio(): IndustryTemplate {
+    return {
+      slug: 'photography-studio-flow',
+      name: 'Studio chụp ảnh - Booking + Gửi ảnh',
+      industry: 'services',
+      description: 'Xác nhận lịch chụp, hướng dẫn chuẩn bị, gửi ảnh preview, nhắc khách lấy ảnh',
+      document: {
+        awl: '0.1', workflow: 'photo-studio', name: 'Quy trình studio ảnh',
+        category: 'booking', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'photo_session.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch chụp', type: 'send', config: { channel: 'zalo', template: 'photo_confirm_vi' } },
+          { id: 'prep-guide', name: 'Hướng dẫn chuẩn bị', type: 'send', config: { channel: 'zalo', template: 'photo_prep_vi' } },
+          { id: 'day-before', name: 'Nhắc lịch chụp', type: 'send', config: { channel: 'zalo', template: 'photo_remind_vi' } },
+          { id: 'post-shoot', name: 'Cảm ơn + thời gian nhận ảnh', type: 'send', config: { channel: 'zalo', template: 'photo_thanks_vi' } },
+          { id: 'wait-7d', name: 'Chờ 7 ngày xử lý ảnh', type: 'wait', config: { seconds: 604800 } },
+          { id: 'gallery', name: 'Gửi gallery + album online', type: 'send', config: { channel: 'email', template: 'photo_gallery' }, depends_on: ['post-shoot'] },
+        ],
+      },
+    };
+  }
+
+  private cleaningService(): IndustryTemplate {
+    return {
+      slug: 'cleaning-service-flow',
+      name: 'Dịch vụ vệ sinh - Lịch định kỳ',
+      industry: 'services',
+      description: 'Xác nhận lịch vệ sinh, nhắc trước 1 ngày, feedback sau dọn, offer lịch định kỳ',
+      document: {
+        awl: '0.1', workflow: 'cleaning-service', name: 'Vệ sinh định kỳ',
+        category: 'service', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'cleaning.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch vệ sinh', type: 'send', config: { channel: 'zalo', template: 'cleaning_confirm_vi' } },
+          { id: 'day-before', name: 'Nhắc lịch', type: 'wait', config: { seconds: 86400 } },
+          { id: 'remind', name: 'Nhắc + hướng dẫn chuẩn bị', type: 'send', config: { channel: 'zalo', template: 'cleaning_remind_vi' } },
+          { id: 'done', name: 'Xác nhận hoàn thành', type: 'send', config: { channel: 'zalo', template: 'cleaning_done_vi' } },
+          { id: 'feedback', name: 'Feedback + offer recurring', type: 'send', config: { channel: 'zalo', template: 'cleaning_feedback_vi' } },
+          { id: 'schedule-next', name: 'Gửi lịch định kỳ tuần sau', type: 'send', config: { channel: 'email', template: 'cleaning_schedule_next' } },
+        ],
+      },
+    };
+  }
+
+  private weddingPlanning(): IndustryTemplate {
+    return {
+      slug: 'wedding-planning-flow',
+      name: 'Cưới hỏi - Timeline + Vendor coordination',
+      industry: 'services',
+      description: 'Timeline đám cưới, nhắc mốc quan trọng, phối hợp vendor, guest list management',
+      document: {
+        awl: '0.1', workflow: 'wedding-plan', name: 'Timeline đám cưới',
+        category: 'project', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'wedding.created' } },
+        steps: [
+          { id: 'welcome', name: 'Chào mừng + timeline tổng quan', type: 'send', config: { channel: 'zalo', template: 'wedding_welcome_vi' } },
+          { id: 'vendor-remind', name: 'Nhắc đặt vendor 3 tháng', type: 'send', config: { channel: 'email', template: 'wedding_vendor_remind' } },
+          { id: 'guest-list', name: 'Nhắc gửi danh sách khách', type: 'send', config: { channel: 'zalo', template: 'wedding_guest_vi' } },
+          { id: 'wait-1mo', name: 'Chờ 1 tháng', type: 'wait', config: { seconds: 2592000 } },
+          { id: 'd-day-30', name: 'Checklist 30 ngày', type: 'send', config: { channel: 'email', template: 'wedding_d30_checklist' } },
+          { id: 'wait-7d', name: 'Chờ 23 ngày', type: 'wait', config: { seconds: 1987200 } },
+          { id: 'd-day-7', name: 'Checklist 7 ngày cuối', type: 'send', config: { channel: 'zalo', template: 'wedding_d7_vi' }, depends_on: ['d-day-30'] },
+          { id: 'post-wedding', name: 'Cảm ơn + album', type: 'send', config: { channel: 'zalo', template: 'wedding_thanks_vi' } },
+        ],
+      },
+    };
+  }
+
+  private foodDelivery(): IndustryTemplate {
+    return {
+      slug: 'food-delivery-tracking',
+      name: 'Giao đồ ăn - Tracking đơn hàng',
+      industry: 'food',
+      description: 'Xác nhận đơn, cập nhật đầu bếp/đang giao, feedback sau nhận',
+      document: {
+        awl: '0.1', workflow: 'food-delivery', name: 'Giao đồ ăn tracking',
+        category: 'order', industry: 'food',
+        trigger: { kind: 'event', config: { event: 'food_order.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận đơn hàng', type: 'send', config: { channel: 'zalo', template: 'food_confirm_vi' } },
+          { id: 'preparing', name: 'Đầu bếp đang chế biến', type: 'send', config: { channel: 'zalo', template: 'food_preparing_vi' } },
+          { id: 'ready', name: 'Đồ ăn đã sẵn sàng', type: 'send', config: { channel: 'zalo', template: 'food_ready_vi' } },
+          { id: 'picked-up', name: 'Shipper đã lấy hàng', type: 'send', config: { channel: 'zalo', template: 'food_picked_vi' } },
+          { id: 'in-transit', name: 'Đang giao - ETA 15 phút', type: 'send', config: { channel: 'zalo', template: 'food_eta_vi' } },
+          { id: 'delivered', name: 'Xác nhận giao thành công', type: 'send', config: { channel: 'zalo', template: 'food_delivered_vi' } },
+          { id: 'feedback', name: 'Feedback + đánh giá', type: 'send', config: { channel: 'zalo', template: 'food_feedback_vi' }, depends_on: ['delivered'] },
+        ],
+      },
+    };
+  }
+
+  private petGrooming(): IndustryTemplate {
+    return {
+      slug: 'pet-grooming-flow',
+      name: 'Cắt tỉa thú cưng - Spaw',
+      industry: 'services',
+      description: 'Đặt lịch grooming, hướng dẫn trước khi đưa thú cưng, gửi ảnh sau grooming',
+      document: {
+        awl: '0.1', workflow: 'pet-grooming', name: 'Dịch vụ Spaw cho thú cưng',
+        category: 'booking', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'grooming.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận lịch grooming', type: 'send', config: { channel: 'zalo', template: 'grooming_confirm_vi' } },
+          { id: 'prep', name: 'Hướng dẫn trước khi đưa', type: 'send', config: { channel: 'zalo', template: 'grooming_prep_vi' } },
+          { id: 'day-before', name: 'Nhắc lịch', type: 'send', config: { channel: 'zalo', template: 'grooming_remind_vi' } },
+          { id: 'in-progress', name: 'Thông báo đang grooming', type: 'send', config: { channel: 'zalo', template: 'grooming_progress_vi' } },
+          { id: 'done', name: 'Gửi ảnh sau grooming', type: 'send', config: { channel: 'zalo', template: 'grooming_result_vi' } },
+          { id: 'feedback', name: 'Đánh giá + đặt lịch kỳ sau', type: 'send', config: { channel: 'zalo', template: 'grooming_feedback_vi' }, depends_on: ['done'] },
+        ],
+      },
+    };
+  }
+
+  private itSupport(): IndustryTemplate {
+    return {
+      slug: 'it-support-flow',
+      name: 'IT Support - Ticket management',
+      industry: 'services',
+      description: 'Xác nhận ticket, cập nhật tiến độ, SLA nhắc nhở, feedback sau đóng ticket',
+      document: {
+        awl: '0.1', workflow: 'it-ticket', name: 'Quy trình IT Support',
+        category: 'service', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'ticket.created' } },
+        steps: [
+          { id: 'acknowledge', name: 'Xác nhận đã nhận ticket', type: 'send', config: { channel: 'email', template: 'ticket_acknowledge' } },
+          { id: 'assigned', name: 'Thông báo đã phân công', type: 'send', config: { channel: 'zalo', template: 'ticket_assigned_vi' } },
+          { id: 'wait-4h', name: 'Chờ 4h - SLA check', type: 'wait', config: { seconds: 14400 } },
+          { id: 'sla-check', name: 'Kiểm tra ticket còn mở', type: 'condition', config: { field: 'ticket.status', not_equals: 'resolved' } },
+          { id: 'sla-warning', name: 'Nhắc SLA - ticket quá 4h', type: 'send', config: { channel: 'zalo', template: 'ticket_sla_vi' }, depends_on: ['wait-4h', 'sla-check'] },
+          { id: 'resolved', name: 'Thông báo đã giải quyết', type: 'send', config: { channel: 'email', template: 'ticket_resolved' } },
+          { id: 'feedback', name: 'Survey hài lòng', type: 'send', config: { channel: 'email', template: 'ticket_feedback' }, depends_on: ['resolved'] },
+        ],
+      },
+    };
+  }
+
+  private recruitment(): IndustryTemplate {
+    return {
+      slug: 'recruitment-flow',
+      name: 'Tuyển dụng - Vòng phỏng vấn + Offer',
+      industry: 'services',
+      description: 'Xác nhận đơn ứng tuyển, lên lịch phỏng vấn, nhắc, gửi offer, onboarding',
+      document: {
+        awl: '0.1', workflow: 'recruitment', name: 'Quy trình tuyển dụng',
+        category: 'crm', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'application.created' } },
+        steps: [
+          { id: 'acknowledge', name: 'Xác nhận đã nhận hồ sơ', type: 'send', config: { channel: 'email', template: 'app_received' } },
+          { id: 'screen', name: 'Sàng lọc CV', type: 'action', config: { action: 'auto_screen' } },
+          { id: 'invite', name: 'Gửi lịch phỏng vấn', type: 'send', config: { channel: 'email', template: 'interview_invite' }, depends_on: ['screen'] },
+          { id: 'day-before', name: 'Nhắc phỏng vấn ngày mai', type: 'send', config: { channel: 'zalo', template: 'interview_remind_vi' } },
+          { id: 'post-interview', name: 'Feedback sau phỏng vấn', type: 'send', config: { channel: 'email', template: 'interview_feedback' } },
+          { id: 'offer', name: 'Gửi offer letter', type: 'send', config: { channel: 'email', template: 'offer_letter' }, depends_on: ['post-interview'] },
+          { id: 'onboarding', name: 'Hướng dẫn nhận việc', type: 'send', config: { channel: 'zalo', template: 'onboarding_guide_vi' }, depends_on: ['offer'] },
+        ],
+      },
+    };
+  }
+
+  private eventManagement(): IndustryTemplate {
+    return {
+      slug: 'event-management-flow',
+      name: 'Quản lý sự kiện - RSVP + Check-in',
+      industry: 'services',
+      description: 'Gửi invite, theo dõi RSVP, nhắc trước sự kiện, check-in QR, feedback',
+      document: {
+        awl: '0.1', workflow: 'event-mgmt', name: 'Quản lý sự kiện',
+        category: 'marketing', industry: 'services',
+        trigger: { kind: 'event', config: { event: 'event.created' } },
+        steps: [
+          { id: 'invite', name: 'Gửi invitation', type: 'send', config: { channel: 'email', template: 'event_invite' } },
+          { id: 'wait-7d', name: 'Chờ 7 ngày', type: 'wait', config: { seconds: 604800 } },
+          { id: 'rsvp-check', name: 'Kiểm tra RSVP', type: 'condition', config: { field: 'guest.rsvp_status', equals: 'pending' } },
+          { id: 'remind', name: 'Nhắc RSVP', type: 'send', config: { channel: 'zalo', template: 'event_rsvp_remind_vi' }, depends_on: ['wait-7d', 'rsvp-check'] },
+          { id: 'day-before', name: 'Nhắc trước sự kiện', type: 'send', config: { channel: 'zalo', template: 'event_d1_vi' } },
+          { id: 'qr-code', name: 'Gửi QR check-in', type: 'send', config: { channel: 'zalo', template: 'event_qr_vi' } },
+          { id: 'post-event', name: 'Feedback + ảnh sự kiện', type: 'send', config: { channel: 'email', template: 'event_post' } },
+        ],
+      },
+    };
+  }
+
+  private yogaStudio(): IndustryTemplate {
+    return {
+      slug: 'yoga-studio-flow',
+      name: 'Yoga/Pilates - Đặt lớp + Duy trì tập',
+      industry: 'fitness',
+      description: 'Đặt lớp yoga, nhắc lịch tập, theo dõi chuỗi ngày tập, nhắc đóng phí',
+      document: {
+        awl: '0.1', workflow: 'yoga-studio', name: 'Quy trình lớp Yoga',
+        category: 'booking', industry: 'fitness',
+        trigger: { kind: 'event', config: { event: 'class_booking.created' } },
+        steps: [
+          { id: 'confirm', name: 'Xác nhận đặt lớp', type: 'send', config: { channel: 'zalo', template: 'yoga_confirm_vi' } },
+          { id: 'day-before', name: 'Nhắc lịch tập', type: 'send', config: { channel: 'zalo', template: 'yoga_remind_vi' } },
+          { id: 'checkin', name: 'Check-in + cảm ơn', type: 'send', config: { channel: 'zalo', template: 'yoga_checkin_vi' } },
+          { id: 'streak', name: 'Chuỗi tập: chúc mừng streak', type: 'send', config: { channel: 'zalo', template: 'yoga_streak_vi' } },
+          { id: 'wait-30d', name: 'Chờ 30 ngày', type: 'wait', config: { seconds: 2592000 } },
+          { id: 'membership', name: 'Offer membership renewal', type: 'send', config: { channel: 'zalo', template: 'yoga_renewal_vi' } },
+        ],
+      },
+    };
+  }
+
+  private tutoringCenter(): IndustryTemplate {
+    return {
+      slug: 'tutoring-center-flow',
+      name: 'Trung tâm gia sư - Đăng ký lớp',
+      industry: 'education',
+      description: 'Xác nhận đăng ký, lịch học, báo cáo tiến độ tuần, nhắc đóng học phí',
+      document: {
+        awl: '0.1', workflow: 'tutoring-center', name: 'Quy trình trung tâm gia sư',
+        category: 'booking', industry: 'education',
+        trigger: { kind: 'event', config: { event: 'enrollment.created' } },
+        steps: [
+          { id: 'welcome', name: 'Chào mừng + lịch học', type: 'send', config: { channel: 'zalo', template: 'tutor_welcome_vi' } },
+          { id: 'schedule', name: 'Gửi lịch học chi tiết', type: 'send', config: { channel: 'zalo', template: 'tutor_schedule_vi' } },
+          { id: 'weekly-report', name: 'Báo cáo tiến độ tuần', type: 'send', config: { channel: 'zalo', template: 'tutor_weekly_vi' } },
+          { id: 'fee-remind', name: 'Nhắc đóng học phí tháng', type: 'send', config: { channel: 'zalo', template: 'tutor_fee_vi' } },
+          { id: 'exam-alert', name: 'Nhắc lịch thi + ôn tập', type: 'send', config: { channel: 'zalo', template: 'tutor_exam_vi' } },
+          { id: 'feedback', name: 'Feedback phụ huynh cuối tháng', type: 'send', config: { channel: 'email', template: 'tutor_parent_report' } },
+        ],
+      },
+    };
+  }
+
+  private warehouseManagement(): IndustryTemplate {
+    return {
+      slug: 'warehouse-management-flow',
+      name: 'Quản lý kho - Nhập/Xuất tồn',
+      industry: 'logistics',
+      description: 'Cảnh báo tồn kho thấp, nhắc kiểm kê, xác nhận nhập hàng, báo cáo cuối tháng',
+      document: {
+        awl: '0.1', workflow: 'warehouse-mgmt', name: 'Quản lý kho thông minh',
+        category: 'inventory', industry: 'logistics',
+        trigger: { kind: 'schedule', config: { cron: '0 8 * * 1' } },
+        steps: [
+          { id: 'stock-check', name: 'Kiểm tra tồn kho thấp', type: 'action', config: { action: 'low_stock_alert', threshold: 10 } },
+          { id: 'low-stock', name: 'Cảnh báo tồn kho thấp', type: 'send', config: { channel: 'zalo', template: 'stock_low_vi' }, depends_on: ['stock-check'] },
+          { id: 'inbound', name: 'Xác nhận nhập hàng', type: 'send', config: { channel: 'zalo', template: 'stock_inbound_vi' } },
+          { id: 'outbound', name: 'Xác nhận xuất hàng', type: 'send', config: { channel: 'zalo', template: 'stock_outbound_vi' } },
+          { id: 'wait-7d', name: 'Chờ 7 ngày', type: 'wait', config: { seconds: 604800 } },
+          { id: 'expiry', name: 'Cảnh báo hàng sắp hết hạn', type: 'send', config: { channel: 'zalo', template: 'stock_expiry_vi' } },
+          { id: 'monthly', name: 'Báo cáo tồn kho tháng', type: 'send', config: { channel: 'email', template: 'stock_monthly_report' } },
         ],
       },
     };
