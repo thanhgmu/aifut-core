@@ -2,7 +2,7 @@
 
 ## Current Truth - 2026-06-15 20:59 Asia/Bangkok
 - **Repo:** `C:\Users\Admin\.openclaw\workspace\aifut-core`
-- **Current HEAD:** `f5eddae` feat(analytics): analytics dashboard frontend + revenue endpoint
+- **Current HEAD:** `647f6e0` feat(marketplace): community marketplace frontend page
 - **Runtime:** PG 5432 ✅ | API 3002 ❌ (chưa chạy) | Web 3000 ❌ (chưa chạy)
 
 ---
@@ -168,7 +168,7 @@
 | Developer sandbox environment | 📅 Q4 2026 |
 | API analytics dashboard | ✅ Done |
 | Analytics dashboard UI | ✅ Done |
-| Community connector marketplace | 📅 Planned |
+| Community connector marketplace | ✅ Done |
 | Connector SDK PyPI publish | ✅ Done |
 | Multi-country deployment config | 🔄 Next |
 | Localization content depth | 🔄 Next |
