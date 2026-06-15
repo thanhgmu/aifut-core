@@ -23,6 +23,8 @@ import { BillingMeterController } from './billing-meter.controller';
 import { AiBillingMeterService } from './ai-billing-meter.service';
 import { SearchService } from './search.service';
 import { SearchController } from './search.controller';
+import { AnalyticsService } from './analytics.service';
+import { AnalyticsController } from './analytics.controller';
 
 @Module({
   imports: [
@@ -46,7 +48,7 @@ import { SearchController } from './search.controller';
     AffiliateModule,
     PaymentsModule,
   ],
-  controllers: [AppController, BillingMeterController, SearchController],
-  providers: [AiBillingMeterService, SearchService],
+  controllers: [AppController, BillingMeterController, SearchController, AnalyticsController],
+  providers: [AiBillingMeterService, SearchService, AnalyticsService],
 })
 export class AppModule {}
