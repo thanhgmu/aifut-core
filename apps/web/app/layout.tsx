@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { ClientWrapper } from "../lib/client-wrapper";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -14,6 +15,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "AIFUT — AI-native operator control plane",
   description: "Turn app chaos into an intelligent operator stack. One control plane for multi-tenant businesses that need apps, workflows, AI, operators, and data to behave like one governed system.",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({
@@ -24,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+        <ClientWrapper>{children}</ClientWrapper>
       </body>
     </html>
   );

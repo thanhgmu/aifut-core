@@ -1,4 +1,5 @@
 import { getJson, type HealthResponse } from "../lib/runtime-data";
+import { LocaleSwitcher } from "../lib/locale-switcher";
 
 const valuePillars = [
   {
@@ -143,6 +144,7 @@ export default async function HomePage() {
           >
             Get Started
           </a>
+          <LocaleSwitcher compact />
         </div>
       </nav>
 
