@@ -16,10 +16,10 @@ import { OrchestrationModule } from './orchestration.module';
 import { TenancyModule } from './tenancy.module';
 import { NotificationModule } from './notifications/notification.module';
 import { WorkflowModule } from './workflows/workflow.module';
-
 import { ResellerModule } from './reseller/reseller.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
 import { PaymentsModule } from './payments/payments.module';
+import { CertificationModule } from './certification/certification.module';
 import { BillingMeterController } from './billing-meter.controller';
 import { AiBillingMeterService } from './ai-billing-meter.service';
 import { SearchService } from './search.service';
@@ -50,6 +50,7 @@ import { ApiKeyController } from './api-key.controller';
     WorkflowModule,
     AffiliateModule,
     PaymentsModule,
+    CertificationModule,
   ],
   controllers: [AppController, BillingMeterController, SearchController, AnalyticsController, ApiKeyController],
   providers: [AiBillingMeterService, SearchService, AnalyticsService, ApiKeyService],

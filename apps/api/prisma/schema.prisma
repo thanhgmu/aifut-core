@@ -105,6 +105,7 @@ model Tenant {
   notificationLogs    NotificationLog[]
   notificationTemplates NotificationTemplate[]
   affiliateAccount    AffiliateAccount?
+  certifications      ConnectorCertification[]
 }
 
 model Workspace {
@@ -1064,4 +1065,41 @@ model CommissionPayout {
 
   @@index([accountId, status])
   @@index([createdAt])
+}
+
+// ── Connector Certification Program ────────────────────────────────────
+
+enum CertificationStatus {
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model ConnectorCertification {
+  id                String              @id @default(cuid())
+  tenantId          String
+  connectorKey      String
+  connectorName     String
+  version           String              @default("1.0.0")
+  developerEmail    String?
+  developerName     String?
+  status            CertificationStatus @default(SUBMITTED)
+  checklistResults  Json?               // JSON array of { id, name, passed, notes }
+  reviewerNotes     String?
+  reviewedBy        String?
+  submittedAt       DateTime            @default(now())
+  reviewedAt        DateTime?
+  badgeUrl          String?
+  expiresAt         DateTime?           // certification validity, 1 year default
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, connectorKey])
+  @@index([status])
+  @@index([tenantId])
+  @@index([submittedAt])
 }

@@ -41,17 +41,19 @@ export class DeveloperService {
       sdks: [
         {
           language: 'Node.js / TypeScript',
-          status: 'planned' as const,
-          eta: 'Q3 2026',
-          description: 'AIS-compliant connector SDK for Node.js with type definitions.',
+          status: 'available' as const,
+          eta: 'Now',
+          description: 'AIS-compliant connector SDK for Node.js with type definitions, FastAPI server, workflow integration.',
           packageName: '@aifut/connector-sdk',
+          docsUrl: '/foundation/developer',
         },
         {
           language: 'Python',
-          status: 'planned' as const,
-          eta: 'Q3 2026',
-          description: 'Python SDK for building AIS-compliant connectors and workflows.',
+          status: 'available' as const,
+          eta: 'Now',
+          description: 'Python SDK for building AIS-compliant connectors with FastAPI server support.',
           packageName: 'aifut-connector-sdk',
+          docsUrl: '/foundation/developer',
         },
         {
           language: 'REST API',
@@ -59,6 +61,7 @@ export class DeveloperService {
           eta: null,
           description: 'HTTP API with 39+ endpoints for full platform control.',
           packageName: null,
+          docsUrl: '/developer',
         },
       ],
       sandbox: {

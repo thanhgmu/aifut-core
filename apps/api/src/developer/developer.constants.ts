@@ -127,25 +127,29 @@ export const DEV_PORTAL_ROADMAP = [
   { phase: '1', item: 'API documentation', status: 'done' },
   { phase: '1', item: 'Template packs marketplace', status: 'done' },
   { phase: '2', item: 'AIS specification v0.1', status: 'draft' },
-  { phase: '2', item: 'Webhook & event documentation', status: 'draft' },
-  { phase: '2', item: 'Node.js SDK', status: 'planned' },
-  { phase: '2', item: 'Python SDK', status: 'planned' },
+  { phase: '2', item: 'Webhook & event documentation', status: 'published' },
+  { phase: '2', item: 'Node.js SDK (@aifut/connector-sdk)', status: 'available' },
+  { phase: '2', item: 'Python SDK (aifut-connector-sdk)', status: 'available' },
+  { phase: '2', item: 'Connector certification program', status: 'available' },
   { phase: '3', item: 'Developer sandbox environment', status: 'planned' },
-  { phase: '3', item: 'Connector certification program', status: 'planned' },
   { phase: '3', item: 'API analytics dashboard', status: 'planned' },
+  { phase: '3', item: 'Community connector marketplace', status: 'planned' },
 ];
 
 /**
  * Connector certification checklist.
  */
 export const CERTIFICATION_CHECKLIST = [
-  { id: 'ais-discovery', name: 'Implement AIS discovery endpoint', required: true },
-  { id: 'auth-oauth', name: 'OAuth 2.0 or API Key auth', required: true },
-  { id: 'actions', name: 'Define all connector actions', required: true },
-  { id: 'triggers', name: 'Define event triggers (if applicable)', required: false },
-  { id: 'webhooks', name: 'Implement webhook receiver', required: false },
-  { id: 'rate-limits', name: 'Declare rate limits', required: true },
-  { id: 'error-handling', name: 'Standard error responses', required: true },
-  { id: 'test-suite', name: 'Pass AIFUT connector test suite', required: true },
-  { id: 'docs', name: 'Integration guide for AIFUT operators', required: true },
+  { id: 'ais-discovery', name: 'Implement AIS discovery endpoint', required: true, category: 'discovery' },
+  { id: 'auth-oauth', name: 'OAuth 2.0 or API Key auth', required: true, category: 'auth' },
+  { id: 'actions', name: 'Define all connector actions', required: true, category: 'actions' },
+  { id: 'triggers', name: 'Define event triggers (if applicable)', required: false, category: 'triggers' },
+  { id: 'webhooks', name: 'Implement webhook receiver', required: false, category: 'webhooks' },
+  { id: 'rate-limits', name: 'Declare rate limits', required: true, category: 'reliability' },
+  { id: 'error-handling', name: 'Standard error responses', required: true, category: 'reliability' },
+  { id: 'test-suite', name: 'Pass AIFUT connector test suite', required: true, category: 'testing' },
+  { id: 'docs', name: 'Integration guide for AIFUT operators', required: true, category: 'docs' },
+  { id: 'idempotency', name: 'Idempotency keys for write operations', required: false, category: 'reliability' },
+  { id: 'health', name: 'Health check endpoint (/health)', required: true, category: 'reliability' },
+  { id: 'https', name: 'HTTPS exclusively (no plain HTTP)', required: true, category: 'security' },
 ];
