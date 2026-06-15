@@ -207,18 +207,19 @@ export default function WelcomePage() {
               marginBottom: 20,
             }}
           >
-            {step.emoji}
+            {step?.emoji}
           </div>
 
-          <h1 style={{ fontSize: 28, margin: "0 0 10px" }}>{step.title}</h1>
+          <h1 style={{ fontSize: 28, margin: "0 0 10px" }}>{step?.title}</h1>
           <p style={{ fontSize: 16, lineHeight: 1.7, color: "#c8d2ff", marginBottom: 32 }}>
-            {step.subtitle}
+            {step?.subtitle}
           </p>
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link
-              href={step.actionHref}
+              href={step?.actionHref ?? "#"}
               onClick={(e) => {
+                if (!step) return;
                 if (step.actionHref.startsWith("/")) {
                   // For internal links, we complete the step first
                   handleComplete();
@@ -235,10 +236,10 @@ export default function WelcomePage() {
                 display: "inline-block",
               }}
             >
-              {step.actionLabel} →
+              {step?.actionLabel} →
             </Link>
 
-            {!isLast && step.skipLabel && (
+            {!isLast && step?.skipLabel && (
               <button
                 onClick={handleSkip}
                 style={{
@@ -252,7 +253,7 @@ export default function WelcomePage() {
                   fontSize: 14,
                 }}
               >
-                {step.skipLabel}
+                {step?.skipLabel}
               </button>
             )}
 
