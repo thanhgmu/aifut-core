@@ -19,6 +19,8 @@ import { WorkflowModule } from './workflows/workflow.module';
 
 import { ResellerModule } from './reseller/reseller.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
+import { BillingMeterController } from './billing-meter.controller';
+import { AiBillingMeterService } from './ai-billing-meter.service';
 
 @Module({
   imports: [
@@ -41,7 +43,7 @@ import { AffiliateModule } from './affiliate/affiliate.module';
     WorkflowModule,
     AffiliateModule,
   ],
-  controllers: [AppController],
-  providers: [],
+  controllers: [AppController, BillingMeterController],
+  providers: [AiBillingMeterService],
 })
 export class AppModule {}
