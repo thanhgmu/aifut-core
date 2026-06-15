@@ -254,6 +254,62 @@ export default function FoundationPage() {
           </Panel>
         </div>
 
+        {/* Developer Tools Section */}
+        <div style={{ marginTop: 28 }}>
+          <Panel title="Developer Tools">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+              <DevToolCard
+                icon="📝"
+                title="AWL Playground"
+                description="Write, validate, and preview AWL workflow documents"
+                href="/foundation/awl-playground"
+                status="Live"
+                statusColor="#80e0a0"
+              />
+              <DevToolCard
+                icon="📦"
+                title="Template Packs"
+                description="Browse 50 industry templates organized in 8 sellable packs"
+                href="/templates"
+                status="Live"
+                statusColor="#80e0a0"
+              />
+              <DevToolCard
+                icon="🔌"
+                title="AIS Specification"
+                description="AIFUT Integration Standard — build compliant connectors"
+                href={`${API_BASE}/developer/ais-spec`}
+                status="Draft"
+                statusColor="#ffb366"
+              />
+              <DevToolCard
+                icon="🔧"
+                title="API Documentation"
+                description="39+ REST API endpoints for platform control"
+                href={`${API_BASE}/developer/docs`}
+                status="Live"
+                statusColor="#80e0a0"
+              />
+              <DevToolCard
+                icon="📋"
+                title="Connector SDK"
+                description="Node.js SDK for AIS-compliant connectors (@aifut/connector-sdk)"
+                href={`${API_BASE}/developer/sdks`}
+                status="Beta"
+                statusColor="#66c4ff"
+              />
+              <DevToolCard
+                icon="🛣️"
+                title="Developer Roadmap"
+                description="See what's coming next for the AIFUT developer platform"
+                href={`${API_BASE}/developer/roadmap`}
+                status="Available"
+                statusColor="#9fb0ff"
+              />
+            </div>
+          </Panel>
+        </div>
+
         <div style={{ marginTop: 28 }}>
           <Panel title="Debug snapshot">
             <pre
@@ -272,6 +328,57 @@ export default function FoundationPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function DevToolCard({
+  icon,
+  title,
+  description,
+  href,
+  status,
+  statusColor,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  href: string;
+  status: string;
+  statusColor: string;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+      style={{
+        textDecoration: "none",
+        padding: 18,
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        transition: "all 0.15s ease",
+        cursor: "pointer",
+        color: "inherit",
+      }}
+    >
+      <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{title}</div>
+      <div style={{ color: "#c8d2ff", fontSize: 13, lineHeight: 1.5, marginBottom: 8 }}>
+        {description}
+      </div>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: statusColor,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+      >
+        {status}
+      </span>
+    </a>
   );
 }
 
