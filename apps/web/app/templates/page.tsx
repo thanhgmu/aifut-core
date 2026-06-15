@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE } from "../../lib/auth";
 
@@ -27,7 +27,7 @@ type TemplatePack = {
   savingsNote?: string;
 };
 
-export default function TemplatesPage() {
+function TemplatesPageContent() {
   const [packs, setPacks] = useState<TemplatePack[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
@@ -406,5 +406,13 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
       </div>
       <div style={{ fontSize: 24, fontWeight: 800, marginTop: 2 }}>{value}</div>
     </div>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "#9fb0ff" }}>Loading templates...</div>}>
+      <TemplatesPageContent />
+    </Suspense>
   );
 }
