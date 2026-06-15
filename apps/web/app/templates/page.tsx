@@ -297,10 +297,10 @@ function TemplatesPageContent() {
               }}
             >
               {packs.map((pack) => (
-                <div
+                <Link
+                  href={`/templates/${pack.id}`}
                   key={pack.id}
-                  onClick={() => setSelectedPack(pack.id)}
-                  style={{
+                  style={{ textDecoration: "none", color: "inherit",
                     padding: 22,
                     borderRadius: 18,
                     background:
@@ -340,8 +340,8 @@ function TemplatesPageContent() {
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
+              </Link>
+            ))}
 
             {/* Empty state */}
             {packs.length === 0 && !loading && (
