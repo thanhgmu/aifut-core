@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AIS_SPEC, DEV_PORTAL_ROADMAP, CERTIFICATION_CHECKLIST } from './developer.constants';
 
 export interface ApiEndpoint {
   path: string;
@@ -11,6 +12,95 @@ export interface ApiEndpoint {
 
 @Injectable()
 export class DeveloperService {
+  /**
+   * Get the AIFUT Integration Standard (AIS) spec.
+   */
+  getAisSpec() {
+    return AIS_SPEC;
+  }
+
+  /**
+   * Get the developer portal roadmap.
+   */
+  getRoadmap() {
+    return { capability: 'developer', roadmap: DEV_PORTAL_ROADMAP };
+  }
+
+  /**
+   * Get the connector certification checklist.
+   */
+  getCertification() {
+    return { standard: 'AIS', version: '0.1.0-draft', checklist: CERTIFICATION_CHECKLIST };
+  }
+
+  /**
+   * Get SDK information.
+   */
+  getSdks() {
+    return {
+      sdks: [
+        {
+          language: 'Node.js / TypeScript',
+          status: 'planned' as const,
+          eta: 'Q3 2026',
+          description: 'AIS-compliant connector SDK for Node.js with type definitions.',
+          packageName: '@aifut/connector-sdk',
+        },
+        {
+          language: 'Python',
+          status: 'planned' as const,
+          eta: 'Q3 2026',
+          description: 'Python SDK for building AIS-compliant connectors and workflows.',
+          packageName: 'aifut-connector-sdk',
+        },
+        {
+          language: 'REST API',
+          status: 'available' as const,
+          eta: null,
+          description: 'HTTP API with 39+ endpoints for full platform control.',
+          packageName: null,
+        },
+      ],
+      sandbox: {
+        available: false,
+        eta: 'Q4 2026',
+        description: 'Isolated development environment for testing connectors without affecting production.',
+      },
+    };
+  }
+
+  /**
+   * Get webhook & event documentation.
+   */
+  getWebhookDocs() {
+    return {
+      standard: 'AIFUT Webhook v1',
+      baseUrl: 'https://api.aifut.app/webhooks',
+      features: [
+        'HMAC-SHA256 payload signing',
+        'Exponential backoff retry (1s, 2s, 4s, 8s, 16s, max 3)',
+        'Event deduplication via event_id',
+        'Batch delivery (concurrency: 5)',
+        'Delivery logging with status tracking',
+      ],
+      events: [
+        { type: 'workflow.completed', description: 'A workflow execution completed successfully' },
+        { type: 'workflow.failed', description: 'A workflow execution failed' },
+        { type: 'connector.error', description: 'A connector reported an error' },
+        { type: 'billing.limit_reached', description: 'Tenant reached a billing limit' },
+        { type: 'backup.completed', description: 'A backup job completed' },
+        { type: 'subscription.changed', description: 'Subscription plan changed' },
+      ],
+      payloadFormat: {
+        event_id: 'uuid',
+        event_type: 'string',
+        occurred_at: 'ISO-8601 timestamp',
+        tenant_id: 'string (optional)',
+        data: 'object',
+      },
+    };
+  }
+
   getApiDocs(): ApiEndpoint[] {
     return [
       // ── Auth ─────────────────────────────────────────────────────────────────

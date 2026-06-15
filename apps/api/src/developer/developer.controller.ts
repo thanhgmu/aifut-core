@@ -1,6 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { DeveloperService, ApiEndpoint } from './developer.service';
-import { DEV_PORTAL_ROADMAP } from './developer.constants';
 
 @Controller('developer')
 export class DeveloperController {
@@ -12,6 +11,26 @@ export class DeveloperController {
     return this.dev.getApiDocs();
   }
 
+  @Get('ais-spec')
+  aisSpec() {
+    return this.dev.getAisSpec();
+  }
+
+  @Get('sdks')
+  sdks() {
+    return this.dev.getSdks();
+  }
+
+  @Get('webhooks')
+  webhooks() {
+    return this.dev.getWebhookDocs();
+  }
+
+  @Get('certification')
+  certification() {
+    return this.dev.getCertification();
+  }
+
   @Get('stats')
   stats() {
     return this.dev.getStats();
@@ -19,16 +38,11 @@ export class DeveloperController {
 
   @Get('capabilities')
   capabilities() {
-    return {
-      capability: 'developer',
-      status: 'docs-only',
-      supports: { apiDocs: true, sdks: false, sandbox: false, webhooks: false },
-      next: DEV_PORTAL_ROADMAP,
-    };
+    return this.dev.getSdks();
   }
 
   @Get('roadmap')
   roadmap() {
-    return { capability: 'developer', roadmap: DEV_PORTAL_ROADMAP };
+    return this.dev.getRoadmap();
   }
 }
