@@ -226,7 +226,7 @@ export class AiBillingMeterService {
   private async getStorageUsed(tenantId: string): Promise<number> {
     // Sum backup storage used across backup jobs
     const backupUsage = await this.prisma.backupJob.aggregate({
-      where: { tenantId, status: 'completed' },
+      where: { tenantId, status: 'COMPLETED' },
       _sum: { totalSize: true },
     });
     const bytes = backupUsage._sum?.totalSize ?? 0;
