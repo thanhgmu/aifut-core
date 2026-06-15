@@ -67,6 +67,7 @@ export default function RegisterPage() {
       setStoredToken(data.token || "");
       setToken(data.token || "");
       setMe(data);
+      window.location.href = "/welcome";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Register failed");
     } finally {
