@@ -1,6 +1,6 @@
 import { Controller, Get, Headers, NotFoundException, Query } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { AiBillingMeterService } from '../ai-billing-meter.service';
+import { PrismaService } from './prisma.service';
+import { AiBillingMeterService } from './ai-billing-meter.service';
 
 @Controller('billing-meter')
 export class BillingMeterController {
