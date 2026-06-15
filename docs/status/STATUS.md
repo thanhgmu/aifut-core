@@ -2,7 +2,7 @@
 
 ## Current Truth - 2026-06-15 20:59 Asia/Bangkok
 - **Repo:** `C:\Users\Admin\.openclaw\workspace\aifut-core`
-- **Current HEAD:** `c8962f8` feat(infra): multi-country deployment configuration
+- **Current HEAD:** `03da693` feat(ux): add feature stats bar to home page
 - **Runtime:** PG 5432 ✅ | API 3002 ❌ (chưa chạy) | Web 3000 ❌ (chưa chạy)
 
 ---
