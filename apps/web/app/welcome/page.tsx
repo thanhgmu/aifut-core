@@ -100,7 +100,7 @@ export default function WelcomePage() {
 
   const handleComplete = useCallback(() => {
     const newCompleted = new Set(completed);
-    newCompleted.add(step.id);
+    newCompleted.add(step?.id);
     setCompleted(newCompleted);
 
     if (!isLast) {
