@@ -227,9 +227,9 @@ export class AiBillingMeterService {
     // Sum backup storage used across backup jobs
     const backupUsage = await this.prisma.backupJob.aggregate({
       where: { tenantId, status: 'completed' },
-      _sum: { fileSize: true },
+      _sum: { totalSize: true },
     });
-    const bytes = backupUsage._sum?.fileSize ?? 0;
+    const bytes = backupUsage._sum?.totalSize ?? 0;
 
     return Math.round(Number(bytes) / (1024 * 1024 * 1024) * 100) / 100; // Convert to GB with 2 decimals
   }
