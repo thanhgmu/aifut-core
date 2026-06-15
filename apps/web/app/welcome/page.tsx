@@ -99,8 +99,9 @@ export default function WelcomePage() {
   const progressPercent = ((currentStep + 1) / STEPS.length) * 100;
 
   const handleComplete = useCallback(() => {
+    if (!step || !step.id) return;
     const newCompleted = new Set(completed);
-    newCompleted.add(step?.id);
+    newCompleted.add(step.id);
     setCompleted(newCompleted);
 
     if (!isLast) {
