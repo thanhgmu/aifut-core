@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Headers,
+  NotFoundException,
   Post,
   Query,
   UseGuards,
@@ -20,6 +21,8 @@ import { IntegrationDiagnosticsService } from './integration-diagnostics.service
 import { INTEGRATIONS_FOUNDATION_ROADMAP } from './integrations.constants';
 import { IntegrationSetupService } from './integration-setup.service';
 import { IntegrationWorkflowService } from './integration-workflow.service';
+import { IntegrationAwlGeneratorService } from './integration-awl-generator.service';
+import { PrismaService } from './prisma.service';
 import { StorageRoutingPolicyService } from './storage-routing-policy.service';
 
 @Controller('integrations')
@@ -34,6 +37,8 @@ export class IntegrationsController {
     private readonly integrationDiagnostics: IntegrationDiagnosticsService,
     private readonly integrationAiDrafting: IntegrationAiDraftingService,
     private readonly integrationWorkflow: IntegrationWorkflowService,
+    private readonly integrationAwlGenerator: IntegrationAwlGeneratorService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('capabilities')
@@ -410,6 +415,37 @@ export class IntegrationsController {
       connectionSlug: body.connectionSlug,
       connectorKey: body.connectorKey,
       runKey: body.runKey,
+    });
+  }
+
+  @Post('workflow/nl-deploy')
+  async nlDeploy(
+    @Body()
+    body: {
+      tenantSlug?: string;
+      prompt?: string;
+      connectorKey?: string;
+      workspaceId?: string;
+      workflowKey?: string;
+    },
+    @Headers('x-tenant-slug') tenantSlugHeader?: string,
+    @Headers('x-workspace-slug') workspaceSlugHeader?: string,
+  ) {
+    if (!body.prompt?.trim()) {
+      throw new BadRequestException('Missing prompt — vui lòng mô tả workflow bạn muốn tạo.');
+    }
+
+    // Resolve tenant
+    const tenantSlug = (tenantSlugHeader ?? body.tenantSlug ?? 'tenant-aifut').trim().toLowerCase();
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+    if (!tenant) throw new NotFoundException(`Tenant '${tenantSlug}' not found`);
+
+    return this.integrationAwlGenerator.nlDeploy({
+      tenantId: tenant.id,
+      prompt: body.prompt,
+      connectorKey: body.connectorKey,
+      workspaceId: body.workspaceId,
+      workflowKey: body.workflowKey,
     });
   }
 

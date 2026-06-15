@@ -8,10 +8,12 @@ import { IntegrationDiagnosticsService } from './integration-diagnostics.service
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationSetupService } from './integration-setup.service';
 import { IntegrationWorkflowService } from './integration-workflow.service';
+import { IntegrationAwlGeneratorService } from './integration-awl-generator.service';
 import { TenancyModule } from './tenancy.module';
+import { WorkflowModule } from './workflows/workflow.module';
 
 @Module({
-  imports: [TenancyModule],
+  imports: [TenancyModule, WorkflowModule],
   controllers: [IntegrationsController],
   providers: [
     InfrastructureProfileService,
@@ -22,6 +24,7 @@ import { TenancyModule } from './tenancy.module';
     IntegrationDiagnosticsService,
     IntegrationAiDraftingService,
     IntegrationWorkflowService,
+    IntegrationAwlGeneratorService,
   ],
 })
 export class IntegrationsModule {}

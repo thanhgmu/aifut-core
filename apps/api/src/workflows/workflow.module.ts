@@ -11,6 +11,6 @@ import { WorkflowService } from './workflow.service';
   controllers: [WorkflowController],
   imports: [NotificationModule],
   providers: [WorkflowService, PrismaService, ConnectorExecutorService, AwlInterpreterService, IndustryTemplatesService],
-  exports: [WorkflowService],
+  exports: [WorkflowService, AwlInterpreterService],
 })
 export class WorkflowModule {}
