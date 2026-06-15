@@ -3,10 +3,10 @@ import { SearchService } from './search.service';
 
 @Controller('search')
 export class SearchController implements OnModuleInit {
-  constructor(private readonly search: SearchService) {}
+  constructor(private readonly searchService: SearchService) {}
 
   async onModuleInit() {
-    await this.search.buildIndex();
+    await this.searchService.buildIndex();
   }
 
   @Get()
@@ -19,7 +19,7 @@ export class SearchController implements OnModuleInit {
     if (!query) {
       return { results: [], query: '' };
     }
-    const results = this.search.search(query, {
+    const results = this.searchService.search(query, {
       limit: Number(limit) || 20,
       type,
       category,
@@ -30,12 +30,12 @@ export class SearchController implements OnModuleInit {
   @Get('suggest')
   suggest(@Query('q') query?: string) {
     if (!query) return { suggestions: [] };
-    return { query, suggestions: this.search.suggest(query) };
+    return { query, suggestions: this.searchService.suggest(query) };
   }
 
   @Get('rebuild')
   async rebuild() {
-    const count = await this.search.buildIndex();
+    const count = await this.searchService.buildIndex();
     return { rebuilt: true, indexed: count.length };
   }
 

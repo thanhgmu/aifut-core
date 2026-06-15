@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { IndustryTemplatesService } from '../workflows/industry-templates.service';
+import { PrismaService } from './prisma.service';
+import { IndustryTemplatesService } from './workflows/industry-templates.service';
 
 @Injectable()
 export class AnalyticsService {

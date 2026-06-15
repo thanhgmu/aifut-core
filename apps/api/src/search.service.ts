@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { IndustryTemplatesService } from '../workflows/industry-templates.service';
-import { TemplatePackService } from '../workflows/template-pack.service';
+import { PrismaService } from './prisma.service';
+import { IndustryTemplatesService } from './workflows/industry-templates.service';
+import { TemplatePackService } from './workflows/template-pack.service';
 
 export interface SearchResult {
   type: 'template' | 'pack' | 'api' | 'guide';

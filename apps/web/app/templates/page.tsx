@@ -339,9 +339,9 @@ function TemplatesPageContent() {
                       {formatPrice(pack.price, pack.currency)}
                     </span>
                   </div>
-                </div>
               </Link>
             ))}
+            </div>
 
             {/* Empty state */}
             {packs.length === 0 && !loading && (

@@ -28,7 +28,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {

@@ -99,6 +99,7 @@ model Tenant {
   subscriptions       Subscription[]
   invoices            Invoice[]
   usageRecords        UsageRecord[]
+  paymentTransactions  PaymentTransaction[]
   marketplaceListings MarketplaceListing[]
   resellerAccount     ResellerAccount?
   notificationLogs    NotificationLog[]
@@ -691,6 +692,7 @@ model BillingAccount {
   subscriptions   Subscription[]
   invoices        Invoice[]
   usageRecords    UsageRecord[]
+  paymentTransactions PaymentTransaction[]
 }
 
 enum BillingInterval {

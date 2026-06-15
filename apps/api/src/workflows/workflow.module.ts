@@ -13,6 +13,6 @@ import { WorkflowService } from './workflow.service';
   controllers: [WorkflowController, TemplatePackController],
   imports: [NotificationModule],
   providers: [WorkflowService, PrismaService, ConnectorExecutorService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService],
-  exports: [WorkflowService, AwlInterpreterService],
+  exports: [WorkflowService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService],
 })
 export class WorkflowModule {}

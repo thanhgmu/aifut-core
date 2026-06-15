@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { API_BASE } from "../../lib/auth";
+import { API_BASE } from "../../../lib/auth";
 
 type PackTemplate = {
   slug: string;
@@ -106,7 +106,7 @@ export default function TemplatePackDetailPage() {
   }
 
   const totalPrice = pack.price * qty;
-  const faqs = FAQS[pack.id] || FAQS.default;
+  const faqs = FAQS[pack.id] || FAQS.default || [];
 
   return (
     <main style={{ minHeight: "100vh", background: "#0b1020", color: "#f5f7ff", fontFamily: "Arial, sans-serif" }}>
