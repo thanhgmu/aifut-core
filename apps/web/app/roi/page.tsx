@@ -139,10 +139,10 @@ export default function RoiCalculatorPage() {
   const [customOrders, setCustomOrders] = useState<number | null>(null);
   const [customAvgValue, setCustomAvgValue] = useState<number | null>(null);
 
-  const industry = INDUSTRIES.find((i) => i.id === selectedIndustry) || INDUSTRIES[0];
+  const industry = INDUSTRIES.find((i) => i.id === selectedIndustry) ?? INDUSTRIES[0]!;
 
-  const monthlyOrders = customOrders ?? industry.avgMonthlyOrders;
-  const avgOrderValue = customAvgValue ?? industry.avgOrderValue;
+  const monthlyOrders = customOrders ?? industry?.avgMonthlyOrders;
+  const avgOrderValue = customAvgValue ?? industry?.avgOrderValue;
 
   // Calculations
   const laborHoursPerMonth = monthlyOrders * industry.laborHoursSavedPerOrder;
