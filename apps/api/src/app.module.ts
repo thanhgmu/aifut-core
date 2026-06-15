@@ -42,6 +42,7 @@ import { AiBillingMeterService } from './ai-billing-meter.service';
     NotificationModule,
     WorkflowModule,
     AffiliateModule,
+    PaymentsModule,
   ],
   controllers: [AppController, BillingMeterController],
   providers: [AiBillingMeterService],

@@ -761,10 +761,39 @@ model Invoice {
   account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   subscription    Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments        PaymentTransaction[]
 
   @@index([accountId, status])
   @@index([tenantId, status])
   @@index([dueDate])
+}
+
+model PaymentTransaction {
+  id              String            @id @default(cuid())
+  invoiceId       String?
+  accountId       String
+  tenantId        String
+  gateway         String            // 'vnpay' | 'momo' | 'stripe' | 'manual'
+  gatewayTxId     String?           // transaction ID from payment gateway
+  amount          Float
+  currency        String            @default("VND")
+  status          String            @default("pending") // pending, success, failed, refunded
+  paymentMethod   String?           // 'qr', 'card', 'bank', 'wallet'
+  paymentUrl      String?           // URL to redirect user for payment
+  paidAt          DateTime?
+  metadata        Json?
+  errorMessage    String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  invoice         Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([tenantId, createdAt])
+  @@index([gateway, gatewayTxId])
+  @@index([status])
 }
 
 model UsageRecord {
