@@ -18,6 +18,7 @@ import { NotificationModule } from './notifications/notification.module';
 import { WorkflowModule } from './workflows/workflow.module';
 
 import { ResellerModule } from './reseller/reseller.module';
+import { AffiliateModule } from './affiliate/affiliate.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ResellerModule } from './reseller/reseller.module';
     EntitlementsModule,
     NotificationModule,
     WorkflowModule,
+    AffiliateModule,
   ],
   controllers: [AppController],
   providers: [],

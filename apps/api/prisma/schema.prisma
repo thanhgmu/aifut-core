@@ -103,6 +103,7 @@ model Tenant {
   resellerAccount     ResellerAccount?
   notificationLogs    NotificationLog[]
   notificationTemplates NotificationTemplate[]
+  affiliateAccount    AffiliateAccount?
 }
 
 model Workspace {
@@ -909,4 +910,125 @@ model NotificationLog {
   @@index([tenantId, createdAt])
   @@index([tenantId, channel, status])
   @@index([executionId])
+}
+
+// ── Affiliate / Commission System ──────────────────────────────────────
+
+enum AffiliateStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  DISABLED
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED
+  TIERED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+model AffiliateAccount {
+  id              String            @id @default(cuid())
+  tenantId        String            @unique
+  status          AffiliateStatus   @default(PENDING)
+  referralCode    String            @unique
+  commissionRate  Float             @default(0.1)    // 10% default
+  commissionType  CommissionType    @default(PERCENTAGE)
+  totalEarned     Float             @default(0)
+  totalPaid       Float             @default(0)
+  totalConversions Int              @default(0)
+  payoutMethod    String?           // 'bank', 'momo', 'paypal'
+  payoutDetails   String?           // account number, email, etc.
+  cookieDays      Int               @default(30)     // attribution window
+  autoApprove     Boolean           @default(false)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  links           AffiliateLink[]
+  conversions     AffiliateConversion[]
+  payouts         CommissionPayout[]
+}
+
+model AffiliateLink {
+  id              String            @id @default(cuid())
+  accountId       String
+  key             String            @unique          // short code, e.g. "thuonghieu-2026"
+  label           String            // human-readable, e.g. "Bài blog tháng 6"
+  targetUrl       String            // where the link points
+  destination     String?           // 'landing', 'pricing', 'signup', 'checkout', 'custom'
+  campaign        String?           // utm campaign or internal campaign name
+  isActive        Boolean           @default(true)
+  clickCount      Int               @default(0)
+  conversionCount Int               @default(0)
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversions     AffiliateConversion[]
+
+  @@index([accountId, isActive])
+  @@index([campaign])
+}
+
+model AffiliateConversion {
+  id              String            @id @default(cuid())
+  accountId       String
+  linkId          String?
+  tenantId        String?           // the converted tenant (nullable if pre-registration)
+  customerEmail   String?           // email of converted user
+  customerName    String?
+  conversionType  String            // 'signup', 'subscription', 'payment', 'trial'
+  commissionAmount Float            @default(0)
+  commissionStatus CommissionStatus @default(PENDING)
+  revenueAmount   Float             @default(0)       // total revenue from this conversion
+  currency        String            @default("VND")
+  referralCode    String?           // captured from the link
+  ipAddress       String?
+  userAgent       String?
+  attributedAt    DateTime          @default(now())
+  convertedAt     DateTime?         // when the actual conversion event happened
+  expiresAt       DateTime?         // cookie attribution expiry
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  link            AffiliateLink?    @relation(fields: [linkId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, commissionStatus])
+  @@index([linkId])
+  @@index([tenantId])
+  @@index([referralCode])
+  @@index([attributedAt])
+}
+
+model CommissionPayout {
+  id              String            @id @default(cuid())
+  accountId       String
+  amount          Float
+  currency        String            @default("VND")
+  status          CommissionStatus  @default(PENDING)
+  payoutMethod    String?           // snapshot of method at time of payout
+  payoutReference String?           // transaction ID from payment provider
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  notes           String?
+  conversionIds   String[]          @default([])      // references to AffiliateConversion ids
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([createdAt])
 }
