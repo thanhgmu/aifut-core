@@ -322,6 +322,14 @@ export default function FoundationPage() {
                 status="Beta"
                 statusColor="#66c4ff"
               />
+              <DevToolCard
+                icon="🏪"
+                title="Marketplace"
+                description="Discover connectors, templates, and automation packs"
+                href="/marketplace"
+                status="Live"
+                statusColor="#80e0a0"
+              />
             </div>
           </Panel>
         </div>

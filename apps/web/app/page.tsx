@@ -104,6 +104,9 @@ export default async function HomePage() {
           <a href="/foundation" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Developers
           </a>
+          <a href="/marketplace" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Marketplace
+          </a>
           <a href="/pricing" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Pricing
           </a>
