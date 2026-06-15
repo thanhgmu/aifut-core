@@ -390,7 +390,7 @@ export default function RoiCalculatorPage() {
           </div>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
-              href="/templates"
+              href={`/templates?industry=${selectedIndustry}`}
               style={{
                 display: "inline-block",
                 padding: "12px 28px",

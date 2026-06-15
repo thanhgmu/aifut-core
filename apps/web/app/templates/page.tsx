@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { API_BASE } from "../../lib/auth";
 
 type PackTemplate = {
@@ -31,14 +32,23 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const filterIndustry = searchParams.get("industry");
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE}/template-packs`, { cache: "no-store" });
+        const url = filterIndustry
+          ? `${API_BASE}/template-packs/industry/${filterIndustry}`
+          : `${API_BASE}/template-packs`;
+        const res = await fetch(url, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           setPacks(data);
+          // Auto-select first pack when filtered
+          if (filterIndustry && data.length > 0) {
+            setSelectedPack(data[0].id);
+          }
         } else {
           setError("Không thể tải template packs");
         }
@@ -49,7 +59,7 @@ export default function TemplatesPage() {
       }
     };
     load();
-  }, []);
+  }, [filterIndustry]);
 
   const formatPrice = (price: number, currency: string) => {
     if (currency === "VND") {
