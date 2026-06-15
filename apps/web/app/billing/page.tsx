@@ -410,6 +410,91 @@ export default function BillingPage() {
               </section>
             )}
 
+            {/* Premium feature gates — show what's available on higher plans */}
+            <section style={{ marginTop: 36 }}>
+              <h2 style={{ fontSize: 20, marginBottom: 16 }}>Premium features on your plan</h2>
+              <div style={{ display: "grid", gap: 14 }}>
+                <FeatureGate
+                  feature="feature:cloudBackup"
+                  featureLabel="Cloud Backup"
+                  requiredPlan="Starter"
+                >
+                  <GatedFeatureCard
+                    icon="☁️"
+                    title="Cloud Backup"
+                    description="Automated backup to cloud storage with 30-day retention"
+                    status="Available"
+                    actionHref="/dashboard"
+                  />
+                </FeatureGate>
+
+                <FeatureGate
+                  feature="feature:marketplace"
+                  featureLabel="Marketplace"
+                  requiredPlan="Pro"
+                >
+                  <GatedFeatureCard
+                    icon="🛒"
+                    title="Workflow Marketplace"
+                    description="Browse and install community workflow templates and connectors"
+                    status="Available"
+                    actionHref="/foundation/demo-live"
+                  />
+                </FeatureGate>
+
+                <FeatureGate
+                  feature="feature:api"
+                  featureLabel="API Access"
+                  requiredPlan="Team"
+                >
+                  <GatedFeatureCard
+                    icon="🔌"
+                    title="API & Webhooks"
+                    description="Full API access, custom webhooks, and developer SDK"
+                    status="Available"
+                    actionHref="/foundation"
+                  />
+                </FeatureGate>
+
+                <FeatureGate
+                  feature="feature:analytics"
+                  featureLabel="Analytics"
+                  requiredPlan="Team"
+                >
+                  <GatedFeatureCard
+                    icon="📊"
+                    title="Advanced Analytics"
+                    description="Cross-workflow analytics, ROI tracking, and exportable reports"
+                    status="Available"
+                    actionHref="/dashboard"
+                  />
+                </FeatureGate>
+              </div>
+            </section>
+
+            {/* Premium feature upgrade prompt for free plan */}
+            {summary.planKey === "free" && (
+              <section style={{ marginTop: 28 }}>
+                <UpgradePrompt
+                  feature="Premium features"
+                  reason="Free plan includes basic AI calls and workflows. Upgrade to unlock cloud backup, marketplace, and more."
+                  requiredPlan="Starter"
+                />
+              </section>
+            )}
+
+            {/* Alert when AI calls are running low */}
+            {summary.ai.callsPercent > 70 && summary.planKey === "free" && (
+              <section style={{ marginTop: 20 }}>
+                <UpgradePrompt
+                  feature="AI calls"
+                  reason={`You've used ${summary.ai.callsPercent}% of your AI calls this month. Upgrade for higher limits.`}
+                  requiredPlan="Starter"
+                  compact
+                />
+              </section>
+            )}
+
             {/* Quick links */}
             <section
               style={{
@@ -476,6 +561,61 @@ export default function BillingPage() {
         </footer>
       </div>
     </main>
+  );
+}
+
+function GatedFeatureCard({
+  icon,
+  title,
+  description,
+  status,
+  actionHref,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  status: string;
+  actionHref: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        padding: "16px 20px",
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ fontSize: 24 }}>{icon}</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
+          <div style={{ color: "#c8d2ff", fontSize: 13, marginTop: 2 }}>{description}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ color: "#80e0a0", fontSize: 13, fontWeight: 600 }}>{status}</span>
+        <Link
+          href={actionHref}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            background: "rgba(109,124,255,0.15)",
+            color: "#6d7cff",
+            textDecoration: "none",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          Open →
+        </Link>
+      </div>
+    </div>
   );
 }
 
