@@ -95,6 +95,9 @@ export default async function HomePage() {
           <a href="/templates" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Templates
           </a>
+          <a href="/roi" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            ROI Calculator
+          </a>
           <a href="/foundation/awl-playground" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Playground
           </a>
