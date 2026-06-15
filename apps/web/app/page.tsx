@@ -321,6 +321,32 @@ export default async function HomePage() {
           </div>
         </div>
 
+        {/* Feature Stats */}
+        <div style={{
+          marginTop: 72,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 12,
+        }}>
+          {[
+            { label: "Industry Templates", value: "50" },
+            { label: "Supported Languages", value: "7" },
+            { label: "Workflow Types", value: "15+" },
+            { label: "Notification Channels", value: "6" },
+            { label: "Payment Gateways", value: "2" },
+            { label: "API Endpoints", value: "39+" },
+          ].map(s => (
+            <div key={s.label} style={{
+              padding: 16, borderRadius: 12, textAlign: "center",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#6d7cff" }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: "#9fb0ff", marginTop: 4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
         <section style={{ marginTop: 72 }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#9fb0ff" }}>
             Why AIFUT matters
