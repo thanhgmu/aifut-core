@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+const AWL_VERSION = "0.1";
+
 // ── Types ──────────────────────────────────────────────────────────────
 
 type AwlTrigger = {
