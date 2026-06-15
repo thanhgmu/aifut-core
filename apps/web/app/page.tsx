@@ -92,6 +92,15 @@ export default async function HomePage() {
           <a href="/foundation" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Foundation
           </a>
+          <a href="/templates" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Templates
+          </a>
+          <a href="/foundation/awl-playground" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Playground
+          </a>
+          <a href="/foundation" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Developers
+          </a>
           <a href="/pricing" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Pricing
           </a>
