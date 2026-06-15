@@ -16,6 +16,7 @@ import {
   fetchPlans,
   Plan,
 } from "../../lib/billing";
+import { FeatureGate, UpgradePrompt } from "../../lib/feature-gate";
 
 export default function BillingPage() {
   const [token, setToken] = useState("");
