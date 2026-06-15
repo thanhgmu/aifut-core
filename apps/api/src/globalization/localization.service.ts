@@ -193,6 +193,48 @@ export class LocalizationService implements OnModuleInit {
       'ai.cost':               { vi:'Chi phí AI', en:'AI Cost', th:'ค่าใช้จ่าย AI', id:'Biaya AI', ms:'Kos AI', fil:'Gastos ng AI', zh:'AI费用' },
       'ai.tokens':             { vi:'Tokens', en:'Tokens', th:'โทเค็น', id:'Token', ms:'Token', fil:'Token', zh:'Token' },
 
+      // ── Analytics ────────────────────────────────────────────────────────
+      'analytics.title':         { vi:'Phân tích nền tảng', en:'Platform Analytics', th:'การวิเคราะห์แพลตฟอร์ม', id:'Analitik Platform', ms:'Analitik Platform', fil:'Analitika ng Platform', zh:'平台分析' },
+      'analytics.overview':      { vi:'Tổng quan', en:'Platform Overview', th:'ภาพรวม', id:'Ikhtisar', ms:'Gambaran Keseluruhan', fil:'Pangkalahatang-ideya', zh:'平台概览' },
+      'analytics.workflows':     { vi:'Quy trình', en:'Workflows', th:'ขั้นตอนการทำงาน', id:'Alur Kerja', ms:'Aliran Kerja', fil:'Workflows', zh:'工作流程' },
+      'analytics.revenue':       { vi:'Doanh thu', en:'Revenue', th:'รายได้', id:'Pendapatan', ms:'Hasil', fil:'Kita', zh:'收入' },
+      'analytics.industries':    { vi:'Ngành nghề', en:'Industry Adoption', th:'อุตสาหกรรม', id:'Adopsi Industri', ms:'Penggunaan Industri', fil:'Pag-aampon ng Industriya', zh:'行业采用' },
+      'analytics.certification': { vi:'Chứng nhận', en:'Certification', th:'การรับรอง', id:'Sertifikasi', ms:'Pensijilan', fil:'Sertipikasyon', zh:'认证' },
+      'analytics.tenants':       { vi:'Khách thuê', en:'Tenants', th:'ผู้เช่า', id:'Penyewa', ms:'Penyewa', fil:'Mga Tenant', zh:'租户' },
+      'analytics.users':         { vi:'Người dùng', en:'Users', th:'ผู้ใช้', id:'Pengguna', ms:'Pengguna', fil:'Mga User', zh:'用户' },
+      'analytics.subscriptions': { vi:'Đăng ký', en:'Subscriptions', th:'การสมัคร', id:'Langganan', ms:'Langganan', fil:'Mga Subscription', zh:'订阅' },
+
+      // ── Marketplace ──────────────────────────────────────────────────────
+      'marketplace.title':       { vi:'Chợ ứng dụng', en:'Marketplace', th:'ตลาด', id:'Marketplace', ms:'Pasaran', fil:'Marketplace', zh:'市场' },
+      'marketplace.discover':    { vi:'Khám phá', en:'Discover', th:'ค้นพบ', id:'Temukan', ms:'Terokai', fil:'Tuklasin', zh:'发现' },
+      'marketplace.submit':      { vi:'Gửi connector', en:'Submit Connector', th:'ส่ง Connector', id:'Kirim Konektor', ms:'Hantar Penyambung', fil:'Magsumite ng Connector', zh:'提交连接器' },
+      'marketplace.official':    { vi:'Chính thức', en:'Official', th:'เป็นทางการ', id:'Resmi', ms:'Rasmi', fil:'Opisyal', zh:'官方' },
+      'marketplace.community':   { vi:'Cộng đồng', en:'Community', th:'ชุมชน', id:'Komunitas', ms:'Komuniti', fil:'Komunidad', zh:'社区' },
+      'marketplace.install':     { vi:'Cài đặt', en:'Install', th:'ติดตั้ง', id:'Pasang', ms:'Pasang', fil:'I-install', zh:'安装' },
+      'marketplace.downloads':   { vi:'Lượt tải', en:'Downloads', th:'ดาวน์โหลด', id:'Unduhan', ms:'Muat turun', fil:'Mga Download', zh:'下载' },
+      'marketplace.free':        { vi:'Miễn phí', en:'Free', th:'ฟรี', id:'Gratis', ms:'Percuma', fil:'Libre', zh:'免费' },
+
+      // ── Certification ────────────────────────────────────────────────────
+      'cert.title':              { vi:'Chứng nhận Connector', en:'Connector Certification', th:'การรับรอง Connector', id:'Sertifikasi Konektor', ms:'Pensijilan Penyambung', fil:'Sertipikasyon ng Connector', zh:'连接器认证' },
+      'cert.submit':             { vi:'Nộp chứng nhận', en:'Submit for Certification', th:'ส่งเพื่อการรับรอง', id:'Ajukan Sertifikasi', ms:'Hantar untuk Pensijilan', fil:'Isumite para sa Sertipikasyon', zh:'提交认证' },
+      'cert.checklist':          { vi:'Danh sách kiểm tra', en:'Certification Checklist', th:'รายการตรวจสอบ', id:'Daftar Periksa', ms:'Senarai Semak', fil:'Listahan ng Sertipikasyon', zh:'认证清单' },
+      'cert.status.approved':    { vi:'Đã duyệt', en:'Approved', th:'อนุมัติแล้ว', id:'Disetujui', ms:'Diluluskan', fil:'Naaprubahan', zh:'已批准' },
+      'cert.status.rejected':    { vi:'Từ chối', en:'Rejected', th:'ถูกปฏิเสธ', id:'Ditolak', ms:'Ditolak', fil:'Tinanggihan', zh:'已拒绝' },
+      'cert.status.pending':     { vi:'Đang chờ', en:'Pending', th:'รอดำเนินการ', id:'Tertunda', ms:'Tertunda', fil:'Nakabinbin', zh:'待审核' },
+      'cert.status.in_review':   { vi:'Đang xem xét', en:'In Review', th:'อยู่ระหว่างตรวจสอบ', id:'Dalam Review', ms:'Dalam Semakan', fil:'Sinusuri', zh:'审核中' },
+      'cert.badge':              { vi:'Huy hiệu', en:'Badge', th:'ป้าย', id:'Lencana', ms:'Lencana', fil:'Badge', zh:'徽章' },
+
+      // ── Error Pages ──────────────────────────────────────────────────────
+      'error.404.title':         { vi:'Trang không tìm thấy', en:'Page not found', th:'ไม่พบหน้า', id:'Halaman tidak ditemukan', ms:'Halaman tidak dijumpai', fil:'Hindi nahanap ang pahina', zh:'页面未找到' },
+      'error.404.message':       { vi:'Trang bạn đang tìm không tồn tại hoặc đã được di chuyển.', en:'The page you\'re looking for doesn\'t exist or has been moved.', th:'หน้าที่คุณกำลังค้นหาไม่มีอยู่หรือถูกย้าย', id:'Halaman yang Anda cari tidak ada atau telah dipindahkan.', ms:'Halaman yang anda cari tidak wujud atau telah dipindahkan.', fil:'Ang pahinang iyong hinahanap ay wala o nailipat na.', zh:'您要找的页面不存在或已被移动。' },
+      'error.500.title':         { vi:'Có lỗi xảy ra', en:'Something went wrong', th:'เกิดข้อผิดพลาด', id:'Terjadi kesalahan', ms:'Ralat berlaku', fil:'May naganap na error', zh:'出了点问题' },
+      'error.500.message':       { vi:'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại hoặc quay về trang chủ.', en:'An unexpected error occurred. Please try again or return to the home page.', th:'เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองอีกครั้งหรือกลับไปยังหน้าแรก', id:'Terjadi kesalahan tak terduga. Silakan coba lagi atau kembali ke halaman utama.', ms:'Ralat tidak dijangka berlaku. Sila cuba lagi atau kembali ke halaman utama.', fil:'Isang hindi inaasahang error ang naganap. Pakisubukan muli o bumalik sa home page.', zh:'发生了意外错误。请重试或返回首页。' },
+
+      // ── Nav (extended) ───────────────────────────────────────────────────
+      'nav.analytics':           { vi:'Phân tích', en:'Analytics', th:'การวิเคราะห์', id:'Analitik', ms:'Analitik', fil:'Analitika', zh:'分析' },
+      'nav.marketplace':         { vi:'Chợ', en:'Marketplace', th:'ตลาด', id:'Marketplace', ms:'Pasaran', fil:'Marketplace', zh:'市场' },
+      'nav.certification':       { vi:'Chứng nhận', en:'Certification', th:'การรับรอง', id:'Sertifikasi', ms:'Pensijilan', fil:'Sertipikasyon', zh:'认证' },
+
       // ── Locale names (self-referential) ─────────────────────────────────
       'locale.name': { vi:'Tiếng Việt', en:'English', th:'ไทย', id:'Bahasa Indonesia', ms:'Bahasa Melayu', fil:'Filipino', zh:'中文' },
     };
