@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aifut-connector-sdk"
+version = "0.1.0"
+description = "AIFUT Connector SDK — Build AIS-compliant connectors for the AIFUT platform"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["aifut", "connector", "ais", "integration", "workflow"]
+
+authors = [
+  { name = "AIFUT", email = "dev@aifut.app" },
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "uvicorn[standard]>=0.27",
+  "fastapi>=0.109",
+  "pytest>=8.0",
+  "httpx>=0.26",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
