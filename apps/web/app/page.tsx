@@ -114,6 +114,9 @@ export default async function HomePage() {
           <a href="/dashboard" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
             Dashboard
           </a>
+          <a href="/settings" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Settings
+          </a>
         </div>
 
         <div style={{ display: "flex", gap: 12 }}>
