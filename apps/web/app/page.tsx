@@ -77,7 +77,61 @@ export default async function HomePage() {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <section style={{ maxWidth: 1160, margin: "0 auto", padding: "72px 24px 88px" }}>
+      <nav
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          maxWidth: 1160,
+          margin: "0 auto",
+          padding: "20px 24px",
+        }}
+      >
+        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+          <span style={{ fontWeight: 800, fontSize: 20 }}>AIFUT</span>
+          <a href="/foundation" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Foundation
+          </a>
+          <a href="/pricing" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Pricing
+          </a>
+          <a href="/dashboard" style={{ color: "#9fb0ff", textDecoration: "none", fontSize: 14 }}>
+            Dashboard
+          </a>
+        </div>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <a
+            href="/login"
+            style={{
+              color: "#f5f7ff",
+              textDecoration: "none",
+              fontSize: 14,
+              padding: "10px 18px",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.15)",
+            }}
+          >
+            Sign In
+          </a>
+          <a
+            href="/register"
+            style={{
+              background: "#6d7cff",
+              color: "white",
+              padding: "10px 18px",
+              borderRadius: 10,
+              textDecoration: "none",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            Get Started
+          </a>
+        </div>
+      </nav>
+
+      <section style={{ maxWidth: 1160, margin: "0 auto", padding: "40px 24px 88px" }}>
         <div
           style={{
             display: "inline-block",
