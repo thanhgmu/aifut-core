@@ -2,7 +2,7 @@
 
 ## Current Truth - 2026-06-15 20:59 Asia/Bangkok
 - **Repo:** `C:\Users\Admin\.openclaw\workspace\aifut-core`
-- **Current HEAD:** `647f6e0` feat(marketplace): community marketplace frontend page
+- **Current HEAD:** `c8962f8` feat(infra): multi-country deployment configuration
 - **Runtime:** PG 5432 ✅ | API 3002 ❌ (chưa chạy) | Web 3000 ❌ (chưa chạy)
 
 ---
@@ -170,7 +170,7 @@
 | Analytics dashboard UI | ✅ Done |
 | Community connector marketplace | ✅ Done |
 | Connector SDK PyPI publish | ✅ Done |
-| Multi-country deployment config | 🔄 Next |
+| Multi-country deployment config | ✅ Done |
 | Localization content depth | 🔄 Next |
 
 ### Priority — Go-to-Market
