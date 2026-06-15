@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { VnpayGateway } from './vnpay.gateway';
+import { MomoGateway } from './momo.gateway';
 import { PaymentRequest, PaymentResponse, IpnPayload, IpnResult, PaymentCapabilities } from './payments.types';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly vnpay: VnpayGateway,
+    private readonly momo: MomoGateway,
   ) {}
 
   /**
@@ -16,6 +18,7 @@ export class PaymentsService {
   getCapabilities(): PaymentCapabilities[] {
     const gateways: PaymentCapabilities[] = [];
     if (this.vnpay.isConfigured) gateways.push(this.vnpay.capabilities);
+    if (this.momo.isConfigured) gateways.push(this.momo.capabilities);
     return gateways;
   }
 
@@ -54,7 +57,9 @@ export class PaymentsService {
     let result: PaymentResponse;
 
     // Route to appropriate gateway
-    if (input.gateway === 'vnpay' || !input.gateway) {
+    if (input.gateway === 'momo') {
+      result = await this.momo.createPayment(paymentReq);
+    } else if (input.gateway === 'vnpay' || !input.gateway) {
       result = await this.vnpay.createPayment(paymentReq);
     } else {
       throw new BadRequestException(`Unsupported payment gateway: ${input.gateway}`);
@@ -119,6 +124,28 @@ export class PaymentsService {
           });
         }
       }
+    }
+
+    return result;
+  }
+
+  /**
+   * Handle MoMo IPN callback.
+   */
+  async handleMomoIpn(rawPayload: Record<string, any>): Promise<IpnResult> {
+    const payload: IpnPayload = { raw: rawPayload, gateway: 'momo' };
+    const result = await this.momo.handleIpn(payload);
+
+    if (result.success) {
+      await this.prisma.paymentTransaction.updateMany({
+        where: { gatewayTxId: rawPayload['orderId'] as string, gateway: 'momo' },
+        data: {
+          status: 'success',
+          gatewayTxId: result.gatewayTxId,
+          paidAt: new Date(),
+          metadata: { ipnResponse: rawPayload },
+        },
+      });
     }
 
     return result;

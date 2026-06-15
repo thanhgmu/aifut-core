@@ -77,6 +77,27 @@ export class PaymentsController {
   }
 
   /**
+   * MoMo IPN endpoint (called by MoMo server after payment).
+   */
+  @Post('momo/ipn')
+  async momoIpn(@Body() body: Record<string, any>) {
+    const result = await this.payments.handleMomoIpn(body);
+    return { status: result.success ? 0 : 1, message: result.success ? 'Success' : result.errorMessage };
+  }
+
+  /**
+   * MoMo return URL (user is redirected here after payment).
+   */
+  @Get('momo/return')
+  async momoReturn(@Query() query: Record<string, any>) {
+    const result = await this.payments.handleMomoIpn(query);
+    if (result.success) {
+      return { status: 'success', message: 'Payment completed successfully', transactionId: result.gatewayTxId };
+    }
+    return { status: 'failed', message: result.errorMessage || 'Payment failed' };
+  }
+
+  /**
    * Get payment history for a tenant.
    */
   @Get('history/:tenantId')
