@@ -306,6 +306,22 @@ export default function FoundationPage() {
                 status="Available"
                 statusColor="#9fb0ff"
               />
+              <DevToolCard
+                icon="📊"
+                title="Analytics Dashboard"
+                description="Platform-wide metrics, revenue tracking, industry adoption"
+                href="/analytics"
+                status="Live"
+                statusColor="#80e0a0"
+              />
+              <DevToolCard
+                icon="✅"
+                title="Connector Certification"
+                description="Certify your AIS-compliant connectors for the marketplace"
+                href="/developer"
+                status="Beta"
+                statusColor="#66c4ff"
+              />
             </div>
           </Panel>
         </div>

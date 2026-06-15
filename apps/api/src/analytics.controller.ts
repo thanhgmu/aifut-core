@@ -14,6 +14,44 @@ export class AnalyticsController {
     return this.analytics.getPlatformSummary();
   }
 
+  @Get('revenue')
+  async revenue() {
+    const [
+      totalRevenue,
+      activeSubscriptions,
+      monthlyRevenue,
+      totalInvoices,
+      paidInvoices,
+      pendingInvoices,
+    ] = await Promise.all([
+      this.prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: 'paid' } }),
+      this.prisma.subscription.count({ where: { status: 'active' } }),
+      this.prisma.invoice.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'paid',
+          paidAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        },
+      }),
+      this.prisma.invoice.count(),
+      this.prisma.invoice.count({ where: { status: 'paid' } }),
+      this.prisma.invoice.count({ where: { status: 'pending' } }),
+    ]);
+
+    return {
+      totalRevenue: Number(totalRevenue._sum?.amount ?? 0),
+      monthlyRevenue: Number(monthlyRevenue._sum?.amount ?? 0),
+      activeSubscriptions,
+      invoices: {
+        total: totalInvoices,
+        paid: paidInvoices,
+        pending: pendingInvoices,
+      },
+      currency: 'VND',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   @Get('tenant')
   async tenantAnalytics(@Headers('x-tenant-slug') slug: string) {
     if (!slug) throw new NotFoundException('x-tenant-slug header required');
@@ -34,10 +72,11 @@ export class AnalyticsController {
       status: 'active',
       supports: {
         platformSummary: true,
+        revenueSummary: true,
         tenantAnalytics: true,
         industryAdoption: true,
-        timeSeries: false,   // coming in Phase 2
-        benchmarks: false,   // coming in Phase 3
+        timeSeries: false,
+        benchmarks: false,
       },
     };
   }
