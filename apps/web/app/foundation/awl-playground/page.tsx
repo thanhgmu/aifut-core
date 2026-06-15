@@ -262,6 +262,23 @@ export default function AwlPlaygroundPage() {
     [formatAwl],
   );
 
+  // Load shared AWL from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("awl");
+    if (encoded) {
+      try {
+        const decoded = decodeURIComponent(atob(encoded));
+        if (decoded.trim()) {
+          setYamlInput(decoded);
+          parseAndValidate(decoded);
+        }
+      } catch {
+        // Invalid share URL — ignore
+      }
+    }
+  }, []);
+
   // Parse YAML-like text into AWL document
   const parseAndValidate = useCallback((text: string) => {
     if (!text.trim()) {
@@ -547,7 +564,7 @@ export default function AwlPlaygroundPage() {
               <div style={{ fontSize: 13, color: "#9fb0ff", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 AWL Document
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button
                   onClick={() => setYamlInput("")}
                   style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#c8d2ff", cursor: "pointer", fontSize: 11 }}
@@ -560,6 +577,37 @@ export default function AwlPlaygroundPage() {
                 >
                   {copySuccess ? "Copied!" : "Copy"}
                 </button>
+                {parsedDoc && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([yamlInput], { type: 'text/yaml' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${parsedDoc.workflow}.yaml`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(80,200,120,0.3)", background: "transparent", color: "#80e0a0", cursor: "pointer", fontSize: 11 }}
+                    >
+                      ⬇ Export
+                    </button>
+                    <button
+                      onClick={() => {
+                        const encoded = btoa(encodeURIComponent(yamlInput));
+                        const url = `${window.location.origin}/foundation/awl-playground?awl=${encoded}`;
+                        navigator.clipboard.writeText(url).then(() => {
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        });
+                      }}
+                      style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,180,80,0.3)", background: "transparent", color: "#ffb366", cursor: "pointer", fontSize: 11 }}
+                >
+                  🔗 Share
+                </button>
+              </>
+            )}
               </div>
             </div>
             <textarea
