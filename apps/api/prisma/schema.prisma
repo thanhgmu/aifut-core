@@ -167,6 +167,8 @@ model Session {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   type           SessionType
+  name           String?      // human-readable name for API keys
+  scopes         String[]     @default([]) // API key scopes: 'read', 'write', 'admin'
   tokenHash      String       @unique
   refreshHash    String?
   userAgent      String?

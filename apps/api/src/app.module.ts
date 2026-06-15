@@ -25,6 +25,8 @@ import { SearchService } from './search.service';
 import { SearchController } from './search.controller';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
+import { ApiKeyService } from './api-key.service';
+import { ApiKeyController } from './api-key.controller';
 
 @Module({
   imports: [
@@ -48,7 +50,7 @@ import { AnalyticsController } from './analytics.controller';
     AffiliateModule,
     PaymentsModule,
   ],
-  controllers: [AppController, BillingMeterController, SearchController, AnalyticsController],
-  providers: [AiBillingMeterService, SearchService, AnalyticsService],
+  controllers: [AppController, BillingMeterController, SearchController, AnalyticsController, ApiKeyController],
+  providers: [AiBillingMeterService, SearchService, AnalyticsService, ApiKeyService],
 })
 export class AppModule {}

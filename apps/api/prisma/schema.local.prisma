@@ -118,6 +118,8 @@ model Session {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   type           String
+  name           String?
+  scopes         String[]     @default([])
   tokenHash      String       @unique
   refreshHash    String?
   userAgent      String?
