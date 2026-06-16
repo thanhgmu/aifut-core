@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ZaloZnsService } from '../integrations/zalo/zalo-zns.service';
 import { renderInline } from './notification-template.service';
 import * as nodemailer from 'nodemailer';
 
@@ -42,49 +43,8 @@ function getSmtpTransport() {
 }
 const DEFAULT_FROM = process.env.SMTP_FROM || 'noreply@aifut.dev';
 
-// ---------- Zalo OA helper ----------
-interface ZaloTokenCache {
-  accessToken: string;
-  expiresAt: number;
-}
-let zaloTokenCache: ZaloTokenCache | null = null;
-
-async function getZaloAccessToken(): Promise<string> {
-  const now = Date.now();
-  if (zaloTokenCache && zaloTokenCache.expiresAt > now) {
-    return zaloTokenCache.accessToken;
-  }
-  const appId = process.env.ZALO_APP_ID;
-  const secret = process.env.ZALO_APP_SECRET;
-  const refreshToken = process.env.ZALO_REFRESH_TOKEN;
-  if (!appId || !secret || !refreshToken) {
-    throw new Error('Zalo OA not configured (ZALO_APP_ID, ZALO_APP_SECRET, ZALO_REFRESH_TOKEN)');
-  }
-  const res = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      app_id: appId,
-      secret_key: secret,
-      refresh_token: refreshToken,
-    }),
-    signal: AbortSignal.timeout(10000),
-  });
-  const json = await res.json() as any;
-  if (!json.access_token) {
-    throw new Error(`Zalo token refresh failed: ${JSON.stringify(json)}`);
-  }
-  zaloTokenCache = {
-    accessToken: json.access_token,
-    expiresAt: now + (json.expires_in || 3600) * 1000 - 60000,
-  };
-  return zaloTokenCache.accessToken;
-}
-
 // ---------- SMS provider helper ----------
 function getSmsTransport() {
-  // Placeholder for Twilio / Vonage / SMS gateway
   const provider = process.env.SMS_PROVIDER || 'none';
   return {
     provider,
@@ -97,7 +57,6 @@ function getSmsTransport() {
 // ---------- Body render: supports text, html, markdown ----------
 function renderBody(body: string, format: string): string {
   if (format === 'markdown') {
-    // Simple Markdown → HTML conversion (headings, bold, lists, links)
     return body
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
       .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -112,12 +71,15 @@ function renderBody(body: string, format: string): string {
       .replace(/$/, '</p>');
   }
   if (format === 'html') return body;
-  return body; // plain text
+  return body;
 }
 
 @Injectable()
 export class NotificationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly zaloZns: ZaloZnsService,
+  ) {}
 
   async deliver(input: NotifInput): Promise<DeliveryResult> {
     const start = Date.now();
@@ -127,6 +89,7 @@ export class NotificationService {
     let body = input.body;
     let finalSubject = input.subject;
     let format = 'text';
+    let resolvedTemplate: any = null;
 
     if (input.template) {
       try {
@@ -140,6 +103,7 @@ export class NotificationService {
             finalSubject = renderInline(tpl.subjectTemplate, data);
           }
           format = tpl.format;
+          resolvedTemplate = tpl;
         }
       } catch {
         // Template not found; fall back to input.body
@@ -161,7 +125,7 @@ export class NotificationService {
         result = await this.deliverEmail(input, recipients, start, renderedBody, finalSubject, format);
         break;
       case 'zalo':
-        result = await this.deliverZalo(input, recipients, start, body);
+        result = await this.deliverZalo(input, recipients, start, body, resolvedTemplate);
         break;
       case 'sms':
         result = await this.deliverSms(input, recipients, start, body);
@@ -203,7 +167,6 @@ export class NotificationService {
     return result;
   }
 
-  // Route to the right delivery method
   private async deliverOne(
     input: NotifInput,
     recipients: string[],
@@ -215,7 +178,7 @@ export class NotificationService {
     switch (input.channel) {
       case 'webhook': return this.deliverWebhook(input, recipients, Date.now(), body);
       case 'email': return this.deliverEmail(input, recipients, Date.now(), body, subject, format);
-      case 'zalo': return this.deliverZalo(input, recipients, Date.now(), body);
+      case 'zalo': return this.deliverZalo(input, recipients, Date.now(), body, null);
       case 'sms': return this.deliverSms(input, recipients, Date.now(), body);
       case 'slack': return this.deliverSlack(input, recipients, Date.now(), body);
       default: return this.deliverLog(input, recipients, Date.now(), body);
@@ -291,41 +254,53 @@ export class NotificationService {
     }
   }
 
-  // ---------- Zalo OA ----------
+  // ---------- Zalo OA (delegated to ZaloZnsService) ----------
   private async deliverZalo(
     input: NotifInput,
     recipients: string[],
     start: number,
     body: string,
+    resolvedTemplate?: any,
   ): Promise<DeliveryResult> {
     const userId = recipients[0];
     if (!userId) {
       return { success: false, channel: 'zalo', error: 'No Zalo user ID', durationMs: Date.now() - start };
     }
+
     try {
-      const accessToken = await getZaloAccessToken();
-      const res = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          access_token: accessToken,
-        },
-        body: JSON.stringify({
-          recipient: { user_id: userId },
-          message: {
-            text: body.substring(0, 2000), // Zalo limit
-          },
-        }),
-        signal: AbortSignal.timeout(10000),
+      // If we have a resolved template, try to use ZNS template messaging
+      // NotificationTemplate stores the ZNS template_id in its metadata.znsTemplateId
+      if (resolvedTemplate?.metadata?.znsTemplateId) {
+        const templateData = input.templateData ?? {};
+        const znsResult = await this.zaloZns.sendZnsTemplate(input.tenantId, {
+          userId,
+          templateId: resolvedTemplate.metadata.znsTemplateId,
+          templateData: Object.fromEntries(
+            Object.entries(templateData).map(([k, v]) => [k, String(v)]),
+          ),
+          language: input.metadata?.language as 'VI' | 'EN' ?? 'VI',
+        });
+        return {
+          success: znsResult.success,
+          channel: 'zalo',
+          provider: 'zalo-oa',
+          messageId: znsResult.providerMessageId,
+          error: znsResult.error,
+          durationMs: Date.now() - start,
+        };
+      }
+
+      // Fallback: send as text via new ZaloZnsService
+      const textResult = await this.zaloZns.sendText(input.tenantId, {
+        userId,
+        text: body.substring(0, 2000),
       });
-      const json = await res.json() as any;
       return {
-        success: json.error === 0,
+        success: textResult.success,
         channel: 'zalo',
-        provider: 'zalo-oa',
-        messageId: json.data?.message_id ?? `zalo_${Date.now()}`,
-        statusCode: res.status,
-        error: json.error !== 0 ? JSON.stringify(json) : undefined,
+        provider: 'zalo-oa-zns',
+        messageId: textResult.providerMessageId,
+        error: textResult.error,
         durationMs: Date.now() - start,
       };
     } catch (err: any) {
@@ -352,7 +327,6 @@ export class NotificationService {
         error: 'SMS provider not configured, delivery logged only',
       };
     }
-    // Generic HTTP SMS gateway integration
     try {
       const gatewayUrl = process.env.SMS_GATEWAY_URL;
       if (gatewayUrl) {
@@ -374,7 +348,6 @@ export class NotificationService {
           durationMs: Date.now() - start,
         };
       }
-      // Log-only fallback
       return {
         success: true, channel: 'sms', provider: 'log',
         messageId: `sms_${Date.now()}`,

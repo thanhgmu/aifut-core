@@ -65,9 +65,20 @@ export class DeveloperService {
         },
       ],
       sandbox: {
-        available: false,
-        eta: 'Q4 2026',
+        available: true,
+        eta: 'Now',
         description: 'Isolated development environment for testing connectors without affecting production.',
+        endpoints: [
+          'POST /api/sandbox — Create sandbox',
+          'GET /api/sandbox — List sandboxes',
+          'GET /api/sandbox/:id — Get sandbox',
+          'GET /api/sandbox/:id/env — Get sandbox env',
+          'PUT /api/sandbox/:id/env — Set sandbox env',
+          'POST /api/sandbox/:id/execute — Execute connector in sandbox',
+          'GET /api/sandbox/:id/traces — List run traces',
+          'GET /api/sandbox/:id/traces/:runId — Get run trace',
+          'DELETE /api/sandbox/:id — Delete sandbox',
+        ],
       },
     };
   }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
 import { AuditModule } from './audit.module';
+import { SandboxModule } from './sandbox/sandbox.module';
 import { BillingModule } from './billing/billing.module';
 import { AuthModule } from './auth/auth.module';
 import { BackupModule } from './backups/backup.module';
@@ -51,6 +52,7 @@ import { ApiKeyController } from './api-key.controller';
     AffiliateModule,
     PaymentsModule,
     CertificationModule,
+    SandboxModule,
   ],
   controllers: [AppController, BillingMeterController, SearchController, AnalyticsController, ApiKeyController],
   providers: [AiBillingMeterService, SearchService, AnalyticsService, ApiKeyService],

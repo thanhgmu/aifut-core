@@ -9,11 +9,12 @@ import { IntegrationsController } from './integrations.controller';
 import { IntegrationSetupService } from './integration-setup.service';
 import { IntegrationWorkflowService } from './integration-workflow.service';
 import { IntegrationAwlGeneratorService } from './integration-awl-generator.service';
+import { ZaloModule } from './integrations/zalo/zalo.module';
 import { TenancyModule } from './tenancy.module';
 import { WorkflowModule } from './workflows/workflow.module';
 
 @Module({
-  imports: [TenancyModule, WorkflowModule],
+  imports: [TenancyModule, WorkflowModule, ZaloModule],
   controllers: [IntegrationsController],
   providers: [
     InfrastructureProfileService,
@@ -25,6 +26,8 @@ import { WorkflowModule } from './workflows/workflow.module';
     IntegrationAiDraftingService,
     IntegrationWorkflowService,
     IntegrationAwlGeneratorService,
+    ZaloModule,
   ],
+
 })
 export class IntegrationsModule {}

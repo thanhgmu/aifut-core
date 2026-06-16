@@ -1,19 +1,55 @@
 #!/usr/bin/env bash
+# ============================================================
 # deploy-region.sh — Deploy AIFUT to a specific geographic region
+# ============================================================
+# Syncs with the Edge Network Router (infra/edge/src/index.ts):
+#   - Registers the region in the Edge Worker health cache
+#   - Deploys Docker Compose with region-specific config
+#   - Updates Terraform state reference for this region
+#   - Optionally runs Terraform apply for infrastructure
+#
 # Usage:
-#   bash infra/deploy-region.sh vn           # Deploy to Vietnam
-#   bash infra/deploy-region.sh sg .env.sg   # Singapore with custom env
-#   bash infra/deploy-region.sh --list       # List available regions
+#   bash infra/deploy-region.sh vn              # Deploy to Vietnam
+#   bash infra/deploy-region.sh sg .env.sg      # Singapore with custom env
+#   bash infra/deploy-region.sh --list          # List available regions
+#   bash infra/deploy-region.sh --terraform vn  # Deploy via Terraform
+#   bash infra/deploy-region.sh --edge-only vn  # Only register in Edge Worker
+#
+# Integration Points:
+#   → infra/edge/src/index.ts      (Edge Worker — health-based routing)
+#   → infra/terraform/main.tf      (Terraform — infra provisioning)
+#   → .github/workflows/edge-health-probe.yml (External health scanning)
+#   → deploy/nginx.conf            (Local reverse proxy)
+# ============================================================
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# ── Paths ─────────────────────────────────────────────────
 REGION_DIR="infra/regions"
+INFRA_DIR="infra"
+EDGE_DIR="infra/edge"
+TERRAFORM_DIR="infra/terraform"
+EDGE_KV_ENDPOINT="${EDGE_KV_ENDPOINT:-https://api.aifut.app}"
+EDGE_AUTH_TOKEN="${EDGE_AUTH_TOKEN:-}"
 
-# ── Help / list ─────────────────────────────────────
+# ── Colors ────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# ── Help / List ─────────────────────────────────────────
 if [ $# -eq 0 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "Usage: bash infra/deploy-region.sh <region> [env-file]"
+  echo ""
+  echo "Options:"
+  echo "  --list              List available regions and exit"
+  echo "  --terraform <region> Deploy infrastructure via Terraform"
+  echo "  --edge-only <region> Only sync edge config, skip Docker deploy"
+  echo "  --help              Show this help"
   echo ""
   echo "Available regions:"
   for d in "$REGION_DIR"/*/; do
@@ -28,47 +64,182 @@ if [ $# -eq 0 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  bash infra/deploy-region.sh vn"
   echo "  bash infra/deploy-region.sh sg"
   echo "  bash infra/deploy-region.sh jp /path/to/custom.env"
+  echo "  bash infra/deploy-region.sh --terraform vn"
   exit 0
 fi
+
+# ── Check for mode flags ─────────────────────────────────
+MODE="full"
+case "$1" in
+  --list)
+    for d in "$REGION_DIR"/*/; do
+      name=$(basename "$d")
+      [ "$name" = "README.md" ] && continue
+      echo "  $name"
+    done
+    exit 0
+    ;;
+  --terraform)
+    MODE="terraform"
+    shift
+    ;;
+  --edge-only)
+    MODE="edge-only"
+    shift
+    ;;
+esac
 
 REGION="$1"
 REGION_ENV="${2:-$REGION_DIR/$REGION/.env.region}"
 
 if [ ! -f "$REGION_ENV" ]; then
-  echo "❌ Region env not found: $REGION_ENV"
+  echo -e "${RED}❌ Region env not found: $REGION_ENV${NC}"
   echo "   Run with --list to see available regions."
   exit 1
 fi
 
-echo "╔══════════════════════════════════════════╗"
-echo "║  Deploying AIFUT — Region: $(echo $REGION | tr '[:lower:]' '[:upper:]')"
-echo "╚══════════════════════════════════════════╝"
+echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Deploying AIFUT — Region: $(echo $REGION | tr '[:lower:]' '[:upper:]')${NC}"
+echo -e "${BLUE}║  Mode: ${MODE}${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
 
-# ── Load region config ──────────────────────────────
+# ── Load region config ──────────────────────────────────
 set -a
 source "$REGION_ENV"
 set +a
 
-echo "→ Domain:     ${DOMAIN:-not set}"
-echo "→ API Domain: ${API_DOMAIN:-not set}"
-echo "→ Locale:     ${DEFAULT_LOCALE:-en}"
-echo "→ Currency:   ${DEFAULT_CURRENCY:-USD}"
-echo "→ Timezone:   ${TZ:-UTC}"
+echo -e "${YELLOW}→${NC} Domain:     ${DOMAIN:-not set}"
+echo -e "${YELLOW}→${NC} API Domain: ${API_DOMAIN:-not set}"
+echo -e "${YELLOW}→${NC} Locale:     ${DEFAULT_LOCALE:-en}"
+echo -e "${YELLOW}→${NC} Currency:   ${DEFAULT_CURRENCY:-USD}"
+echo -e "${YELLOW}→${NC} Timezone:   ${TZ:-UTC}"
 
-# ── Check prerequisites ─────────────────────────────
-for cmd in docker docker-compose; do
-  if ! command -v $cmd &>/dev/null; then
-    echo "❌ $cmd not found. Install Docker first."
+# ════════════════════════════════════════════════════════
+# STEP 1: Terraform — Provision Infrastructure
+# ════════════════════════════════════════════════════════
+
+if [ "$MODE" = "terraform" ]; then
+  echo ""
+  echo -e "${BLUE}━━━ Step 1/2: Terraform — Provisioning ${REGION} infrastructure...${NC}"
+
+  # Verify terraform availability
+  if ! command -v terraform &>/dev/null; then
+    echo -e "${RED}❌ terraform not found. Install Terraform v1.8+ first.${NC}"
     exit 1
   fi
-done
 
-# ── Build region-specific docker-compose ────────────
-COMPOSE_FILE="docker-compose.yml"
-COMPOSE_OVERRIDE="infra/regions/$REGION/docker-compose.override.yml"
+  # Check terraform directory
+  if [ ! -d "$TERRAFORM_DIR" ]; then
+    echo -e "${RED}❌ Terraform directory not found: $TERRAFORM_DIR${NC}"
+    exit 1
+  fi
 
-# Generate override file for region-specific settings
-cat > "$COMPOSE_OVERRIDE" << COMPOSE_EOF
+  cd "$TERRAFORM_DIR"
+
+  # Ensure modules are downloaded
+  echo -e "${YELLOW}→${NC} terraform init..."
+  terraform init -input=false -upgrade
+
+  # Create a region-specific tfvars overlay
+  TFVARS_FILE="terraform.${REGION}.tfvars"
+  cat > "$TFVARS_FILE" << TFVARS_EOF
+# Auto-generated by deploy-region.sh — Region: ${REGION}
+environment = "production"
+
+region_configs = {
+  ${REGION} = {
+    enabled            = true
+    aws_provider_alias = "${REGION}"
+    instance_type      = "${INSTANCE_TYPE:-t3.medium}"
+    min_size           = 1
+    max_size           = 3
+    desired_size       = 1
+    domain             = "${DOMAIN}"
+    api_domain         = "${API_DOMAIN}"
+    locale             = "${DEFAULT_LOCALE:-en}"
+    currency           = "${DEFAULT_CURRENCY:-USD}"
+    volume_size_gb     = 30
+  }
+}
+TFVARS_EOF
+
+  echo -e "${YELLOW}→${NC} terraform apply -var-file=${TFVARS_FILE}..."
+  terraform apply -auto-approve -var-file="$TFVARS_FILE"
+
+  # Extract outputs
+  ALB_DNS=$(terraform output -json region_alb_dns 2>/dev/null | jq -r ".[\"${REGION}\"] // empty")
+  VPC_ID=$(terraform output -json region_vpc_ids 2>/dev/null | jq -r ".[\"${REGION}\"] // empty")
+
+  echo -e "${GREEN}✅${NC} Terraform apply complete for region: ${REGION}"
+  echo -e "   ALB: ${ALB_DNS:-N/A}"
+  echo -e "   VPC: ${VPC_ID:-N/A}"
+
+  cd - > /dev/null
+fi
+
+# ════════════════════════════════════════════════════════
+# STEP 2 (Optional): Edge Worker — Register Region
+# ════════════════════════════════════════════════════════
+
+if [ -n "$EDGE_AUTH_TOKEN" ] && [ -n "$EDGE_KV_ENDPOINT" ]; then
+  echo ""
+  echo -e "${BLUE}━━━ Registering region in Edge Worker health cache...${NC}"
+
+  # Build region config payload for Edge Worker KV
+  EDGE_PAYLOAD=$(cat << PAYLOAD_EOF
+{
+  "slug": "${REGION}",
+  "name": "${DOMAIN:-${REGION}.aifut.app}",
+  "origins": ["https://${API_DOMAIN}"],
+  "fallbackOrigins": [],
+  "continent": "${CONTINENT:-AS}",
+  "locale": "${DEFAULT_LOCALE:-en}",
+  "currency": "${DEFAULT_CURRENCY:-USD}",
+  "enabled": true,
+  "weight": 100
+}
+PAYLOAD_EOF
+  )
+
+  # Register via Edge Worker health endpoint
+  REGISTER_URL="${EDGE_KV_ENDPOINT}/__health"
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    --max-time 10 \
+    -X POST \
+    -H "Authorization: Bearer ${EDGE_AUTH_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "$EDGE_PAYLOAD" \
+    "$REGISTER_URL" 2>/dev/null || echo "000")
+
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+    echo -e "${GREEN}✅${NC} Region ${REGION} registered in Edge Worker health cache"
+  else
+    echo -e "${YELLOW}⚠️${NC} Edge Worker registration returned HTTP ${HTTP_CODE} (non-critical — will sync on next health probe cycle)"
+  fi
+fi
+
+# ════════════════════════════════════════════════════════
+# STEP 3: Docker — Deploy Application
+# ════════════════════════════════════════════════════════
+
+if [ "$MODE" != "edge-only" ]; then
+  echo ""
+  echo -e "${BLUE}━━━ Step 2/3: Docker — Deploying application services...${NC}"
+
+  # ── Check prerequisites ─────────────────────────────
+  for cmd in docker docker compose; do
+    if ! command -v $cmd &>/dev/null; then
+      echo -e "${RED}❌ $cmd not found. Install Docker first.${NC}"
+      exit 1
+    fi
+  done
+
+  # ── Build region-specific docker-compose ────────────
+  COMPOSE_FILE="docker-compose.yml"
+  COMPOSE_OVERRIDE="infra/regions/$REGION/docker-compose.override.yml"
+
+  # Generate override file for region-specific settings
+  cat > "$COMPOSE_OVERRIDE" << COMPOSE_EOF
 version: "3.9"
 
 services:
@@ -78,36 +249,139 @@ services:
       - DEFAULT_CURRENCY=${DEFAULT_CURRENCY:-VND}
       - TZ=${TZ:-Asia/Ho_Chi_Minh}
       - AI_REGION=${AI_REGION:-default}
+      - NGINX_REGION=${REGION}
+      - NGINX_HOST=${DOMAIN:-aifut.app}
+      - NGINX_API_HOST=${API_DOMAIN:-api.aifut.app}
     labels:
       - "aifut.region=${REGION}"
       - "aifut.domain=${API_DOMAIN}"
+      - "aifut.edge=true"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/__health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   web:
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.aifut.app}
       - NEXT_PUBLIC_DEFAULT_LOCALE=${DEFAULT_LOCALE:-en}
       - TZ=${TZ:-Asia/Ho_Chi_Minh}
+      - NGINX_REGION=${REGION}
+      - NGINX_HOST=${DOMAIN:-aifut.app}
     labels:
       - "aifut.region=${REGION}"
       - "aifut.domain=${DOMAIN}"
+      - "aifut.edge=true"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/__health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
     environment:
       - NGINX_HOST=${DOMAIN:-aifut.app}
       - NGINX_API_HOST=${API_DOMAIN:-api.aifut.app}
+      - NGINX_REGION=${REGION}
+      - NGINX_EDGE_HEALTH_PORT=8081
     labels:
       - "aifut.region=${REGION}"
+      - "aifut.edge=true"
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+      - "${NGINX_EDGE_HEALTH_PORT:-8081}:8081"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/__health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Region-specific watchtower for auto-updates ────
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: aifut-${REGION}-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INTERVAL=3600
+      - WATCHTOWER_LABEL_ENABLE=true
+    labels:
+      - "aifut.region=${REGION}"
+    restart: unless-stopped
 COMPOSE_EOF
 
-echo "→ Generated override: $COMPOSE_OVERRIDE"
+  echo -e "${GREEN}→${NC} Generated override: $COMPOSE_OVERRIDE"
 
-# ── Deploy ──────────────────────────────────────────
-echo "→ Deploying with: docker compose -f $COMPOSE_FILE -f $COMPOSE_OVERRIDE up -d"
-docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" up -d --build --remove-orphans
+  # ── Deploy ──────────────────────────────────────────
+  echo -e "${YELLOW}→${NC} Deploying with: docker compose -f $COMPOSE_FILE -f $COMPOSE_OVERRIDE up -d"
+  docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" up -d --build --remove-orphans
+
+  # ── Health Check ────────────────────────────────────
+  echo ""
+  echo -e "${BLUE}━━━ Verifying deployment health...${NC}"
+
+  echo -e "${YELLOW}→${NC} Waiting for services to become healthy..."
+  sleep 10
+
+  # Check nginx health
+  NGINX_PORT="${NGINX_EDGE_HEALTH_PORT:-8081}"
+  if curl -sf --max-time 5 "http://localhost:${NGINX_PORT}/__health" > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} Nginx edge health endpoint: OK (port ${NGINX_PORT})"
+  else
+    echo -e "${YELLOW}⚠️${NC} Nginx edge health endpoint not responding — check container logs"
+  fi
+
+  # Check API health
+  if curl -sf --max-time 5 "http://localhost:${API_PORT:-3002}/__health" > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} API health: OK"
+  else
+    echo -e "${YELLOW}⚠️${NC} API health check pending — may need more time"
+  fi
+
+  # ── Docker health summary ──────────────────────────
+  echo ""
+  echo -e "${BLUE}━━━ Container Status:${NC}"
+  docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+fi
+
+# ════════════════════════════════════════════════════════
+# SUMMARY
+# ════════════════════════════════════════════════════════
 
 echo ""
-echo "✅ AIFUT deployed to region: $REGION"
-echo "   Web:  https://${DOMAIN:-localhost:3000}"
-echo "   API:  https://${API_DOMAIN:-localhost:3002}"
-echo "   Time: $TZ"
+echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║  ✅ AIFUT deployed to region: $(echo $REGION | tr '[:lower:]' '[:upper:]')${NC}"
+echo -e "${GREEN}╠══════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}║${NC}"
+echo -e "   Web:  https://${DOMAIN:-localhost:3000}"
+echo -e "   API:  https://${API_DOMAIN:-localhost:3002}"
+echo -e "   Edge: ${NGINX_EDGE_HEALTH_PORT:+http://localhost:${NGINX_EDGE_HEALTH_PORT}/__health}"
+echo -e "   Time: $TZ"
+echo -e "${GREEN}║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${BLUE}Next Steps:${NC}"
+echo "   1. Verify edge health via:            curl https://${API_DOMAIN}/__health"
+echo "   2. Check Edge Worker dashboard:       https://dash.cloudflare.com"
+echo "   3. Review health probes:              .github/workflows/edge-health-probe.yml"
+echo "   4. Monitor region logs:               docker compose logs -f nginx api"
+echo "   5. Re-run terraform for infra:        bash infra/deploy-region.sh --terraform ${REGION}"
 echo ""

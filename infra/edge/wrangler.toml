@@ -1,0 +1,66 @@
+# ============================================================
+# AIFUT Edge Network — Cloudflare Workers Configuration
+# Wrangler v3 — Deploy to multiple regions via GC/SC
+# ============================================================
+name = "aifut-edge-router"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ── Account & Workers Plan ────────────────────────────
+workers_dev = false
+route = { pattern = "*.aifut.app/*", zone_id = "${CLOUDFLARE_ZONE_ID}" }
+
+# ── Environments ──────────────────────────────────────
+[env.staging]
+name = "aifut-edge-router-staging"
+route = { pattern = "staging.aifut.app/*", zone_id = "${CLOUDFLARE_ZONE_ID}" }
+
+[env.production]
+name = "aifut-edge-router"
+route = { pattern = "*.aifut.app/*", zone_id = "${CLOUDFLARE_ZONE_ID}" }
+
+# ── Compute Resources ─────────────────────────────────
+[limits]
+cpu_ms = 500         # Per-request CPU timeout (ms)
+subrequest_count = 32 # Max subrequests allowed
+
+# ── Durable Objects (per-region state) ────────────────
+[[durable_objects.bindings]]
+name = "REGION_STATE"
+class_name = "RegionState"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RegionState"]
+
+# ── KV Namespaces (region config + health cache) ─────
+[[kv_namespaces]]
+binding = "REGION_CONFIG"
+id = "${REGION_KV_ID}"
+
+[[kv_namespaces]]
+binding = "HEALTH_CACHE"
+id = "${HEALTH_KV_ID}"
+
+# ── R2 Buckets (static asset distribution) ────────────
+[[r2_buckets]]
+binding = "ASSET_BUCKET"
+bucket_name = "aifut-edge-assets"
+jurisdiction = "auto"
+
+# ── Environment Variables ─────────────────────────────
+[vars]
+API_TIMEOUT_MS = "5000"
+HEALTH_CHECK_INTERVAL_S = "30"
+FAILOVER_THRESHOLD = "3"
+DEFAULT_TTL_S = "300"
+STALE_TTL_S = "86400"
+PRIMARY_REGION = "auto"
+LOG_LEVEL = "info"
+EDGE_NETWORK_VERSION = "1.0.0"
+
+# ── Secrets (set via wrangler secret) ─────────────────
+# EDGE_AUTH_TOKEN      — Validate origin requests
+# SENTRY_DSN           — Error monitoring
+# INTERNAL_API_KEY     — Cross-worker RPC auth

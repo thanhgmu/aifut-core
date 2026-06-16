@@ -105,7 +105,11 @@ model Tenant {
   notificationLogs    NotificationLog[]
   notificationTemplates NotificationTemplate[]
   affiliateAccount    AffiliateAccount?
+  zaloConnection      ZaloOaConnection?
+  zaloSentMessages    ZaloSentMessage[]
+  zaloWebhookEvents   ZaloWebhookEvent[]
   certifications      ConnectorCertification[]
+  eInvoices         EInvoice[]
 }
 
 model Workspace {
@@ -877,11 +881,28 @@ model MarketplaceListing {
   updatedAt       DateTime          @updatedAt
 
   tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  ratings         MarketplaceListingRating[]
 
   @@index([type, category])
   @@index([isPublished])
   @@index([industry])
   @@index([downloads])
+}
+
+model MarketplaceListingRating {
+  id              String            @id @default(cuid())
+  listingId       String
+  tenantId        String
+  rating          Int               // 1-5
+  review          String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  listing         MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, tenantId])
+  @@index([listingId])
+  @@index([tenantId])
 }
 
 enum NotificationChannel {
@@ -944,11 +965,111 @@ model NotificationLog {
   @@index([tenantId, createdAt])
   @@index([tenantId, channel, status])
   @@index([executionId])
+  }
+  
+// ── Zalo OA Integration ──────────────────────────────────────────────
+
+enum ZaloOaConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
 }
 
-// ── Affiliate / Commission System ──────────────────────────────────────
+enum ZaloMessageType {
+  TEXT
+  ZNS_TEMPLATE
+  MEDIA
+  STICKER
+}
 
-enum AffiliateStatus {
+enum ZaloMessageSendStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+model ZaloOaConnection {
+  id                       String                  @id @default(cuid())
+  tenantId                 String                  @unique
+  oaId                     String
+  appId                    String
+  encryptedSecret          String
+  encryptedRefreshToken    String
+  encryptedAccessToken     String?
+  tokenExpiresAt           DateTime?
+  status                   ZaloOaConnectionStatus  @default(ACTIVE)
+  lastVerifiedAt           DateTime?
+  dailyQuotaTotal          Int                     @default(0)
+  dailyQuotaUsed           Int                     @default(0)
+  quotaResetAt             DateTime?
+  webhookSecret            String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sentMessages             ZaloSentMessage[]
+  webhookEvents            ZaloWebhookEvent[]
+
+  @@index([oaId])
+  @@index([status])
+}
+
+model ZaloSentMessage {
+  id                 String                  @id @default(cuid())
+  connectionId       String
+  tenantId           String
+  messageType        ZaloMessageType
+  templateId         String?
+  recipientId        String
+  templateData       Json?
+  content            String?
+  zaloMessageId      String?
+  sendStatus         ZaloMessageSendStatus   @default(PENDING)
+  errorCode          Int?
+  errorMessage       String?
+  quotaCost          Int                     @default(1)
+  sentAt             DateTime                @default(now())
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  metadata           Json?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  connection         ZaloOaConnection        @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, sentAt])
+  @@index([tenantId, sentAt])
+  @@index([zaloMessageId])
+  @@index([sendStatus])
+}
+
+model ZaloWebhookEvent {
+  id                 String                  @id @default(cuid())
+  connectionId       String?
+  tenantId           String?
+  eventName          String
+  payload            Json
+  processed          Boolean                 @default(false)
+  processedAt        DateTime?
+  error              String?
+  receivedAt         DateTime                @default(now())
+  createdAt          DateTime                @default(now())
+
+  connection         ZaloOaConnection?       @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  tenant             Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, receivedAt])
+  @@index([connectionId])
+  @@index([processed])
+}
+
+  // ── Affiliate / Commission System ──────────────────────────────────────
+  
+  enum AffiliateStatus {
   ACTIVE
   SUSPENDED
   PENDING
@@ -1102,4 +1223,47 @@ model ConnectorCertification {
   @@index([status])
   @@index([tenantId])
   @@index([submittedAt])
+}
+
+// -- E-Invoice (H�a don di?n t? GTGT) ---------------------------------
+
+model InvoiceCounter {
+  id              String   @id @default(cuid())
+  tenantId        String
+  serialSymbol    String
+  counter         Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, serialSymbol])
+  @@index([tenantId])
+}
+
+model EInvoice {
+  id                String   @id
+  tenantId          String
+  accountId         String
+  invoiceNumber     String   @unique
+  serialSymbol      String
+  formCode          String
+  fullNumber        String   @unique
+  issueDate         DateTime
+  sellerInfo        Json
+  buyerInfo         Json
+  items             Json
+  financialSummary  Json
+  htmlContent       String
+  hmacCode          String
+  transactionRef    String?
+  notes             String?
+  status            String   @default("issued")  // issued, cancelled, replaced
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([issueDate])
+  @@index([fullNumber])
+  @@index([hmacCode])
 }

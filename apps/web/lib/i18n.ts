@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, createContext, useContext, type ReactNode } from "react";
+import { useCallback, useEffect, useState, createContext, useContext, createElement, type ReactNode } from "react";
 import { API_BASE } from "./auth";
 
 /** Supported locale codes (must match backend) */
@@ -16,7 +16,7 @@ export const SUPPORTED_LOCALES: { code: Locale; name: string }[] = [
   { code: "zh", name: "中文" },
 ];
 
-const LOCALE_STORAGE_KEY = "aifut_locale";
+const LOCALE_STORAGE_KEY = "***";
 const TRANSLATIONS_CACHE = new Map<string, Record<string, string>>();
 
 /** Detect browser default locale, fall back to 'en' */
@@ -57,13 +57,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const detected = detectLocale();
-    setLocaleState(detected);
-    loadTranslations(detected);
-  }, []);
-
-  const loadTranslations = async (loc: Locale) => {
+  const loadTranslations = useCallback(async (loc: Locale) => {
     setLoading(true);
     try {
       // Check cache first
@@ -86,7 +80,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const detected = detectLocale();
+    setLocaleState(detected);
+    loadTranslations(detected);
+  }, [loadTranslations]);
 
   const setLocale = useCallback(
     (newLocale: Locale) => {
@@ -94,7 +94,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setLocaleState(newLocale);
       loadTranslations(newLocale);
     },
-    [],
+    [loadTranslations],
   );
 
   const t = useCallback(
@@ -104,10 +104,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [translations],
   );
 
-  return (
-    <I18nContext.Provider value={{ locale, setLocale, t, loading }}>
-      {children}
-    </I18nContext.Provider>
+  return createElement(
+    I18nContext.Provider,
+    { value: { locale, setLocale, t, loading } },
+    children,
   );
 }
 

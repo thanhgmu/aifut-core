@@ -1,0 +1,27 @@
+{
+  "name": "@aifut/edge-router",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AIFUT Edge Network Router — Geo-routing, CDN cache, health-aware failover via Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "publish": "wrangler deploy --minify",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20240601.0",
+    "itty-router": "^5.0.18",
+    "geoip-lite-edge": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0",
+    "wrangler": "^3.60.0"
+  }
+}

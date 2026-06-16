@@ -122,6 +122,22 @@ export const CONNECTOR_REGISTRY_FOUNDATION = [
     ],
     audience: 'mixed',
   },
+  {
+   key: 'zalo-oa',
+   name: 'Zalo OA Connector',
+   category: 'messaging',
+   authModes: ['oauth2', 'custom'],
+   syncDirections: ['push', 'event-driven'],
+   capabilities: [
+     'zns-template-messaging',
+     'text-messaging',
+     'delivery-status-webhook',
+     'follow-unfollow-events',
+     'quota-monitoring',
+     'multi-tenant-oa-management',
+   ],
+   audience: 'all',
+ },
 ] as const;
 
 export const CONNECTOR_REGISTRY_ROADMAP = [

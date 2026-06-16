@@ -158,9 +158,90 @@ export class BillingService {
     return sub;
   }
 
+  /**
+   * Subscribe and immediately create an invoice + pending payment transaction
+   * for paid plans (no trial). Returns payment info so the frontend can redirect
+   * the user to the payment gateway.
+   *
+   * Free / trialing plans just call through to the regular subscribe path.
+   */
+  async subscribeAndPay(tenantId: string, planKey: string, gateway = 'vnpay') {
+    const plan = await this.getPlan(planKey);
+    const account = await this.getOrCreateAccount(tenantId);
+
+    // Free / trial plans → no invoice needed
+    if (plan.price === 0) {
+      return { sub: await this.subscribe(tenantId, planKey), invoice: null, payment: null, requiresPayment: false };
+    }
+
+    // Deactivate existing
+    await this.prisma.subscription.updateMany({
+      where: { accountId: account.id, status: 'active' },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    });
+
+    const now = new Date();
+    const months = plan.interval === 'YEARLY' ? 12 : 1;
+    const expiresAt = new Date(now);
+    expiresAt.setMonth(expiresAt.getMonth() + months);
+
+    // Create subscription in 'payment_pending' — only activated after payment confirmed
+    const sub = await this.prisma.subscription.create({
+      data: {
+        accountId: account.id,
+        planKey,
+        tenantId,
+        status: 'payment_pending',
+        startedAt: now,
+        expiresAt,
+      },
+    });
+
+    // Create invoice
+    const invoiceNumber = `INV-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
+    const invoice = await this.prisma.invoice.create({
+      data: {
+        accountId: account.id,
+        tenantId,
+        subscriptionId: sub.id,
+        number: invoiceNumber,
+        description: `${plan.name} — ${plan.interval === 'YEARLY' ? 'Yearly' : 'Monthly'} Subscription`,
+        amount: plan.price,
+        currency: account.currency,
+        status: 'pending',
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 day grace
+      },
+    });
+
+    // Create payment transaction (pending, will be activated by webhook/IPN)
+    const orderId = `AIFUT-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const paymentTx = await this.prisma.paymentTransaction.create({
+      data: {
+        invoiceId: invoice.id,
+        accountId: account.id,
+        tenantId,
+        gateway,
+        gatewayTxId: orderId,
+        amount: plan.price,
+        currency: account.currency,
+        status: 'pending',
+        metadata: { orderId, type: 'subscription_purchase' },
+      },
+    });
+
+    return {
+      sub,
+      invoice,
+      paymentTx,
+      requiresPayment: true,
+      orderId,
+      invoiceId: invoice.id,
+    };
+  }
+
   async getCurrentSubscription(tenantId: string) {
     const sub = await this.prisma.subscription.findFirst({
-      where: { tenantId, status: { in: ['active', 'trialing'] } },
+      where: { tenantId, status: { in: ['active', 'trialing', 'payment_pending'] } },
       orderBy: { createdAt: 'desc' },
       include: { plan: true },
     });
@@ -200,6 +281,83 @@ export class BillingService {
       where: { tenantId, recordedAt: { gte: since } },
       orderBy: { recordedAt: 'desc' },
       take: 1000,
+    });
+  }
+
+  // ── Invoices & Transactions (real data for dashboard) ───────────────────────
+
+  /**
+   * Return the tenant's invoices joined with their related payment transactions,
+   * mapped into the dashboard-friendly InvoiceRow shape. Uses an interactive
+   * Prisma transaction so account resolution + invoice fetch stay consistent.
+   */
+  async getInvoices(tenantId: string, take = 50) {
+    return this.prisma.$transaction(async (tx) => {
+      const account = await tx.billingAccount.findUnique({ where: { tenantId } });
+      if (!account) return [];
+
+      const invoices = await tx.invoice.findMany({
+        where: { tenantId, accountId: account.id },
+        orderBy: { createdAt: 'desc' },
+        take,
+        include: {
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      return invoices.map((inv) => {
+        const lastPayment = (inv as any).payments?.[0] ?? null;
+        return {
+          id: inv.id,
+          number: inv.number,
+          date: (inv.createdAt ?? new Date()).toISOString(),
+          description: inv.description ?? '',
+          amount: inv.amount,
+          amountDisplay: this.formatPrice(inv.amount, (inv.currency as Currency) ?? 'VND'),
+          status: inv.status,
+          method: lastPayment?.gateway ?? '—',
+          downloadUrl: null,
+        };
+      });
+    });
+  }
+
+  /**
+   * Return the tenant's payment transactions mapped into the dashboard-friendly
+   * TransactionRow shape. Wrapped in a Prisma transaction for a consistent read.
+   */
+  async getTransactions(tenantId: string, take = 50) {
+    return this.prisma.$transaction(async (tx) => {
+      const account = await tx.billingAccount.findUnique({ where: { tenantId } });
+      if (!account) return [];
+
+      const transactions = await tx.paymentTransaction.findMany({
+        where: { tenantId, accountId: account.id },
+        orderBy: { createdAt: 'desc' },
+        take,
+        include: {
+          invoice: { select: { number: true, description: true } },
+        },
+      });
+
+      return transactions.map((t) => {
+        const meta = (t.metadata as any) ?? {};
+        const isRefund = t.status === 'refunded' || meta?.type === 'refund';
+        const desc =
+          (t as any).invoice?.description ??
+          (meta?.type ? String(meta.type).replace(/_/g, ' ') : `Payment via ${t.gateway}`);
+        return {
+          id: t.id,
+          date: (t.createdAt ?? new Date()).toISOString(),
+          kind: isRefund ? 'refund' : 'charge',
+          description: desc,
+          amountDisplay: this.formatPrice(t.amount, (t.currency as Currency) ?? 'VND'),
+          status: t.status,
+        };
+      });
     });
   }
 }

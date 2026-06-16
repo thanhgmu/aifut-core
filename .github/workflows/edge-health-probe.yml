@@ -1,0 +1,212 @@
+# ============================================================
+# AIFUT Edge Health Probe — Automated Node Status Scanner
+# ============================================================
+# This workflow runs every 5 minutes to probe all edge network
+# nodes, track regional health state, and alert on degradation.
+#
+# Runs on GitHub Actions because the Cloudflare Worker's cron
+# trigger covers per-colo internal health. This external probe
+# validates end-to-end reachability from outside the CF edge.
+#
+# Triggers:
+#   - Scheduled: every 5 minutes
+#   - Manual: workflow_dispatch for ad-hoc health checks
+#   - Push to infra/edge/: re-probes after edge code changes
+# ============================================================
+
+name: Edge Health Probe
+
+on:
+  schedule:
+    # Every 5 minutes — cron expression: */5 * * * *
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'Specific region to probe (empty = all regions)'
+        required: false
+        type: string
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'infra/edge/**'
+      - '.github/workflows/edge-health-probe.yml'
+
+# ── Concurrency: only one probe run at a time ──────────────────
+concurrency:
+  group: edge-health-probe
+  cancel-in-progress: false
+
+# ── Permissions ────────────────────────────────────────────────
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    name: '🌐 Edge Health Probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # ── Environment ──────────────────────────────────────────
+    environment: production
+    env:
+      REGIONS: 'vn sg jp us th'
+      PROBE_INTERVAL_SECONDS: 300
+      TIMEOUT_SECONDS: 10
+      DEGRADATION_THRESHOLD: 2  # consecutive failures before alert
+
+    steps:
+      # ── 1. Checkout (for config reference only) ────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Determine target regions ────────────────────────
+      - name: Resolve probe targets
+        id: targets
+        run: |
+          if [ -n "${{ github.event.inputs.region }}" ]; then
+            echo "targets=${{ github.event.inputs.region }}"
+          else
+            echo "targets=$REGIONS"
+          fi >> "$GITHUB_OUTPUT"
+
+      # ── 3. Probe each region ───────────────────────────────
+      - name: 'Probe edge nodes'
+        id: probe
+        run: |
+          RESULTS='[]'
+          FAILED=0
+          TOTAL=0
+
+          for REGION in ${{ steps.targets.outputs.targets }}; do
+            TOTAL=$((TOTAL + 1))
+            echo "🟢 Probing region: $REGION"
+
+            ENDPOINTS=(
+              "https://api.aifut.app/__health"
+              "https://api-sg.aifut.app/__health"
+              "https://api-jp.aifut.app/__health"
+              "https://api-us.aifut.app/__health"
+              "https://api-th.aifut.app/__health"
+            )
+
+            REGION_RESULT="{\"region\":\"$REGION\",\"endpoints\":[]}"
+
+            for URL in "${ENDPOINTS[@]}"; do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                --max-time $TIMEOUT_SECONDS \
+                -H "X-Edge-Probe: github-actions" \
+                "$URL" 2>/dev/null || echo "000")
+
+              DURATION=$(curl -s -o /dev/null -w "%{time_total}" \
+                --max-time $TIMEOUT_SECONDS \
+                -H "X-Edge-Probe: github-actions" \
+                "$URL" 2>/dev/null || echo "0")
+
+              if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" -ge 500 ]; then
+                FAILED=$((FAILED + 1))
+                STATUS="DOWN"
+              else
+                STATUS="UP"
+              fi
+
+              REGION_RESULT=$(echo "$REGION_RESULT" | jq \
+                --arg url "$URL" \
+                --arg code "$HTTP_CODE" \
+                --arg status "$STATUS" \
+                --arg duration "$DURATION" \
+                '.endpoints += [{"url": $url, "status": $status, "httpCode": $code, "duration": $duration}]')
+            done
+
+            RESULTS=$(echo "$RESULTS" | jq \
+              --argjson region "$REGION_RESULT" \
+              '. += [$region]')
+
+            echo "  → $STATUS ($HTTP_CODE)"
+          done
+
+          echo "results=$RESULTS" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+      # ── 4. Edge health summary ─────────────────────────────
+      - name: 'Generate health summary'
+        id: summary
+        run: |
+          RESULTS='${{ steps.probe.outputs.results }}'
+          FAILED=${{ steps.probe.outputs.failed }}
+          TOTAL=${{ steps.probe.outputs.total }}
+
+          echo "## 🌐 Edge Health Probe Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | Endpoints | Status | Avg Response |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------|--------|--------------|" >> $GITHUB_STEP_SUMMARY
+
+          for REGION in $(echo "$RESULTS" | jq -r '.[].region'); do
+            ENDPOINTS=$(echo "$RESULTS" | jq -r ".[] | select(.region==\"$REGION\") | .endpoints | length")
+            STATUS=$(echo "$RESULTS" | jq -r ".[] | select(.region==\"$REGION\") | .endpoints | if any(.status==\"DOWN\") then \"🔴\" else \"🟢\" end")
+            AVG=$(echo "$RESULTS" | jq -r ".[] | select(.region==\"$REGION\") | .endpoints | map(.duration | tonumber) | add / length | . * 1000 | floor")
+
+            echo "| $REGION | $ENDPOINTS | $STATUS | ${AVG}ms |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total:** $TOTAL endpoints | **Failed:** $FAILED" >> $GITHUB_STEP_SUMMARY
+
+      # ── 5. Degradation alert ──────────────────────────────
+      - name: 'Alert on degradation'
+        if: steps.probe.outputs.failed > 0
+        run: |
+          FAILED=${{ steps.probe.outputs.failed }}
+          TOTAL=${{ steps.probe.outputs.total }}
+          RESULTS='${{ steps.probe.outputs.results }}'
+
+          # Build alert message
+          echo "⚠️ Edge Network Degradation Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "$FAILED/$TOTAL endpoints unreachable" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          DOWN_REGIONS=$(echo "$RESULTS" | jq -r '.[] | select(.endpoints | any(.status=="DOWN")) | .region' | tr '\n' ' ')
+          echo "Affected regions: $DOWN_REGIONS" >> $GITHUB_STEP_SUMMARY
+
+          # Create GitHub issue alert (if configured)
+          if [ "${{ vars.ALERT_ON_DEGRADATION }}" = "true" ]; then
+            curl -s -X POST \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues" \
+              -d '{
+                "title": "⚠️ Edge Network Degradation — '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+                "body": "## Edge Network Degradation Alert\n\n**'$FAILED/$TOTAL' endpoints unreachable**\n\n**Affected regions:** '"$DOWN_REGIONS"'\n\n**Probe timestamp:** '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'\n\n**Action:** Check Cloudflare dashboard and origin server status.",
+                "labels": ["edge", "degradation", "automated"]
+              }'
+          fi
+
+      # ── 6. Notify on complete failure ─────────────────────
+      - name: 'Critical failure notification'
+        if: steps.probe.outputs.failed == steps.probe.outputs.total
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "channel": "#ops-edge",
+              "text": "🚨 *CRITICAL* — All edge endpoints unreachable! Immediate investigation required.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚨 *AIFUT Edge Network — CRITICAL FAILURE*\n*All ${{ steps.probe.outputs.total }} edge endpoints unreachable*\n*Timestamp:* $(date -u +%Y-%m-%dT%H:%M:%SZ)\n*Run:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_OPS_WEBHOOK }}
+        continue-on-error: true

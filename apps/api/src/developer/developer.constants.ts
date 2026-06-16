@@ -131,7 +131,7 @@ export const DEV_PORTAL_ROADMAP = [
   { phase: '2', item: 'Node.js SDK (@aifut/connector-sdk)', status: 'available' },
   { phase: '2', item: 'Python SDK (aifut-connector-sdk)', status: 'available' },
   { phase: '2', item: 'Connector certification program', status: 'available' },
-  { phase: '3', item: 'Developer sandbox environment', status: 'planned' },
+  { phase: '2', item: 'Developer sandbox environment', status: 'available' },
   { phase: '3', item: 'API analytics dashboard', status: 'planned' },
   { phase: '3', item: 'Community connector marketplace', status: 'planned' },
 ];

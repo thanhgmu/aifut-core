@@ -1,0 +1,57 @@
+# ── AIFUT .dockerignore — strip build context fat ──
+# Goal: keep Docker build context minimal & images lean.
+
+# Dependencies (re-installed inside the image)
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# Build outputs (rebuilt inside the image)
+**/dist
+**/build
+**/.next
+**/out
+**/.turbo
+**/coverage
+**/.nyc_output
+
+# Local env & secrets (NEVER ship into images)
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# Logs & runtime junk
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+**/.cache
+
+# Version control & CI
+.git
+.gitignore
+.github
+**/.gitkeep
+
+# Editor / OS noise
+.vscode
+.idea
+**/.DS_Store
+**/Thumbs.db
+*.swp
+
+# Docs & local-only material
+**/*.md
+!**/README.md
+docs
+memory
+infra/regions/**/.env.region
+
+# Tests & tooling configs not needed at runtime
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+**/jest.config.*
+**/.eslintcache

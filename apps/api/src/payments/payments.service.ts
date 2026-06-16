@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { VnpayGateway } from './vnpay.gateway';
 import { MomoGateway } from './momo.gateway';
+import { SubscriptionActivatorService } from './subscription-activator.service';
 import { PaymentRequest, PaymentResponse, IpnPayload, IpnResult, PaymentCapabilities } from './payments.types';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly vnpay: VnpayGateway,
     private readonly momo: MomoGateway,
+    private readonly activator: SubscriptionActivatorService,
   ) {}
 
   /**
@@ -54,25 +56,26 @@ export class PaymentsService {
       },
     };
 
+    const gateway = input.gateway || 'vnpay';
     let result: PaymentResponse;
 
     // Route to appropriate gateway
-    if (input.gateway === 'momo') {
+    if (gateway === 'momo') {
       result = await this.momo.createPayment(paymentReq);
-    } else if (input.gateway === 'vnpay' || !input.gateway) {
+    } else if (gateway === 'vnpay') {
       result = await this.vnpay.createPayment(paymentReq);
     } else {
       throw new BadRequestException(`Unsupported payment gateway: ${input.gateway}`);
     }
 
-    // Save transaction record
+    // Save transaction record (orderId persisted so async confirmations can resolve it)
     if (result.success) {
       await this.prisma.paymentTransaction.create({
         data: {
           invoiceId: input.invoiceId,
           accountId: input.accountId,
           tenantId: input.tenantId,
-          gateway: 'vnpay',
+          gateway,
           gatewayTxId: result.transactionId,
           amount: input.amount,
           currency: input.currency,
@@ -88,41 +91,32 @@ export class PaymentsService {
 
   /**
    * Handle VNPay IPN callback.
+   * Quota activation is delegated to SubscriptionActivatorService so the
+   * subscription expiry follows the plan interval instead of a fixed window.
    */
   async handleVnpayIpn(rawPayload: Record<string, any>): Promise<IpnResult> {
     const payload: IpnPayload = { raw: rawPayload, gateway: 'vnpay' };
     const result = await this.vnpay.handleIpn(payload);
 
     if (result.success) {
+      const orderId = rawPayload['vnp_TxnRef'] as string;
+
       // Update transaction status
       await this.prisma.paymentTransaction.updateMany({
-        where: { gatewayTxId: rawPayload['vnp_TxnRef'] as string, gateway: 'vnpay' },
+        where: { gatewayTxId: orderId, gateway: 'vnpay' },
         data: {
           status: 'success',
-          gatewayTxId: result.gatewayTxId,
           paidAt: new Date(),
           metadata: { ipnResponse: rawPayload },
         },
       });
 
-      // Update invoice status
+      // Mark invoice paid + activate the workspace subscription (plan-aware expiry)
       const tx = await this.prisma.paymentTransaction.findFirst({
-        where: { gatewayTxId: rawPayload['vnp_TxnRef'] as string, gateway: 'vnpay' },
-        include: { invoice: true },
+        where: { gatewayTxId: orderId, gateway: 'vnpay' },
       });
       if (tx?.invoiceId) {
-        await this.prisma.invoice.update({
-          where: { id: tx.invoiceId },
-          data: { status: 'paid', paidAt: new Date() },
-        });
-
-        // Update subscription if this was a subscription invoice
-        if (tx.invoice?.subscriptionId) {
-          await this.prisma.subscription.update({
-            where: { id: tx.invoice.subscriptionId },
-            data: { status: 'active', expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
-          });
-        }
+        await this.activator.activateFromInvoice(tx.invoiceId, new Date());
       }
     }
 
@@ -131,21 +125,30 @@ export class PaymentsService {
 
   /**
    * Handle MoMo IPN callback.
+   * Quota activation is delegated to SubscriptionActivatorService.
    */
   async handleMomoIpn(rawPayload: Record<string, any>): Promise<IpnResult> {
     const payload: IpnPayload = { raw: rawPayload, gateway: 'momo' };
     const result = await this.momo.handleIpn(payload);
 
     if (result.success) {
+      const orderId = rawPayload['orderId'] as string;
+
       await this.prisma.paymentTransaction.updateMany({
-        where: { gatewayTxId: rawPayload['orderId'] as string, gateway: 'momo' },
+        where: { gatewayTxId: orderId, gateway: 'momo' },
         data: {
           status: 'success',
-          gatewayTxId: result.gatewayTxId,
           paidAt: new Date(),
           metadata: { ipnResponse: rawPayload },
         },
       });
+
+      const tx = await this.prisma.paymentTransaction.findFirst({
+        where: { gatewayTxId: orderId, gateway: 'momo' },
+      });
+      if (tx?.invoiceId) {
+        await this.activator.activateFromInvoice(tx.invoiceId, new Date());
+      }
     }
 
     return result;

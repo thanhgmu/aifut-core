@@ -152,28 +152,66 @@ export default function PricingPage() {
           return;
         }
 
-        const res = await fetch(`${API_BASE}/billing/subscribe`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-tenant-slug": tenantSlug,
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ planKey, trialDays: planKey === "starter" ? 14 : planKey === "pro" ? 7 : 0 }),
-        });
+        const plan = plans.find((p) => p.key === planKey);
+        const trialDays = planKey === "starter" ? 14 : planKey === "pro" ? 7 : 0;
 
-        const data = await res.json();
-
-        if (res.ok) {
-          setSubscribeResult({
-            success: true,
-            message: `Subscribed to ${plans.find((p) => p.key === planKey)?.name ?? planKey}!`,
+        // Free plan or paid plan with trial → subscribe directly (no payment yet)
+        if (plan?.price === 0 || trialDays > 0) {
+          const res = await fetch(`${API_BASE}/billing/subscribe`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-tenant-slug": tenantSlug,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ planKey, trialDays }),
           });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            setSubscribeResult({
+              success: true,
+              message: `Subscribed to ${plan?.name ?? planKey}!`,
+            });
+          } else {
+            setSubscribeResult({
+              success: false,
+              message: data?.message ?? `Subscription failed (${res.status})`,
+            });
+          }
         } else {
-          setSubscribeResult({
-            success: false,
-            message: data?.message ?? `Subscription failed (${res.status})`,
+          // Paid plan without trial → subscribe-and-pay → redirect to payment
+          const res = await fetch(`${API_BASE}/billing/subscribe-and-pay`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-tenant-slug": tenantSlug,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              planKey,
+              returnUrl: window.location.origin + "/payment",
+            }),
           });
+
+          const data = await res.json();
+
+          if (res.ok && data.requiresPayment) {
+            setSubscribeResult({
+              success: true,
+              message: `Invoice ${data.invoiceNumber ?? ""} created — ${data.amount?.toLocaleString("vi-VN") ?? ""}₫. Redirecting to payment...`,
+            });
+            // Redirect to payment page after a short delay
+            setTimeout(() => {
+              window.location.href = `/payment?payInvoice=${data.invoiceId}`;
+            }, 1500);
+          } else {
+            setSubscribeResult({
+              success: false,
+              message: data?.message ?? `Subscription failed (${res.status})`,
+            });
+          }
         }
       } catch (err) {
         setSubscribeResult({
@@ -524,6 +562,17 @@ export default function PricingPage() {
                   }}
                 >
                   Go to Dashboard →
+                </Link>
+                <Link
+                  href="/payment"
+                  style={{
+                    color: "#80e0a0",
+                    fontWeight: 700,
+                    textDecoration: "underline",
+                    marginLeft: 16,
+                  }}
+                >
+                  Payment History →
                 </Link>
               </div>
             )}

@@ -1,6 +1,14 @@
+"use client";
+
 import Link from "next/link";
 
-export default function ErrorPage() {
+export default function ErrorPage({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   return (
     <main style={{
       minHeight: "100vh",
@@ -20,17 +28,17 @@ export default function ErrorPage() {
           Please try again or return to the home page.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-          <Link href="/" style={{
+          <button onClick={() => reset()} style={{
             padding: "12px 28px", borderRadius: 10, background: "#6d7cff", color: "white",
-            textDecoration: "none", fontWeight: 700, fontSize: 14,
+            textDecoration: "none", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
           }}>
-            ← Back to Home
-          </Link>
-          <Link href="/dashboard" style={{
+            ↻ Try Again
+          </button>
+          <Link href="/" style={{
             padding: "12px 28px", borderRadius: 10, background: "rgba(255,255,255,0.06)", color: "#f5f7ff",
             textDecoration: "none", fontWeight: 600, fontSize: 14,
           }}>
-            Dashboard
+            ← Back to Home
           </Link>
         </div>
       </div>

@@ -1,0 +1,78 @@
+# ============================================================
+# AIFUT Terraform — Example Variable File
+# ============================================================
+# Copy this file to terraform.tfvars and fill in your values.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# WARNING: terraform.tfvars contains secrets. Add it to .gitignore.
+# ============================================================
+
+# ── Required: Cloudflare ─────────────────────────────────
+cloudflare_api_token = "YOUR_CLOUDFLARE_API_TOKEN_HERE"
+cloudflare_zone_id   = "YOUR_CLOUDFLARE_ZONE_ID_HERE"
+
+# ── Environment ──────────────────────────────────────────
+environment = "production"
+
+# ── Region Configurations ────────────────────────────────
+# Below defaults are safe for production. Tweak instance types
+# and scaling limits based on actual load patterns.
+# region_configs = {
+#   vn = {
+#     enabled = true
+#     instance_type = "t3.medium"
+#     min_size = 1
+#     max_size = 3
+#     desired_size = 1
+#   }
+#   sg = {
+#     enabled = true
+#     instance_type = "t3.small"
+#     min_size = 1
+#     max_size = 2
+#     desired_size = 1
+#   }
+#   jp = {
+#     enabled = true
+#     instance_type = "t3.small"
+#     min_size = 1
+#     max_size = 2
+#     desired_size = 1
+#   }
+#   us = {
+#     enabled = true
+#     instance_type = "t3.medium"
+#     min_size = 1
+#     max_size = 3
+#     desired_size = 1
+#   }
+#   th = {
+#     enabled = true
+#     instance_type = "t3.small"
+#     min_size = 1
+#     max_size = 2
+#     desired_size = 1
+#   }
+# }
+
+# ── Monitoring ────────────────────────────────────────────
+cloudwatch_retention_days = 30
+enable_monitoring         = true
+
+# ── Post-deploy Steps ────────────────────────────────────
+# After terraform apply:
+#   1. Set wrangler secrets:
+#      wrangler secret put CLOUDFLARE_API_TOKEN
+#      wrangler secret put EDGE_AUTH_TOKEN
+#      wrangler secret put INTERNAL_API_KEY
+#   2. Load region configs into KV:
+#      npx wrangler kv key put regions '{"vn":{...}}' --namespace-id=REGION_KV_ID
+#   3. Deploy edge worker:
+#      cd infra/edge && npm run deploy:production
+#   4. Configure deploy-region.sh for each region:
+#      bash infra/deploy-region.sh vn
+#      bash infra/deploy-region.sh sg
+#      bash infra/deploy-region.sh jp
+#      bash infra/deploy-region.sh us
+#      bash infra/deploy-region.sh th

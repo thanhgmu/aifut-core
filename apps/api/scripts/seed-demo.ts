@@ -1,3 +1,4 @@
+import { WorkflowStatus } from '@prisma/client';
 import 'dotenv/config';
 import { MembershipRole, PrismaClient, BillingInterval } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -90,13 +91,14 @@ async function main() {
   });
   console.log(`✅ Billing Account: ${billingAccount.id}`);
 
+  let subscriptionId: string | null = null;
   const proPlan = await prisma.subscriptionPlan.findUnique({ where: { key: 'pro' } });
   if (proPlan) {
     const existingSub = await prisma.subscription.findFirst({
       where: { accountId: billingAccount.id, planKey: 'pro' },
     });
     if (!existingSub) {
-      await prisma.subscription.create({
+      const sub = await prisma.subscription.create({
         data: {
           accountId: billingAccount.id,
           planKey: 'pro',
@@ -106,13 +108,60 @@ async function main() {
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
+      subscriptionId = sub.id;
       console.log('✅ Subscription: Pro plan activated');
     } else {
+      subscriptionId = existingSub.id;
       console.log('✅ Subscription: Pro plan (already exists)');
     }
   }
 
-  // ── 7. Sample Workflow Templates ──────────────────────────────────────
+  // ── 7. Invoice + Payment Transaction (for Payment Page demo) ──────────
+  if (billingAccount && subscriptionId) {
+    const existingInvoice = await prisma.invoice.findFirst({
+      where: { accountId: billingAccount.id, number: 'INV-2026-00001' },
+    });
+    if (!existingInvoice) {
+      const invoice = await prisma.invoice.create({
+        data: {
+          accountId: billingAccount.id,
+          tenantId: tenant.id,
+          subscriptionId,
+          number: 'INV-2026-00001',
+          description: 'Professional Plan - Monthly Subscription',
+          amount: 499000,
+          currency: 'VND',
+          status: 'paid',
+          dueDate: new Date(),
+          paidAt: new Date(),
+        },
+      });
+      console.log(`✅ Invoice: ${invoice.number} (${invoice.amount}₫, paid)`);
+
+      // Create a successful payment transaction linked to this invoice
+      await prisma.paymentTransaction.create({
+        data: {
+          invoiceId: invoice.id,
+          accountId: billingAccount.id,
+          tenantId: tenant.id,
+          gateway: 'vnpay',
+          gatewayTxId: `VNP${Date.now()}`,
+          amount: 499000,
+          currency: 'VND',
+          status: 'success',
+          paidAt: new Date(),
+          paymentUrl: '',
+          paymentMethod: 'qr',
+          metadata: { orderId: `AIFUT-DEMO-${Date.now()}`, type: 'subscription_renewal' },
+        },
+      });
+      console.log('✅ PaymentTransaction: VNPay success (demo)');
+    } else {
+      console.log('✅ Invoice + PaymentTransaction: already exist');
+    }
+  }
+
+  // ── 8. Sample Workflow Templates ──────────────────────────────────────
   const demoWorkflows = [
     {
       key: 'booking-reminder',
@@ -205,7 +254,7 @@ async function main() {
   }
   console.log(`✅ Workflow Templates: ${demoWorkflows.length}`);
 
-  // ── 8. Notification Templates ─────────────────────────────────────────
+  // ── 9. Notification Templates ─────────────────────────────────────────
   const notifTemplates = [
     { key: 'booking-reminder', name: 'Booking Reminder', channel: 'ZALO', subjectTemplate: 'Nhắc lịch hẹn', bodyTemplate: 'Xin chào {{customer_name}}, bạn có lịch hẹn vào {{time}} ngày {{date}}. Vui lòng xác nhận: {{confirm_link}}', format: 'text' },
     { key: 'booking-confirm', name: 'Booking Confirmation', channel: 'EMAIL', subjectTemplate: 'Xác nhận đặt lịch - {{business_name}}', bodyTemplate: '<h2>Xác nhận lịch hẹn</h2><p>Xin chào {{customer_name}},</p><p>Lịch hẹn của bạn đã được xác nhận:</p><ul><li>Thời gian: {{time}} - {{date}}</li><li>Địa điểm: {{address}}</li></ul>', format: 'html' },
@@ -223,7 +272,7 @@ async function main() {
   }
   console.log(`✅ Notification Templates: ${notifTemplates.length}`);
 
-  // ── 9. Sample Entitlements ─────────────────────────────────────────────
+  // ── 10. Sample Entitlements ────────────────────────────────────────────
   const entitlements = [
     { key: 'max_workflows', value: '50', kind: 'LIMIT' },
     { key: 'max_storage_gb', value: '50', kind: 'LIMIT' },
@@ -245,14 +294,16 @@ async function main() {
   // ── Summary ───────────────────────────────────────────────────────────
   console.log('\n═══════════════════════════════════════════');
   console.log('  ✅ DEMO SEED COMPLETE');
-  console.log('  ├── Login:   admin@demo.local / Demo@123');
-  console.log('  ├── API:     http://localhost:3002');
-  console.log('  ├── Web:     http://localhost:3000');
-  console.log('  ├── Tenant:  demo');
-  console.log('  ├── Plan:    Professional (seeded)');
-  console.log('  ├── Workflows: 5 sample templates');
+  console.log('  ├── Login:      admin@demo.local / Demo@123');
+  console.log('  ├── API:        http://localhost:3002');
+  console.log('  ├── Web:        http://localhost:3000');
+  console.log('  ├── Tenant:     demo');
+  console.log('  ├── Plan:       Professional (seeded)');
+  console.log('  ├── Workflows:  5 sample templates');
   console.log('  ├── Notifications: 5 templates');
-  console.log('  └── Entitlements: 6 rules');
+  console.log('  ├── Entitlements: 6 rules');
+  console.log('  ├── Invoice:    INV-2026-00001 (paid, 499,000₫)');
+  console.log('  └── Payment:    VNPay demo transaction (success)');
   console.log('═══════════════════════════════════════════\n');
 }
 

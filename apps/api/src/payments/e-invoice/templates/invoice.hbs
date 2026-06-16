@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  /* ============================================
+     HÓA ĐƠN ĐIỆN TỬ — E-INVOICE CSS
+     Font: hỗ trợ tiếng Việt đầy đủ dấu
+     ============================================ */
+  @page { margin: 15mm 10mm; size: A4 portrait; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Arial', 'Helvetica Neue', sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+    padding: 20px;
+    max-width: 210mm;
+  }
+
+  /* --- HEADER --- */
+  .invoice-header {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #003366;
+    padding-bottom: 12px;
+  }
+  .invoice-header .company-name {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #003366;
+    text-transform: uppercase;
+  }
+  .invoice-header .company-name-vi {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #003366;
+  }
+  .invoice-header .title {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #cc0000;
+    margin-top: 8px;
+  }
+  .invoice-header .sub-title {
+    font-size: 10pt;
+    color: #555;
+  }
+  .invoice-header .symbol {
+    font-size: 10pt;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  /* --- INFO ROWS --- */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 10pt;
+  }
+  .info-table td {
+    padding: 3px 6px;
+    vertical-align: top;
+  }
+  .info-table .label {
+    font-weight: 600;
+    width: 140px;
+    color: #333;
+  }
+  .info-table .label-vi {
+    font-style: italic;
+    color: #666;
+    font-size: 9pt;
+  }
+
+  /* --- SEPARATOR --- */
+  .section-title {
+    font-weight: bold;
+    font-size: 11pt;
+    background: #f0f4f8;
+    padding: 6px 10px;
+    margin: 16px 0 8px 0;
+    border-left: 4px solid #003366;
+  }
+
+  /* --- LINE ITEMS --- */
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-bottom: 16px;
+  }
+  table.items th {
+    background: #003366;
+    color: #fff;
+    padding: 6px 4px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid #002244;
+  }
+  table.items td {
+    padding: 5px 4px;
+    border: 1px solid #ccc;
+    text-align: right;
+    vertical-align: top;
+  }
+  table.items td.left { text-align: left; }
+  table.items td.center { text-align: center; }
+
+  /* --- TOTALS --- */
+  .totals {
+    margin-left: auto;
+    width: 60%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .totals td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+  }
+  .totals .label-col { text-align: right; padding-right: 12px; }
+  .totals .value-col { text-align: right; font-weight: 600; width: 160px; }
+  .totals .grand-total {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #cc0000;
+    border-top: 2px solid #003366;
+  }
+
+  /* --- WORDS --- */
+  .amount-in-words {
+    font-size: 10pt;
+    font-style: italic;
+    color: #333;
+    margin: 10px 0;
+    padding: 8px 10px;
+    background: #fafafa;
+    border-left: 3px solid #cc0000;
+  }
+
+  /* --- QR CODE --- */
+  .qr-section {
+    text-align: center;
+    margin: 16px 0 10px 0;
+  }
+  .qr-section .qr-placeholder {
+    display: inline-block;
+    width: 120px;
+    height: 120px;
+    border: 2px solid #003366;
+    background: #fff;
+    padding: 4px;
+  }
+  .qr-section .qr-placeholder img {
+    width: 100%;
+    height: 100%;
+  }
+  .qr-section .qr-label {
+    font-size: 8pt;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  /* --- HMAC / TRA CỨU --- */
+  .tra-cuu-section {
+    font-size: 8pt;
+    color: #555;
+    border-top: 1px dashed #aaa;
+    padding-top: 6px;
+    margin-top: 10px;
+    word-break: break-all;
+  }
+  .tra-cuu-section strong {
+    color: #333;
+  }
+
+  /* --- FOOTER --- */
+  .invoice-footer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 9pt;
+  }
+  .invoice-footer .signature-block {
+    width: 30%;
+    text-align: center;
+  }
+  .invoice-footer .signature-block .sig-label {
+    font-weight: 600;
+    margin-bottom: 50px;
+  }
+  .invoice-footer .signature-block .sig-line {
+    border-top: 1px solid #333;
+    padding-top: 4px;
+    font-size: 9pt;
+  }
+
+  .note {
+    margin-top: 12px;
+    font-size: 8.5pt;
+    color: #888;
+    font-style: italic;
+  }
+
+  /* --- WATERMARK (optional) --- */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 48pt;
+    color: rgba(200, 200, 200, 0.12);
+    font-weight: bold;
+    pointer-events: none;
+    z-index: -1;
+  }
+</style>
+</head>
+<body>
+
+<!-- WATERMARK (không bắt buộc, chèn khi cần) -->
+{{#if watermark}}<div class="watermark">{{watermark}}</div>{{/if}}
+
+<!-- ==================== ĐẦU HÓA ĐƠN ==================== -->
+<div class="invoice-header">
+  <div class="company-name">{{seller.name}}</div>
+  <div class="sub-title">{{seller.address}}</div>
+  <div class="sub-title">
+    MST / Tax Code: {{seller.taxCode}} &nbsp;|&nbsp; ĐT / Tel: {{seller.phone}}
+  </div>
+  <div class="title">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
+  <div class="sub-title">(VAT Invoice / Tax Invoice)</div>
+  <div class="symbol">
+    Ký hiệu / Serial: {{serialSymbol}} &nbsp;|&nbsp;
+    Số / No: <strong>{{invoiceNumber}}</strong>
+  </div>
+  <div class="sub-title">
+    Ngày / Date: {{issueDate}} &nbsp;|&nbsp; Mẫu số / Form: {{formCode}}
+  </div>
+</div>
+
+<!-- ==================== NGƯỜI BÁN / SELLER INFO ==================== -->
+<div class="info-table">
+  <tr>
+    <td class="label">Người bán / Seller:</td>
+    <td>{{seller.name}}</td>
+  </tr>
+  <tr>
+    <td class="label">Mã số thuế / Tax Code:</td>
+    <td>{{seller.taxCode}}</td>
+  </tr>
+  <tr>
+    <td class="label">Địa chỉ / Address:</td>
+    <td>{{seller.address}}</td>
+  </tr>
+  <tr>
+    <td class="label">Điện thoại / Phone:</td>
+    <td>{{seller.phone}}</td>
+  </tr>
+  <tr>
+    <td class="label">Email:</td>
+    <td>{{seller.email}}</td>
+  </tr>
+  {{#if seller.bankName}}
+  <tr>
+    <td class="label">Số TK / Bank Acc:</td>
+    <td>{{seller.bankAccount}} — {{seller.bankName}} ({{seller.bankBranch}})</td>
+  </tr>
+  {{/if}}
+</div>
+
+<!-- ==================== NGƯỜI MUA / BUYER INFO ==================== -->
+<div class="section-title">Thông tin người mua / Buyer Information</div>
+<div class="info-table">
+  <tr>
+    <td class="label">Tên / Name:</td>
+    <td>{{buyer.name}}</td>
+  </tr>
+  <tr>
+    <td class="label">Mã số thuế / Tax Code:</td>
+    <td>{{buyer.taxCode}}</td>
+  </tr>
+  <tr>
+    <td class="label">Địa chỉ / Address:</td>
+    <td>{{buyer.address}}</td>
+  </tr>
+  <tr>
+    <td class="label">Điện thoại / Phone:</td>
+    <td>{{buyer.phone}}</td>
+  </tr>
+  <tr>
+    <td class="label">Email:</td>
+    <td>{{buyer.email}}</td>
+  </tr>
+  {{#if buyer.buyerCode}}
+  <tr>
+    <td class="label">Mã KH / Customer Code:</td>
+    <td>{{buyer.buyerCode}}</td>
+  </tr>
+  {{/if}}
+</div>
+
+<!-- ==================== HÀNG HÓA / LINE ITEMS ==================== -->
+<div class="section-title">Nội dung hàng hóa, dịch vụ / Goods & Services</div>
+
+<table class="items">
+  <thead>
+    <tr>
+      <th style="width:24px">STT<br/>No.</th>
+      <th style="width:40%">Tên hàng hóa, dịch vụ<br/>Description of goods/services</th>
+      <th style="width:52px">ĐVT<br/>Unit</th>
+      <th style="width:48px">Số lượng<br/>Qty</th>
+      <th style="width:72px">Đơn giá<br/>Unit Price</th>
+      <th style="width:80px">Thành tiền<br/>Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each items}}
+    <tr>
+      <td class="center">{{inc @index}}</td>
+      <td class="left">
+        <strong>{{this.name}}</strong>
+        {{#if this.description}}
+          <br/><span style="font-size:8pt;color:#666;">{{this.description}}</span>
+        {{/if}}
+      </td>
+      <td class="center">{{this.unit}}</td>
+      <td>{{formatNumber this.quantity 2}}</td>
+      <td>{{formatNumber this.unitPrice 2}}</td>
+      <td>{{formatNumber this.amount 2}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+
+<!-- ==================== TỔNG TIỀN / TOTALS ==================== -->
+<table class="totals">
+  <tr>
+    <td class="label-col">Tổng tiền hàng / Subtotal (net):</td>
+    <td class="value-col">{{formatNumber totals.net 2}}</td>
+  </tr>
+  {{#each totals.vatBreakdown}}
+  <tr>
+    <td class="label-col">
+      Thuế suất / VAT rate: {{this.rate}}%<br/>
+      <span style="font-size:8pt;color:#666;">
+        Tiền thuế / VAT amount:
+      </span>
+    </td>
+    <td class="value-col">{{formatNumber this.vatAmount 2}}</td>
+  </tr>
+  {{/each}}
+  <tr>
+    <td class="label-col">Tổng tiền thuế / Total VAT:</td>
+    <td class="value-col">{{formatNumber totals.totalVat 2}}</td>
+  </tr>
+  <tr>
+    <td class="label-col">
+      Tổng cộng tiền thanh toán / Grand Total (gross):
+    </td>
+    <td class="value-col grand-total">{{formatNumber totals.gross 2}}</td>
+  </tr>
+</table>
+
+<!-- ==================== TIỀN BẰNG CHỮ ==================== -->
+<div class="amount-in-words">
+  Bằng chữ / Amount in words:<br/>
+  <strong>{{totals.amountInWords}}</strong>
+</div>
+
+<!-- ==================== QR TRA CỨU ==================== -->
+<div class="qr-section">
+  <div class="qr-placeholder">
+    {{#if qrDataUrl}}
+    <img src="{{qrDataUrl}}" alt="QR code" />
+    {{else}}
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:8pt;color:#999;">
+      [QR]
+    </div>
+    {{/if}}
+  </div>
+  <div class="qr-label">
+    Quét mã để tra cứu hóa đơn / Scan to verify invoice
+  </div>
+</div>
+
+<!-- ==================== MÃ TRA CỨU HMAC ==================== -->
+<div class="tra-cuu-section">
+  <strong>Mã tra cứu / Verification Code (HMAC-SHA256):</strong><br/>
+  {{hmacCode}}<br/>
+  <strong>Mã giao dịch / Transaction Ref:</strong> {{transactionRef}}<br/>
+  <strong>ID hóa đơn / Invoice ID:</strong> {{invoiceId}}<br/>
+  {{#if fkey}}<strong>FKey:</strong> {{fkey}}<br/>{{/if}}
+  <strong>Ngày tạo / Created:</strong> {{createdAt}}
+</div>
+
+<!-- ==================== CHỮ KÝ / SIGNATURES ==================== -->
+<div class="invoice-footer">
+  <div class="signature-block">
+    <div class="sig-label">Người lập / Prepared by</div>
+    <div class="sig-line">{{footer.preparer}}</div>
+  </div>
+  <div class="signature-block">
+    <div class="sig-label">Người mua / Buyer</div>
+    <div class="sig-line">{{buyer.name}}</div>
+  </div>
+  <div class="signature-block">
+    <div class="sig-label">Người bán / Seller</div>
+    <div class="sig-line">{{seller.name}}</div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Ghi chú / Note:</strong> Hóa đơn này được tạo
+  {{#if isElectronic}}tự động từ hệ thống{{else}}bằng phương thức thủ công{{/if}}.
+  Kiểm tra tính hợp lệ tại / Verify at: {{verificationUrl}}
+</div>
+
+</body>
+</html>

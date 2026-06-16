@@ -40,6 +40,58 @@ export class BillingController {
     return this.billing.subscribe(tenantId, body.planKey, body.trialDays ?? 0);
   }
 
+  /**
+   * Subscribe and pay — creates subscription (pending payment), generates
+   * an invoice, and pre-creates a PaymentTransaction. The frontend should
+   * redirect the user to the payment gateway with the returned invoiceId
+   * or orderId.
+   *
+   * POST /billing/subscribe-and-pay
+   * Headers: x-tenant-slug
+   * Body: { planKey, gateway?: "vnpay" | "momo" }
+   */
+  @Post('subscribe-and-pay')
+  async subscribeAndPay(
+    @Headers('x-tenant-slug') slug: string,
+    @Body() body: { planKey: string; gateway?: string; returnUrl?: string },
+  ) {
+    const tenantId = await this.resolveTenantId(slug);
+    const gateway = body.gateway || 'vnpay';
+    const result = await this.billing.subscribeAndPay(tenantId, body.planKey, gateway);
+
+    // For free/trial plans, no payment needed.
+    if (!result.requiresPayment) {
+      return {
+        requiresPayment: false,
+        subscription: result.sub,
+        message: 'Subscribed successfully (free plan)',
+      };
+    }
+
+    const returnUrl = body.returnUrl || 'http://localhost:3000/payment';
+
+    // Build the payment URL for the gateway
+    let paymentUrl: string;
+    if (gateway === 'momo') {
+      paymentUrl = `${returnUrl}?orderId=${result.orderId}&gateway=momo`;
+    } else {
+      // VNPay — frontend will POST to /payments/create for a real redirect
+      paymentUrl = `/payments/create?invoiceId=${result.invoiceId}&returnUrl=${encodeURIComponent(returnUrl)}`;
+    }
+
+    return {
+      requiresPayment: true,
+      orderId: result.orderId,
+      invoiceId: result.invoiceId,
+      subscriptionId: result.sub.id,
+      invoiceNumber: result.invoice?.number,
+      amount: result.invoice?.amount,
+      currency: result.invoice?.currency,
+      gateway,
+      paymentUrl,
+    };
+  }
+
   @Get('subscription')
   async currentSubscription(@Headers('x-tenant-slug') slug: string) {
     const tenantId = await this.resolveTenantId(slug);
@@ -88,9 +140,37 @@ export class BillingController {
     return {
       capability: 'billing',
       status: 'foundation',
-      supports: { plans: true, subscriptions: true, usageMetering: true, invoicing: false },
+      supports: { plans: true, subscriptions: true, usageMetering: true, invoicing: true },
       next: BILLING_ROADMAP,
     };
+  }
+
+  /**
+   * Real invoice history for the tenant's billing dashboard.
+   * GET /billing/invoices
+   * Headers: x-tenant-slug
+   */
+  @Get('invoices')
+  async getInvoices(
+    @Headers('x-tenant-slug') slug: string,
+    @Query('take') take?: string,
+  ) {
+    const tenantId = await this.resolveTenantId(slug);
+    return this.billing.getInvoices(tenantId, take ? Number(take) : 50);
+  }
+
+  /**
+   * Real payment transaction history for the tenant's billing dashboard.
+   * GET /billing/transactions
+   * Headers: x-tenant-slug
+   */
+  @Get('transactions')
+  async getTransactions(
+    @Headers('x-tenant-slug') slug: string,
+    @Query('take') take?: string,
+  ) {
+    const tenantId = await this.resolveTenantId(slug);
+    return this.billing.getTransactions(tenantId, take ? Number(take) : 50);
   }
 
   @Get('roadmap')

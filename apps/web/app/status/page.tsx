@@ -26,6 +26,7 @@ export default function StatusPage() {
 
       for (let i = 0; i < newChecks.length; i++) {
         const check = newChecks[i];
+if (!check) return;
         const start = performance.now();
         try {
           const res = await fetch(`${API_BASE}${check.endpoint}`);
