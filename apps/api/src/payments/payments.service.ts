@@ -1,16 +1,24 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { VnpayGateway } from './vnpay.gateway';
+import { VnpayService } from './vnpay/vnpay.service';
+import { VnpayConfig } from './vnpay/vnpay.config';
 import { MomoService } from './momo/momo.service';
 import { MomoConfig } from './momo/momo.config';
 import { SubscriptionActivatorService } from './subscription-activator.service';
-import { PaymentRequest, PaymentResponse, IpnPayload, IpnResult, PaymentCapabilities } from './payments.types';
+import {
+  PaymentRequest,
+  PaymentResponse,
+  IpnPayload,
+  IpnResult,
+  PaymentCapabilities,
+} from './payments.types';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly vnpay: VnpayGateway,
+    private readonly vnpayService: VnpayService,
+    private readonly vnpayConfig: VnpayConfig,
     private readonly momoService: MomoService,
     private readonly momoConfig: MomoConfig,
     private readonly activator: SubscriptionActivatorService,
@@ -21,7 +29,13 @@ export class PaymentsService {
    */
   getCapabilities(): PaymentCapabilities[] {
     const gateways: PaymentCapabilities[] = [];
-    if (this.vnpay.isConfigured) gateways.push(this.vnpay.capabilities);
+    if (this.vnpayConfig.isConfigured)
+      gateways.push({
+        gateway: 'vnpay',
+        name: 'VNPay',
+        supportedCurrencies: ['VND'],
+        paymentMethods: ['qr', 'card', 'bank', 'wallet'],
+      });
     if (this.momoConfig.isConfigured) {
       gateways.push({
         gateway: 'momo',
@@ -36,6 +50,10 @@ export class PaymentsService {
   /**
    * Create a payment for an invoice.
    * Returns the payment URL for redirect.
+   *
+   * Note: Gateway-specific endpoints (GET /payments/vnpay/create-url,
+   * POST /payments/momo/create) are the canonical flow. This generic
+   * endpoint is kept as a convenience bridge for the original controller.
    */
   async createPayment(input: {
     invoiceId?: string;
@@ -50,30 +68,14 @@ export class PaymentsService {
     userAgent?: string;
   }): Promise<PaymentResponse> {
     const orderId = `AIFUT-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const paymentReq: PaymentRequest = {
-      amount: input.amount,
-      currency: input.currency,
-      description: input.description.slice(0, 100),
-      orderId,
-      returnUrl: input.returnUrl,
-      ipnUrl: `${input.returnUrl.split('?')[0]}/api/payments/vnpay/ipn`,
-      invoiceId: input.invoiceId,
-      metadata: {
-        ipAddress: input.ipAddress,
-        userAgent: input.userAgent,
-      },
-    };
-
     const gateway = input.gateway || 'vnpay';
     let result: PaymentResponse;
 
-    // Route to appropriate gateway
     if (gateway === 'momo') {
       const momoResult = await this.momoService.createPayment({
-        orderId: paymentReq.orderId,
-        amount: paymentReq.amount,
-        orderInfo: paymentReq.description,
+        orderId,
+        amount: input.amount,
+        orderInfo: input.description.slice(0, 200),
         requestType: 'captureWallet',
       });
       result = {
@@ -84,12 +86,33 @@ export class PaymentsService {
         errorMessage: momoResult.errorMessage,
       };
     } else if (gateway === 'vnpay') {
-      result = await this.vnpay.createPayment(paymentReq);
+      if (!this.vnpayConfig.isConfigured) {
+        return {
+          success: false,
+          gateway: 'vnpay',
+          errorMessage: 'Cổng VNPay chưa được cấu hình.',
+        };
+      }
+
+      const vnpayResult = this.vnpayService.createPaymentUrl({
+        orderId,
+        amount: input.amount,
+        orderInfo: input.description.slice(0, 200),
+        ipAddress: input.ipAddress || '127.0.0.1',
+      });
+
+      result = {
+        success: vnpayResult.success,
+        paymentUrl: vnpayResult.payUrl,
+        transactionId: vnpayResult.orderId,
+        gateway: 'vnpay',
+        errorMessage: vnpayResult.errorMessage,
+      };
     } else {
-      throw new BadRequestException(`Unsupported payment gateway: ${input.gateway}`);
+      throw new BadRequestException(`Unsupported payment gateway: ${gateway}`);
     }
 
-    // Save transaction record (orderId persisted so async confirmations can resolve it)
+    // Save transaction record so async confirmations can resolve it.
     if (result.success) {
       await this.prisma.paymentTransaction.create({
         data: {
@@ -111,43 +134,60 @@ export class PaymentsService {
   }
 
   /**
-   * Handle VNPay IPN callback.
-   * Quota activation is delegated to SubscriptionActivatorService so the
-   * subscription expiry follows the plan interval instead of a fixed window.
+   * Handle VNPay IPN callback (legacy path — the dedicated
+   * GET /payments/vnpay/ipn endpoint with full idempotency guard
+   * is the canonical VNPay IPN handler).
    */
   async handleVnpayIpn(rawPayload: Record<string, any>): Promise<IpnResult> {
-    const payload: IpnPayload = { raw: rawPayload, gateway: 'vnpay' };
-    const result = await this.vnpay.handleIpn(payload);
+    const verification = this.vnpayService.verifyCallback(
+      rawPayload as import('./vnpay/vnpay.types').VnpayCallbackParams,
+    );
 
-    if (result.success) {
-      const orderId = rawPayload['vnp_TxnRef'] as string;
+    if (!verification.signatureValid) {
+      return {
+        success: false,
+        status: 'failed',
+        errorMessage: verification.reason ?? verification.message,
+      };
+    }
 
-      // Update transaction status
+    const orderId = verification.orderId || (rawPayload['vnp_TxnRef'] as string);
+    const transactionNo = verification.transactionNo;
+    const isSuccess = verification.valid;
+    const amount = verification.amount ?? 0;
+
+    if (isSuccess) {
       await this.prisma.paymentTransaction.updateMany({
-        where: { gatewayTxId: orderId, gateway: 'vnpay' },
+        where: { gateway: 'vnpay', gatewayTxId: orderId },
         data: {
           status: 'success',
           paidAt: new Date(),
+          gatewayTxId: transactionNo ?? orderId,
           metadata: { ipnResponse: rawPayload },
         },
       });
 
-      // Mark invoice paid + activate the workspace subscription (plan-aware expiry)
       const tx = await this.prisma.paymentTransaction.findFirst({
-        where: { gatewayTxId: orderId, gateway: 'vnpay' },
+        where: { gateway: 'vnpay', gatewayTxId: orderId },
       });
       if (tx?.invoiceId) {
         await this.activator.activateFromInvoice(tx.invoiceId, new Date());
       }
     }
 
-    return result;
+    return {
+      success: isSuccess,
+      status: isSuccess ? 'success' : 'failed',
+      gatewayTxId: transactionNo ?? orderId,
+      amount,
+      errorMessage: isSuccess ? undefined : verification.message,
+    };
   }
 
   /**
    * Handle MoMo IPN callback.
-   * Quota activation is delegated to SubscriptionActivatorService.
-   * Uses MomoService.verifyIpn() for signature verification.
+   * Delegates signature verification to MomoService.verifyIpn(),
+   * quota activation to SubscriptionActivatorService.
    */
   async handleMomoIpn(rawPayload: Record<string, any>): Promise<IpnResult> {
     const verification = this.momoService.verifyIpn(rawPayload as any);
