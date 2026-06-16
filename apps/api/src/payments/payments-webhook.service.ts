@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma.service';
-import { MomoGateway } from './momo.gateway';
+import { MomoService } from './momo/momo.service';
 import { SubscriptionActivatorService } from './subscription-activator.service';
 import { InvoiceMailerService } from './e-invoice/invoice-mailer.service';
 import { IpnPayload, IpnResult } from './payments.types';
@@ -30,7 +30,7 @@ export class PaymentsWebhookService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly momo: MomoGateway,
+    private readonly momoService: MomoService,
     private readonly activator: SubscriptionActivatorService,
     private readonly invoiceMailer: InvoiceMailerService,
   ) {}
@@ -147,25 +147,55 @@ export class PaymentsWebhookService {
 
   /**
    * Verify + process a MoMo IPN callback, then activate the subscription quota.
+   * Uses MomoService.verifyIpn() for signature verification and transaction lookup
+   * via the MomoController/IPN flow (which handles idempotency via MomoIpnGuard).
    */
   async handleMomoIpn(rawPayload: Record<string, any>): Promise<IpnResult & { activated?: boolean }> {
-    const payload: IpnPayload = { raw: rawPayload, gateway: 'momo' };
-    const result = await this.momo.handleIpn(payload);
+    const orderId = rawPayload['orderId'] as string | undefined;
+    const transId = rawPayload['transId'] as number | undefined;
+    const resultCode = rawPayload['resultCode'] as number | undefined;
 
-    if (!result.success) {
-      this.logger.warn(`MoMo IPN rejected: ${result.errorMessage ?? 'unknown'}`);
-      return { ...result, activated: false };
+    // Verify signature using MomoService
+    const verification = this.momoService.verifyIpn(rawPayload as any);
+    if (!verification.signatureValid) {
+      this.logger.warn(`MoMo IPN rejected — invalid signature orderId=${orderId}`);
+      return {
+        success: false,
+        status: 'failed',
+        gatewayTxId: String(transId ?? ''),
+        amount: rawPayload['amount'] ? Number(rawPayload['amount']) : 0,
+        errorMessage: `Invalid signature: ${verification.reason ?? 'unknown'}`,
+        activated: false,
+      };
     }
 
-    const orderId = (rawPayload['orderId'] as string) || (result.gatewayTxId as string);
+    if (!verification.valid) {
+      this.logger.warn(`MoMo IPN rejected — resultCode=${resultCode} orderId=${orderId}`);
+      return {
+        success: false,
+        status: resultCode === 1003 ? 'failed' : 'failed',
+        gatewayTxId: String(transId ?? ''),
+        amount: verification.amount,
+        errorMessage: verification.message,
+        activated: false,
+      };
+    }
+
+    // Success path: activate subscription
     const finalize = await this.finalize('momo', {
-      orderId,
-      gatewayTxId: result.gatewayTxId,
+      orderId: orderId ?? String(transId ?? ''),
+      gatewayTxId: String(transId ?? ''),
       paidAt: new Date(),
       ipnPayload: rawPayload,
     });
 
-    return { ...result, activated: finalize.activated };
+    return {
+      success: true,
+      status: 'success',
+      gatewayTxId: String(transId ?? ''),
+      amount: verification.amount,
+      activated: finalize.activated,
+    };
   }
 
   // ── Shared finalize ────────────────────────────────────────────────────────
@@ -209,10 +239,10 @@ export class PaymentsWebhookService {
           gatewayTxId: input.gatewayTxId,
           paidAt: input.paidAt,
           ipnPayload: input.ipnPayload,
-        }) as Record<string, any>;
+        });
         activated = !!res.activated;
         // If activation resolved an invoice, use it.
-        if (res.invoiceId) resolvedInvoiceId = res.invoiceId as string;
+        if ('invoiceId' in res && res.invoiceId) resolvedInvoiceId = (res as Record<string, unknown>).invoiceId as string;
       }
 
       // ── Enqueue invoice mail ───────────────────────────────────────────
