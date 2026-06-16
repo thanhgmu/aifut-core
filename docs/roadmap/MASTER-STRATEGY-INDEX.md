@@ -113,10 +113,10 @@ Control plane AI-native, sovereign, multi-tenant cho operator/SME — đặc bi�
 ```
  ㉘ Developer sandbox environment               📅 Q4 2026
  ㉙ API analytics dashboard                     📅 Planned
- ㉚ Community connector marketplace             📅 Planned
- ㉛ Multi-country deployment config              🔄 Next
- ㉜ Localization content depth                  🔄 Next
- ㉝ Connector SDK PyPI publish                  📄 Docs ready
+ ㉚ Community connector marketplace              🔄 Next (frontend done, backend depth needed)
+ ㉛ Multi-country deployment config              ✅ Done
+ ㉜ Localization content depth                   ✅ Done (325+ keys, 7 languages)
+ ㉝ Connector SDK PyPI publish                   ✅ Pipeline ready
 ```
 
 ---
@@ -135,8 +135,8 @@ Control plane AI-native, sovereign, multi-tenant cho operator/SME — đặc bi�
 
 ### 🟡 Phase 2 Revenue (song song)
 ```
-⑤ Connector SDK PyPI publish (Python package)
-⑥ Localization content depth (full UI translation for 7 languages)
+⑤ Connector SDK PyPI publish (Python package) — ✅ Pipeline ready
+⑥ Localization content depth (full UI translation for 7 languages, 325+ keys) — ✅ Done
 ⑦ Connector certification badge distribution
 ```
 
