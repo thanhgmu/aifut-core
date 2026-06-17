@@ -866,6 +866,7 @@ model MarketplaceListing {
   description     String?
   category        String?
   industry        String?
+  region          String?           @default("VN") // connector quoc gia: VN, SG, US, JP, TH
   price           Float             @default(0)
   currency        String            @default("VND")
   authorName      String?
@@ -886,6 +887,7 @@ model MarketplaceListing {
   @@index([type, category])
   @@index([isPublished])
   @@index([industry])
+  @@index([region])
   @@index([downloads])
 }
 
@@ -1225,7 +1227,7 @@ model ConnectorCertification {
   @@index([submittedAt])
 }
 
-// -- E-Invoice (Hóa don di?n t? GTGT) ---------------------------------
+// -- E-Invoice (Hoa don dien tu GTGT) ---------------------------------
 
 model InvoiceCounter {
   id              String   @id @default(cuid())

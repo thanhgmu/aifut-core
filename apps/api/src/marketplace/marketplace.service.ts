@@ -6,6 +6,26 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
+// ── Region support ──────────────────────────────────────────────────────
+
+/** Quốc gia hỗ trợ cho connector marketplace. */
+export const MARKETPLACE_REGIONS = ['VN', 'SG', 'US', 'JP', 'TH'] as const;
+export type MarketplaceRegion = (typeof MARKETPLACE_REGIONS)[number];
+
+/** Chuẩn hóa & validate giá trị region; trả về undefined nếu rỗng, ném lỗi nếu không hợp lệ. */
+export function normalizeRegion(
+  value?: string | null,
+): MarketplaceRegion | undefined {
+  if (value == null || `${value}`.trim() === '') return undefined;
+  const upper = `${value}`.trim().toUpperCase();
+  if (!(MARKETPLACE_REGIONS as readonly string[]).includes(upper)) {
+    throw new BadRequestException(
+      `Invalid region "${value}". Must be one of: ${MARKETPLACE_REGIONS.join(', ')}.`,
+    );
+  }
+  return upper as MarketplaceRegion;
+}
+
 // ── DTOs ────────────────────────────────────────────────────────────────
 
 export interface SubmitListingInput {
@@ -16,6 +36,7 @@ export interface SubmitListingInput {
   description?: string;
   category?: string;
   industry?: string;
+  region?: string;
   price?: number;
   currency?: string;
   authorName?: string;
@@ -35,6 +56,7 @@ export interface MarketplaceListOptions {
   type?: string;
   category?: string;
   industry?: string;
+  region?: string;
   search?: string;
   sort?: 'newest' | 'popular' | 'rating' | 'price_asc' | 'price_desc';
   publishedOnly?: boolean;
@@ -56,6 +78,8 @@ export interface MarketplaceResult<T> {
  * Capabilities:
  *   • CRUD listings with publishing workflow (submit → approve/reject)
  *   • Paginated, sortable, searchable listing queries
+ *   • Region-aware filtering (VN, SG, US, JP, TH)
+ *   • Optimized full-text search across name + description + tags
  *   • User ratings & reviews (updates average rating on listing)
  *   • Install hooks for templates and connectors
  *   • Admin moderation (approve, reject, feature)
@@ -83,6 +107,9 @@ export class MarketplaceService {
       );
     }
 
+    // Validate + normalize region (mặc định VN khi không truyền).
+    const region = normalizeRegion(input.region) ?? 'VN';
+
     const existing = await this.prisma.marketplaceListing.findUnique({
       where: { key: input.key },
     });
@@ -101,6 +128,7 @@ export class MarketplaceService {
         description: input.description ?? '',
         category: input.category ?? null,
         industry: input.industry ?? null,
+        region,
         price: input.price ?? 0,
         currency: input.currency ?? 'VND',
         authorName: input.authorName ?? null,
@@ -112,7 +140,7 @@ export class MarketplaceService {
         rating: null,
         isPublished: isOfficial,
         isOfficial,
-      },
+      } as any,
     });
 
     return listing;
@@ -156,7 +184,7 @@ export class MarketplaceService {
   }
 
   /**
-   * Update listing metadata (name, description, price, tags, etc.).
+   * Update listing metadata (name, description, price, tags, region, etc.).
    */
   async updateListing(
     key: string,
@@ -165,6 +193,7 @@ export class MarketplaceService {
       description: string;
       category: string;
       industry: string;
+      region: string;
       price: number;
       currency: string;
       version: string;
@@ -173,9 +202,16 @@ export class MarketplaceService {
     }>,
   ) {
     const listing = await this.findByKey(key);
+
+    // Validate region nếu được cung cấp.
+    const data: any = { ...patch };
+    if (patch.region !== undefined) {
+      data.region = normalizeRegion(patch.region) ?? 'VN';
+    }
+
     return this.prisma.marketplaceListing.update({
       where: { id: listing.id },
-      data: patch as any,
+      data,
     });
   }
 
@@ -184,7 +220,8 @@ export class MarketplaceService {
   // ═════════════════════════════════════════════════════════════════════
 
   /**
-   * List marketplace items with pagination, filtering, sorting, and search.
+   * List marketplace items with pagination, filtering, region scoping,
+   * sorting, and optimized full-text search.
    *
    * By default, only published items are shown (community browsing).
    * Pass publishedOnly=false to include drafts (admin view).
@@ -196,6 +233,7 @@ export class MarketplaceService {
       type,
       category,
       industry,
+      region,
       search,
       sort = 'newest',
       publishedOnly = true,
@@ -209,14 +247,31 @@ export class MarketplaceService {
     if (category) where.category = category;
     if (industry) where.industry = industry;
 
-    // Full-text search on name + description
+    // Region filter — validate qua whitelist (VN, SG, US, JP, TH).
+    const normalizedRegion = normalizeRegion(region);
+    if (normalizedRegion) where.region = normalizedRegion;
+
+    // ── Optimized full-text search ──────────────────────────────────
+    // Tách query thành các token; mỗi token phải khớp ít nhất một trường
+    // (name / description / tags). Dùng AND giữa các token để thu hẹp kết
+    // quả, OR trong từng token để mở rộng phạm vi trường — tận dụng được
+    // index trên các cột text qua Prisma Client.
     if (search && search.trim()) {
-      const term = search.trim();
-      where.OR = [
-        { name: { contains: term, mode: 'insensitive' } },
-        { description: { contains: term, mode: 'insensitive' } },
-        { tags: { has: term } },
-      ];
+      const tokens = search
+        .trim()
+        .split(/\s+/)
+        .filter((t) => t.length > 0)
+        .slice(0, 8); // chặn query quá dài gây bottleneck
+
+      if (tokens.length > 0) {
+        where.AND = tokens.map((token) => ({
+          OR: [
+            { name: { contains: token, mode: 'insensitive' } },
+            { description: { contains: token, mode: 'insensitive' } },
+            { tags: { has: token } },
+          ],
+        }));
+      }
     }
 
     // Sort ordering
@@ -240,14 +295,15 @@ export class MarketplaceService {
         break;
     }
 
-    const skip = (page - 1) * pageSize;
+    const boundedPageSize = Math.min(pageSize, 100);
+    const skip = (page - 1) * boundedPageSize;
 
     const [items, total] = await Promise.all([
       this.prisma.marketplaceListing.findMany({
         where,
         orderBy,
         skip,
-        take: Math.min(pageSize, 100),
+        take: boundedPageSize,
       }),
       this.prisma.marketplaceListing.count({ where }),
     ]);
@@ -256,8 +312,8 @@ export class MarketplaceService {
       items,
       total,
       page,
-      pageSize: Math.min(pageSize, 100),
-      totalPages: Math.ceil(total / Math.min(pageSize, 100)),
+      pageSize: boundedPageSize,
+      totalPages: Math.ceil(total / boundedPageSize),
     };
   }
 
@@ -485,6 +541,26 @@ export class MarketplaceService {
       pendingApproval: pendingCount,
       averagePrice: avgPrice._avg.price ?? 0,
     };
+  }
+
+  /**
+   * Get per-region listing counts — phục vụ bộ lọc quốc gia ở UI.
+   */
+  async getRegionStats() {
+    const grouped = await this.prisma.marketplaceListing.groupBy({
+      by: ['region'],
+      where: { isPublished: true },
+      _count: { _all: true },
+    } as any);
+
+    const counts: Record<string, number> = {};
+    for (const r of MARKETPLACE_REGIONS) counts[r] = 0;
+    for (const row of grouped as any[]) {
+      const key = row.region ?? 'VN';
+      counts[key] = (counts[key] ?? 0) + (row._count?._all ?? 0);
+    }
+
+    return { regions: MARKETPLACE_REGIONS, counts };
   }
 
   // ═════════════════════════════════════════════════════════════════════

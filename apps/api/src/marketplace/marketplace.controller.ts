@@ -13,7 +13,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { MarketplaceService } from './marketplace.service';
+import { MarketplaceService, MARKETPLACE_REGIONS } from './marketplace.service';
 import { MARKETPLACE_ROADMAP } from './marketplace.constants';
 
 /**
@@ -21,7 +21,8 @@ import { MARKETPLACE_ROADMAP } from './marketplace.constants';
  *
  * Endpoints:
  *   ├── GET    /marketplace/stats              — platform-wide stats
- *   ├── GET    /marketplace/listings           — browse (paginated, filtered, sorted)
+ *   ├── GET    /marketplace/regions            — per-region listing counts
+ *   ├── GET    /marketplace/listings           — browse (paginated, filtered, sorted, region-scoped)
  *   ├── GET    /marketplace/listings/:key      — single listing detail
  *   ├── POST   /marketplace/listings           — submit a new listing (community)
  *   ├── PUT    /marketplace/listings/:key      — update listing metadata
@@ -60,10 +61,16 @@ export class MarketplaceController {
     return this.marketplace.getPlatformStats();
   }
 
+  /** Per-region listing counts (VN, SG, US, JP, TH) */
+  @Get('regions')
+  async regions() {
+    return this.marketplace.getRegionStats();
+  }
+
   /**
    * Browse published marketplace listings with full control over:
-   *   - Filter: type, category, industry
-   *   - Search: full-text on name, description, tags
+   *   - Filter: type, category, industry, region (VN | SG | US | JP | TH)
+   *   - Search: optimized full-text on name, description, tags
    *   - Sort: newest | popular | rating | price_asc | price_desc
    *   - Pagination: page, pageSize
    */
@@ -72,6 +79,7 @@ export class MarketplaceController {
     @Query('type') type?: string,
     @Query('category') category?: string,
     @Query('industry') industry?: string,
+    @Query('region') region?: string,
     @Query('search') search?: string,
     @Query('sort') sort?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -81,6 +89,7 @@ export class MarketplaceController {
       type,
       category,
       industry,
+      region,
       search,
       sort: (sort as any) ?? 'newest',
       publishedOnly: true,
@@ -113,6 +122,7 @@ export class MarketplaceController {
       description: body.description,
       category: body.category,
       industry: body.industry,
+      region: body.region,
       price: body.price ?? 0,
       currency: body.currency ?? 'VND',
       authorName: body.authorName,
@@ -130,6 +140,7 @@ export class MarketplaceController {
       description: body.description,
       category: body.category,
       industry: body.industry,
+      region: body.region,
       price: body.price,
       currency: body.currency,
       version: body.version,
@@ -226,6 +237,7 @@ export class MarketplaceController {
       supports: {
         browsing: true,
         search: true,
+        regionFilter: true,
         pagination: true,
         sort: true,
         installTemplate: true,
@@ -237,6 +249,7 @@ export class MarketplaceController {
         pendingQueue: true,
         revenueSharing: false,
       },
+      regions: MARKETPLACE_REGIONS,
       next: MARKETPLACE_ROADMAP,
     };
   }

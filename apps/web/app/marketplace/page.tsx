@@ -1,9 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../../lib/auth";
-
-const WS_SLUG = process.env.NEXT_PUBLIC_TENANT_SLUG || "demo";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -15,6 +13,8 @@ type MarketplaceItem = {
   downloads: number; rating: number | null;
   isPublished: boolean; isOfficial: boolean;
   createdAt: string;
+  /** ISO 3166-1 alpha-2 country code, e.g. "VN", "US", "SG" */
+  region?: string | null;
 };
 
 type MarketplaceStats = {
@@ -47,6 +47,42 @@ const SORT_LABELS: Record<SortOpt, string> = {
   price_asc: "Price: Low→High",
   price_desc: "Price: High→Low",
 };
+
+// ── Country / Region Data ──────────────────────────────────────────────
+
+const REGIONS: Record<string, { code: string; name: string; flag: string }> = {
+  all:  { code: "ALL", name: "All Regions",   flag: "🌍" },
+  VN:   { code: "VN",  name: "Việt Nam",      flag: "🇻🇳" },
+  SG:   { code: "SG",  name: "Singapore",     flag: "🇸🇬" },
+  US:   { code: "US",  name: "United States",  flag: "🇺🇸" },
+  JP:   { code: "JP",  name: "Japan",         flag: "🇯🇵" },
+  TH:   { code: "TH",  name: "Thailand",      flag: "🇹🇭" },
+};
+
+/** Ordered list for the dropdown — only actual countries */
+const REGION_OPTIONS = [
+  REGIONS.VN, REGIONS.SG, REGIONS.US, REGIONS.JP, REGIONS.TH,
+];
+
+function RegionBadge({ region }: { region: string | null | undefined }) {
+  const info = REGIONS[region ?? ""];
+  if (!info) return null;
+  return (
+    <span
+      title={info.name}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        fontSize: 11, padding: "2px 8px", borderRadius: 999,
+        background: "rgba(240,248,255,0.08)",
+        color: "#9fb0ff", border: "1px solid rgba(240,248,255,0.12)",
+        fontWeight: 500,
+      }}
+    >
+      <span style={{ fontSize: 14, lineHeight: 1 }}>{info.flag}</span>
+      {info.code}
+    </span>
+  );
+}
 
 // ── Star Rating Component ──────────────────────────────────────────────
 
@@ -84,6 +120,7 @@ export default function MarketplacePage() {
   const [filterType, setFilterType] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOpt>("newest");
+  const [region, setRegion] = useState("all");
   const [page, setPage] = useState(1);
   const [installMsg, setInstallMsg] = useState("");
 
@@ -99,6 +136,7 @@ export default function MarketplacePage() {
     params.set("sort", sort);
     params.set("page", String(p));
     params.set("pageSize", "20");
+    if (region && region !== "all") params.set("region", region);
 
     const [res, statsRes] = await Promise.all([
       fetch(`${API_BASE}/marketplace/listings?${params}`),
@@ -113,7 +151,7 @@ export default function MarketplacePage() {
       setStats(await statsRes.json());
     }
     setLoading(false);
-  }, [filterType, search, sort]);
+  }, [filterType, search, sort, region]);
 
   useEffect(() => {
     setLoading(true);
@@ -130,7 +168,7 @@ export default function MarketplacePage() {
     setInstallMsg(`Installing ${name}...`);
     try {
       const res = await fetch(`${API_BASE}/marketplace/listings/${key}/install`, {
-        method: "POST", headers: { "x-tenant-slug": WS_SLUG },
+        method: "POST", headers: { "x-tenant-slug": "" },
       });
       if (res.ok) {
         setInstallMsg(`✅ ${name} installed successfully!`);
@@ -156,7 +194,7 @@ export default function MarketplacePage() {
       if (res.ok) {
         setRateSent(true);
         setTimeout(() => { setRatingModal(null); setRateSent(false); setRateVal(0); }, 1200);
-        fetchListings(page); // refresh to show new avg
+        fetchListings(page);
       }
     } catch {
       /* silent */
@@ -277,7 +315,7 @@ export default function MarketplacePage() {
 
         {/* Filters + Sort + Submit */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={() => setFilterType("")} style={{
               padding: "8px 16px", borderRadius: 8, border: "1px solid", cursor: "pointer", fontSize: 13,
               background: !filterType ? "#6d7cff" : "transparent",
@@ -300,6 +338,28 @@ export default function MarketplacePage() {
             }}>
               {Object.entries(SORT_LABELS).map(([k, l]) => (
                 <option key={k} value={k} style={{ background: "#0b1020" }}>{l}</option>
+              ))}
+            </select>
+
+            {/* ── Region / Country Filter Dropdown ── */}
+            <span style={{ color: "#555", fontSize: 12, margin: "0 2px" }}>|</span>
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              style={{
+                padding: "8px 12px", borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.03)", color: "#9fb0ff",
+                fontSize: 13, cursor: "pointer", outline: "none",
+              }}
+            >
+              <option value="all" style={{ background: "#0b1020" }}>
+                🌍 All Regions
+              </option>
+              {REGION_OPTIONS.map((r) => (
+<option key={r?.code} value={r?.code} style={{ background: "#0b1020" }}>
+  {r?.flag} {r?.name} ({r?.code})
+                </option>
               ))}
             </select>
           </div>
@@ -331,6 +391,7 @@ export default function MarketplacePage() {
             {/* Results count */}
             <div style={{ fontSize: 13, color: "#8899cc", marginBottom: 12 }}>
               Showing {result.items.length} of {result.total} listing{result.total !== 1 ? "s" : ""}
+              {region !== "all" && ` in ${REGIONS[region]?.name ?? region}`}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
               {result.items.map(item => {
@@ -343,7 +404,10 @@ export default function MarketplacePage() {
                   }}>
                     {/* Header: icon + badges */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                      <div style={{ fontSize: 28 }}>{group.icon}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 28 }}>{group.icon}</span>
+                        <RegionBadge region={item.region} />
+                      </div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 999, background: "rgba(74,222,128,0.1)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.2)" }}>
                           v{item.version}
@@ -364,7 +428,7 @@ export default function MarketplacePage() {
                     <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{item.name}</div>
                     {item.description && (
                       <div style={{ color: "#c8d2ff", fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
-                        {item.description.length > 120 ? item.description.slice(0, 120) + "…" : item.description}
+                        {item.description.length > 120 ? item.description.slice(0, 120) + "\u2026" : item.description}
                       </div>
                     )}
 
