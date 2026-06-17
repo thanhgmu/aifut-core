@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { MomoService } from './momo/momo.service';
 import { SubscriptionActivatorService } from './subscription-activator.service';
 import { InvoiceMailerService } from './e-invoice/invoice-mailer.service';
+import { RefundWebhookRouter } from './ledger/refund-webhook.router';
 import { IpnPayload, IpnResult } from './payments.types';
 
 /**
@@ -20,6 +21,10 @@ import { IpnPayload, IpnResult } from './payments.types';
  * After successful activation, it enqueues an invoice-mail job so the customer
  * receives their e-Invoice via email (handled by InvoiceMailerService +
  * InvoiceOutboxProcessor).
+ *
+ * Phase 3 — Refund Webhook Integration:
+ *  - Stripe 'charge.refunded' event → RefundWebhookRouter.syncRefundStatus()
+ *  - MoMo refund callback → RefundWebhookRouter.handleMomoRefundCallback()
  */
 @Injectable()
 export class PaymentsWebhookService {
@@ -33,6 +38,7 @@ export class PaymentsWebhookService {
     private readonly momoService: MomoService,
     private readonly activator: SubscriptionActivatorService,
     private readonly invoiceMailer: InvoiceMailerService,
+    private readonly refundRouter: RefundWebhookRouter,
   ) {}
 
   // ── Stripe ──────────────────────────────────────────────────────────────────
@@ -97,13 +103,43 @@ export class PaymentsWebhookService {
 
   /**
    * Process a verified Stripe event payload.
-   * Supports the common subscription/checkout success events.
+   * Supports:
+   *   - subscription/checkout success events → activate subscription
+   *   - 'charge.refunded' → route refund to wallet engine
    */
   async handleStripeEvent(event: Record<string, any>): Promise<{ received: boolean; activated: boolean; type?: string }> {
     const type = event?.type as string | undefined;
     const obj = event?.data?.object ?? {};
     const metadata: Record<string, any> = obj.metadata ?? {};
 
+    // ── REFUND PATH: charge.refunded ───────────────────────────────────
+    // Route Stripe refund events to RefundWebhookRouter which calls
+    // LedgerRefundService to credit the tenant's wallet.
+    if (type === 'charge.refunded') {
+      this.logger.log(
+        `Stripe refund event received | chargeId=${obj.id} | ` +
+          `amount_refunded=${obj.amount_refunded}`,
+      );
+
+      try {
+        const refundResult = await this.refundRouter.handleStripeChargeRefunded(event);
+        this.logger.log(
+          `Stripe refund handled | status=${refundResult.status} | ` +
+            `refundRecordId=${refundResult.refundRecordId ?? 'N/A'}`,
+        );
+      } catch (err: any) {
+        // Non-critical: log error but don't throw — Stripe always needs 200
+        this.logger.error(
+          `Stripe refund handler error: ${err.message}`,
+          err.stack,
+        );
+      }
+
+      // Always return received=true for refund events so Stripe gets 200
+      return { received: true, activated: false, type };
+    }
+
+    // ── PAYMENT SUCCESS PATH (original logic) ──────────────────────────
     const successEvents = new Set([
       'checkout.session.completed',
       'invoice.paid',
@@ -117,7 +153,13 @@ export class PaymentsWebhookService {
     }
 
     // Stripe should be paid only when checkout/intent reports success.
-    const paid = obj.payment_status === 'paid' || obj.status === 'succeeded' || obj.paid === true || type === 'invoice.paid' || type === 'invoice.payment_succeeded' || type === 'checkout.session.completed';
+    const paid =
+      obj.payment_status === 'paid' ||
+      obj.status === 'succeeded' ||
+      obj.paid === true ||
+      type === 'invoice.paid' ||
+      type === 'invoice.payment_succeeded' ||
+      type === 'checkout.session.completed';
     if (!paid) {
       return { received: true, activated: false, type };
     }
@@ -149,12 +191,47 @@ export class PaymentsWebhookService {
    * Verify + process a MoMo IPN callback, then activate the subscription quota.
    * Uses MomoService.verifyIpn() for signature verification and transaction lookup
    * via the MomoController/IPN flow (which handles idempotency via MomoIpnGuard).
+   *
+   * Also handles MoMo refund callbacks by routing to RefundWebhookRouter.
    */
   async handleMomoIpn(rawPayload: Record<string, any>): Promise<IpnResult & { activated?: boolean }> {
     const orderId = rawPayload['orderId'] as string | undefined;
     const transId = rawPayload['transId'] as number | undefined;
     const resultCode = rawPayload['resultCode'] as number | undefined;
+    const type = rawPayload['type'] as string | undefined;
 
+    // ── REFUND PATH: MoMo refund callback ──────────────────────────────
+    // MoMo sends refund results as IPN-like callbacks.
+    // Detect by type === 'refund' or customMoMoRefundField.
+    if (type === 'refund' || rawPayload['refundTransId'] !== undefined) {
+      this.logger.log(
+        `MoMo refund callback received | orderId=${orderId} | transId=${transId} | resultCode=${resultCode}`,
+      );
+
+      try {
+        const refundResult = await this.refundRouter.handleMomoRefundCallback(rawPayload);
+        this.logger.log(
+          `MoMo refund handled | status=${refundResult.status} | ` +
+            `refundRecordId=${refundResult.refundRecordId ?? 'N/A'}`,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `MoMo refund callback error: ${err.message}`,
+          err.stack,
+        );
+      }
+
+      // MoMo expects { status, message } shaped acknowledgement
+      return {
+        success: resultCode === 0,
+        status: resultCode === 0 ? 'success' : 'failed',
+        gatewayTxId: String(transId ?? ''),
+        amount: rawPayload['amount'] ? Number(rawPayload['amount']) : 0,
+        activated: false,
+      };
+    }
+
+    // ── PAYMENT SUCCESS PATH (original logic) ──────────────────────────
     // Verify signature using MomoService
     const verification = this.momoService.verifyIpn(rawPayload as any);
     if (!verification.signatureValid) {

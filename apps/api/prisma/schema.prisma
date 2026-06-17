@@ -112,6 +112,7 @@ model Tenant {
   eInvoices         EInvoice[]
   wallet              Wallet?
   ledgerTransactions  LedgerTransaction[]
+  refundRecords       RefundRecord[]
 }
 
 model Workspace {
@@ -1311,4 +1312,28 @@ wallet    Wallet    @relation(fields: [tenantId], references: [tenantId], onDele
   @@index([tenantId, type])
   @@index([tenantId, createdAt])
   @@index([referenceType, referenceId])
+}
+
+// ── Refund Engine ──────────────────────────────────────────────────────
+
+enum RefundStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model RefundRecord {
+  id                   String       @id @default(uuid())
+  originalReferenceId  String
+  amount               BigInt
+  status               RefundStatus @default(PENDING)
+  tenantId             String
+  createdAt            DateTime     @default(now())
+
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([originalReferenceId, id])
+  @@index([tenantId])
+  @@index([status])
+  @@index([originalReferenceId])
 }
