@@ -1337,3 +1337,136 @@ model RefundRecord {
   @@index([status])
   @@index([originalReferenceId])
 }
+
+// ── Financial Reconciliation Engine (Phase 3) ───────────────────────────
+// Đối soát chéo 3 nguồn sự thật: Wallet.balance / LedgerTransaction / Invoice.
+// Module: apps/api/src/payments/reconciliation/
+// Khóa ngoại được đặt tên map tường minh để tránh xung đột với các quan hệ khác.
+
+enum ReconciliationStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum DiscrepancyType {
+  BALANCE_MISMATCH                          // LedgerTransaction tổng ≠ Wallet.balance
+  MISSING_LEDGER_CREDIT_FOR_PAID_INVOICE    // Invoice paid nhưng thiếu LedgerTransaction CREDIT
+  ORPHAN_LEDGER_CREDIT                       // Ledger CREDIT nhưng Invoice vẫn pending
+  UNMATCHED_DEBIT                            // LedgerTransaction không có PaymentTransaction tương ứng
+  DUPLICATE_REFERENCE                        // Nhiều LedgerTransaction cùng reference
+  AMOUNT_MISMATCH                            // LedgerTransaction amount ≠ Invoice.amount
+  SUSPICIOUS_ACTIVITY                        // Anti-fraud heuristic phát hiện
+}
+
+enum DiscrepancySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum DiscrepancyResolutionStatus {
+  OPEN
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED_MANUAL
+  RESOLVED_AUTO
+  DISMISSED
+}
+
+enum WalletFreezeReason {
+  RECONCILIATION_DISCREPANCY
+  SUSPICIOUS_LEDGER_ACTIVITY
+  ANTI_FRAUD_TRIGGER
+  MANUAL_ADMIN
+}
+
+enum ReportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+model ReconciliationRun {
+  id               String               @id @default(cuid())
+  tenantId         String
+  trigger          String               // 'scheduled' | 'manual' | 'webhook'
+  startedAt        DateTime             @default(now())
+  completedAt      DateTime?
+  status           ReconciliationStatus @default(RUNNING)
+  walletBalance    BigInt?              // wallet.balance tại thời điểm snapshot
+  ledgerSum        BigInt?              // SUM(CREDIT) - SUM(DEBIT) tại thời điểm snapshot
+  paidInvoiceSum   BigInt?              // SUM(Invoice.amount) WHERE status='paid'
+  discrepancyCount Int                  @default(0)
+  summary          Json?                // JSON báo cáo rút gọn
+  error            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  discrepancies    DiscrepancyRecord[]
+
+  @@index([tenantId, startedAt])
+  @@index([tenantId, status])
+}
+
+model DiscrepancyRecord {
+  id              String                      @id @default(cuid())
+  runId           String?
+  tenantId        String
+  severity        DiscrepancySeverity         @default(WARNING)
+  category        DiscrepancyType
+  title           String                      // Ngắn gọn, ví dụ: "Wallet lệch -5,000 VND"
+  description     String?                     // Chi tiết
+  expectedValue   BigInt?
+  actualValue     BigInt?
+  diffValue       BigInt?
+  source          String                      // 'wallet' | 'ledger' | 'invoice' | 'all'
+  affectedEntity  String?                     // ID của entity liên quan
+  affectedType    String?                     // 'Wallet' | 'LedgerTransaction' | 'Invoice'
+  status          DiscrepancyResolutionStatus @default(OPEN)
+  resolutionNote  String?
+  resolvedBy      String?                     // userId hoặc 'system'
+  resolvedAt      DateTime?
+  walletFrozen    Boolean                     @default(false)
+  freezeReason    WalletFreezeReason?
+  freezeExpiresAt DateTime?                   // auto-unfreeze sau 24h
+  metadata        Json?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  run             ReconciliationRun?          @relation(fields: [runId], references: [id], onDelete: SetNull, map: "DiscrepancyRecord_run_fkey")
+
+  @@unique([tenantId, runId, category, affectedEntity], map: "DiscrepancyRecord_dedupe_key")
+  @@index([tenantId, severity])
+  @@index([tenantId, category, status])
+  @@index([tenantId, createdAt])
+  @@index([runId])
+  @@index([walletFrozen])
+}
+
+model FinancialReportJob {
+  id              String          @id @default(cuid())
+  tenantId        String
+  requestedBy     String?         // userId
+  status          ReportJobStatus @default(PENDING)
+  reportType      String          // 'daily' | 'weekly' | 'monthly' | 'custom'
+  format          String          @default("csv") // csv | xlsx
+  dateFrom        DateTime
+  dateTo          DateTime
+  includeDetails  Boolean         @default(false)
+  filePath        String?         // Đường dẫn file sau khi export
+  fileSize        Int?            // bytes
+  expiresAt       DateTime?
+  completedAt     DateTime?
+  error           String?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([status])
+}

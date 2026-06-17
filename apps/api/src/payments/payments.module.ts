@@ -12,6 +12,7 @@ import { VnpayModule } from './vnpay/vnpay.module';
 import { PayPalModule } from './paypal/paypal.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
     PayPalModule,
     LedgerModule,
     SubscriptionModule,
+    ReconciliationModule,
   ],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [
