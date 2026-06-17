@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BillingClientShell } from "../../../components/billing/billing-client-shell";
 
 // Server Component entry for /billing (dashboard route group).
@@ -15,6 +16,7 @@ export default function BillingDashboardPage() {
             color: "#9fb0ff",
             textTransform: "uppercase",
             letterSpacing: 1,
+            marginBottom: 6,
           }}
         >
           AIFUT Billing
@@ -23,6 +25,27 @@ export default function BillingDashboardPage() {
         <p style={{ color: "#c8d2ff", fontSize: 16, margin: 0 }}>
           Track consumption, manage your plan, and review past invoices.
         </p>
+        <div style={{ marginTop: 12 }}>
+          <Link
+            href="/billing/subscription"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 18px",
+              borderRadius: 10,
+              background: "rgba(109,124,255,0.12)",
+              border: "1px solid rgba(109,124,255,0.25)",
+              color: "#6d7cff",
+              fontWeight: 700,
+              fontSize: 14,
+              textDecoration: "none",
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            📋 Quản lý gói cước →
+          </Link>
+        </div>
       </header>
 
       <BillingClientShell />
