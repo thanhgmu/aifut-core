@@ -12,6 +12,7 @@
     "local:verify-runtime": "node scripts/verify-local-runtime.js"
   },
   "dependencies": {
+    "@paypal/react-paypal-js": "^10.0.0",
     "@repo/ui": "*",
     "next": "16.2.7",
     "react": "^19.2.0",
