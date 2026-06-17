@@ -110,6 +110,8 @@ model Tenant {
   zaloWebhookEvents   ZaloWebhookEvent[]
   certifications      ConnectorCertification[]
   eInvoices         EInvoice[]
+  wallet              Wallet?
+  ledgerTransactions  LedgerTransaction[]
 }
 
 model Workspace {
@@ -1268,4 +1270,45 @@ model EInvoice {
   @@index([issueDate])
   @@index([fullNumber])
   @@index([hmacCode])
+}
+
+// ── Wallet / Ledger (Internal Balance Tracking) ─────────────────────
+
+enum LedgerTransactionType {
+  CREDIT
+  DEBIT
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  balance   BigInt   @default(0)   // stored in smallest unit (satang/satoshi), avoid float errors
+  version   Int      @default(1)   // optimistic lock version, incremented on every write
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions LedgerTransaction[]
+}
+
+model LedgerTransaction {
+  id              String                @id @default(cuid())
+  tenantId        String
+  type            LedgerTransactionType
+  amount          BigInt                // positive value, sign determined by type
+  balanceAfter    BigInt                // snapshot of wallet balance after this transaction
+  referenceType   String                // e.g. 'invoice', 'payout', 'commission', 'topup'
+  referenceId     String                // ID of the referenced entity
+  description     String?
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+
+tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "LedgerTransaction_tenant_fkey")
+wallet    Wallet    @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade, map: "LedgerTransaction_wallet_fkey")
+
+
+  @@unique([tenantId, referenceType, referenceId])
+  @@index([tenantId, type])
+  @@index([tenantId, createdAt])
+  @@index([referenceType, referenceId])
 }
