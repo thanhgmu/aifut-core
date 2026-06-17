@@ -10,9 +10,10 @@ import { PrismaService } from '../prisma.service';
 import { MomoModule } from './momo/momo.module';
 import { VnpayModule } from './vnpay/vnpay.module';
 import { LedgerModule } from './ledger/ledger.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
-  imports: [MomoModule, VnpayModule, LedgerModule],
+  imports: [MomoModule, VnpayModule, LedgerModule, SubscriptionModule],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [
     PaymentsService,
@@ -22,6 +23,11 @@ import { LedgerModule } from './ledger/ledger.module';
     InvoiceOutboxProcessor,
     PrismaService,
   ],
-  exports: [PaymentsService, SubscriptionActivatorService, PaymentsWebhookService, InvoiceMailerService],
+  exports: [
+    PaymentsService,
+    SubscriptionActivatorService,
+    PaymentsWebhookService,
+    InvoiceMailerService,
+  ],
 })
 export class PaymentsModule {}
