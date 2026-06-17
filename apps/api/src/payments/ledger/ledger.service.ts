@@ -8,6 +8,7 @@
 //   - Kiểm tra số dư trước debit
 //   - Append-only LedgerTransaction (không sửa/xóa)
 //   - Idempotency qua @@unique([tenantId, referenceType, referenceId])
+//   - Threshold hook: cảnh báo số dư thấp (fire-and-forget) sau debit
 // ============================================================
 
 import {
@@ -19,6 +20,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { LEDGER_CONFIG } from './ledger.config';
+import { LedgerNotificationService } from './ledger-notification.service';
 import {
   LedgerTxType,
   LedgerReferenceType,
@@ -53,7 +55,10 @@ export interface TransactionHistoryResult {
 export class LedgerService {
   private readonly logger = new Logger(LedgerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledgerNotificationService: LedgerNotificationService,
+  ) {}
 
   // ================================================================
   // PUBLIC API
@@ -170,7 +175,7 @@ export class LedgerService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
         // 1. Đảm bảo Wallet tồn tại
         const wallet = await this.ensureWallet(tx, input.tenantId);
 
@@ -220,6 +225,21 @@ export class LedgerService {
           version: updatedWallet.version,
         };
       });
+
+      // ---- THRESHOLD HOOK (fire-and-forget) ----
+      // Sau khi debit thành công + transaction commit, kiểm tra ngưỡng
+      // cảnh báo số dư thấp. KHÔNG block luồng debit; lỗi chỉ warning log.
+      this.ledgerNotificationService
+        .handleThresholdCheck(input.tenantId, result.balanceAfter, input)
+        .catch((err) =>
+          this.logger.warn(
+            `Threshold check failed (non-blocking) tenant=${input.tenantId}: ${
+              err instanceof Error ? err.message : err
+            }`,
+          ),
+        );
+
+      return result;
     } catch (error) {
       if (this.isCasConflict(error) && retryCount < LEDGER_CONFIG.maxRetryOnLockConflict) {
         this.logger.warn(
