@@ -1,10 +1,11 @@
 /**
  * Payment gateway types and constants.
+ * ⚠️ Central gateway registry — add new gateways here.
  */
 
-export type PaymentGateway = 'vnpay' | 'momo' | 'stripe' | 'manual';
+export type PaymentGateway = 'vnpay' | 'momo' | 'stripe' | 'paypal' | 'manual';
 
-export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed' | 'refunded';
 
 export interface PaymentRequest {
   amount: number;

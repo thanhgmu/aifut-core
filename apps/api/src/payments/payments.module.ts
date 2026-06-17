@@ -9,11 +9,18 @@ import { InvoiceOutboxProcessor } from './e-invoice/invoice-outbox.processor';
 import { PrismaService } from '../prisma.service';
 import { MomoModule } from './momo/momo.module';
 import { VnpayModule } from './vnpay/vnpay.module';
+import { PayPalModule } from './paypal/paypal.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
-  imports: [MomoModule, VnpayModule, LedgerModule, SubscriptionModule],
+  imports: [
+    MomoModule,
+    VnpayModule,
+    PayPalModule,
+    LedgerModule,
+    SubscriptionModule,
+  ],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [
     PaymentsService,
