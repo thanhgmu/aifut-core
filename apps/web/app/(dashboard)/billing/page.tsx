@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 //   /billing/subscription → quản lý gói cước
 //   /billing/paypal       → nạp tiền quốc tế (PayPal Smart Buttons)
 //   /billing/analytics    → đồ thị Trí tuệ nhân tạo (AI cost analytics)
+//   /billing/budget       → 🛡️ Hạn mức chi phí AI (giới hạn ngân sách)
 // Inline styles kế thừa pattern dashboard hiện hữu.
 // ─────────────────────────────────────────────────────────────
 
@@ -27,7 +28,9 @@ const navBase: CSSProperties = {
   fontFamily: "Arial, sans-serif",
 };
 
-const navVariants: Record<"subscription" | "paypal" | "analytics", CSSProperties> = {
+type NavKey = "subscription" | "paypal" | "analytics" | "budget";
+
+const navVariants: Record<NavKey, CSSProperties> = {
   subscription: {
     background: "rgba(109,124,255,0.12)",
     border: "1px solid rgba(109,124,255,0.25)",
@@ -43,6 +46,15 @@ const navVariants: Record<"subscription" | "paypal" | "analytics", CSSProperties
     background: "rgba(128,224,160,0.12)",
     border: "1px solid rgba(128,224,160,0.3)",
     color: "#80e0a0",
+  },
+  budget: {
+    // Glassy frost — hạn mức chi phí AI, ánh vàng nhẹ
+    background: "rgba(255, 215, 0, 0.08)",
+    border: "1px solid rgba(255, 215, 0, 0.2)",
+    color: "#ffd700",
+    boxShadow: "0 0 12px rgba(255, 215, 0, 0.06)",
+    backdropFilter: "blur(4px)",
+    WebkitBackdropFilter: "blur(4px)",
   },
 };
 
@@ -93,6 +105,12 @@ export default function BillingDashboardPage() {
             style={{ ...navBase, ...navVariants.analytics }}
           >
             📊 Phân tích chi phí AI →
+          </Link>
+          <Link
+            href="/billing/budget"
+            style={{ ...navBase, ...navVariants.budget }}
+          >
+            🛡️ Hạn mức chi phí AI →
           </Link>
         </nav>
       </header>
