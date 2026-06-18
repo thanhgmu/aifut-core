@@ -4,13 +4,14 @@
 // Wallet Client Shell — Orchestration: loading/ready/empty/error
 // Phase 3 (Operator Ready) · Frontend apps/web
 // Inline styles (React.CSSProperties) — kế thừa pattern billing dashboard.
+//
+// Đấu nối dòng tiền (cash-flow wiring):
+//   onTopupClick → router.push('/billing/paypal') → PayPal Smart Buttons.
 // ─────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { CSSProperties } from "react";
+import { useRouter } from "next/navigation";
 import type {
-  WalletInfo,
-  LedgerTransactionItem,
   LedgerTxTypeUI,
   WalletDashboardData,
 } from "../../types/wallet";
@@ -178,6 +179,7 @@ type ShellPhase =
 // ─── Main shell ──────────────────────────────────────
 
 export function WalletClientShell() {
+  const router = useRouter();
   const [phase, setPhase] = useState<ShellPhase>("loading");
   const [data, setData] = useState<WalletDashboardData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -218,6 +220,13 @@ export function WalletClientShell() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // ─── Nạp tiền → điều hướng sang PayPal Smart Buttons ─
+  // Wire chuẩn xác sự kiện click nút "Nạp tiền":
+  //   router.push('/billing/paypal') → trang nạp tiền quốc tế.
+  const handleTopupClick = useCallback(() => {
+    router.push("/billing/paypal");
+  }, [router]);
 
   // ─── Load more history (cursor pagination) ─────────
   const handleLoadMore = useCallback(
@@ -357,6 +366,7 @@ export function WalletClientShell() {
         <div style={{ display: "grid", gap: 22 }}>
           <WalletBalanceCard
             wallet={data.wallet}
+            onTopupClick={handleTopupClick}
             onRefundClick={() => setModalOpen(true)}
           />
 
