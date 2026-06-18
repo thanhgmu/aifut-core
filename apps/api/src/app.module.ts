@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiGovernanceModule } from './ai-governance.module';
 import { AppController } from './app.controller';
-import { AuditModule } from './audit.module';
+import { AuditModule } from './audit/audit.module';
 import { SandboxModule } from './sandbox/sandbox.module';
 import { BillingModule } from './billing/billing.module';
 import { AuthModule } from './auth/auth.module';

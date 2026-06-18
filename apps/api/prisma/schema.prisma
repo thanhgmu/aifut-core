@@ -74,6 +74,12 @@ enum AuditActorType {
   SERVICE
 }
 
+enum AuditSeverity {
+  INFO
+  WARN
+  CRITICAL
+}
+
 model Tenant {
   id                 String                  @id @default(cuid())
   name               String
@@ -243,17 +249,44 @@ model AuditEvent {
   id            String          @id @default(cuid())
   tenantId      String
   tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // ── Actor identity ─────────────────────────────────────────────────
   userId        String?
   user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   actorType     AuditActorType
+  actorEmail    String?         // NEW — snapshot email tại thời điểm ghi (immutable kể cả khi user bị xóa)
+
+  // ── Action metadata ────────────────────────────────────────────────
   action        String
   targetType    String?
   targetId      String?
+
+  // ── Context (mới) ───────────────────────────────────────────────────
+  ipAddress     String?         // NEW — client IP từ request
+  userAgent     String?         // NEW — User-Agent header
+  sessionId     String?         // NEW — session ID nếu có
+
+  // ── Payload diff (mới) ──────────────────────────────────────────────
+  oldValue      Json?           // NEW — dữ liệu trước khi thay đổi
+  newValue      Json?           // NEW — dữ liệu sau khi thay đổi
+
+  // ── Metadata mở rộng ────────────────────────────────────────────────
   metadata      Json?
+  severity      AuditSeverity?  // NEW — INFO │ WARN │ CRITICAL
+
+  // ── Timestamps (immutable — không có updatedAt) ─────────────────────
   createdAt     DateTime        @default(now())
 
   @@index([tenantId, action])
   @@index([userId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId])
+  @@index([tenantId, actorEmail])
+  @@index([tenantId, severity])
+  @@index([tenantId, targetType, targetId])
+  @@index([action])
+  @@index([actorEmail])
+  @@index([sessionId])
   @@index([createdAt])
 }
 
