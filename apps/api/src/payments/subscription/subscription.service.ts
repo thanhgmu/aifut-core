@@ -16,6 +16,11 @@
 //      - Cập nhật Subscription cũ → 'changed', tạo Subscription mới
 //      - Xuất Invoice prorated cho khoản thu (nếu có)
 //
+// getCurrentSubscriptionDetails() [READ-ONLY]:
+//   - Gộp dữ liệu quota tiêu thụ thực tế (usageStats[]) + planDefinition đầy đủ
+//     + periodDetails của chu kỳ hiện tại. Mọi truy vấn ràng buộc theo tenantId
+//     đã được IDOR provider phân giải từ header (chống IDOR).
+//
 // LƯU Ý SCHEMA THỰC TẾ:
 //   - Wallet.balance là BigInt, lưu theo đơn vị nhỏ nhất (VND * 100).
 //   - Subscription KHÔNG có cột metadata/billingCycle → chi tiết proration
@@ -33,6 +38,7 @@ import {
   getPlanPrice,
   comparePlanKeys,
   cycleMonths,
+  isUnlimited,
 } from './plan.config';
 import {
   UpgradeSubscriptionInput,
@@ -48,6 +54,86 @@ import {
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /** Hệ số quy đổi VND → đơn vị nhỏ nhất lưu trong Wallet/Ledger (BigInt) */
 const UNIT_SCALE = 100;
+
+// ================================================================
+// READ-ONLY VIEW MODELS — phục vụ Subscription UI
+// (export tại đây để controller query dùng chung, tránh sửa types.ts)
+// ================================================================
+
+export interface ResourceLimitDisplay {
+  key: string;
+  label: string;
+  icon: string;
+  displayValue: string;
+  rawValue: number;
+  unlimited: boolean;
+}
+
+export interface FeatureDisplay {
+  key: string;
+  value: boolean;
+}
+
+export interface PlanColumnView {
+  key: PlanKey;
+  name: string;
+  nameEn: string;
+  description: string;
+  tag: string | null;
+  sortOrder: number;
+  monthlyPrice: number;
+  monthlyPriceDisplay: string;
+  yearlyPrice: number;
+  yearlyPriceDisplay: string;
+  yearlyDiscountPercent: number;
+  trialDays: number;
+  limits: ResourceLimitDisplay[];
+  features: FeatureDisplay[];
+  isCurrent: boolean;
+  highlighted: boolean;
+  ctaType: 'current' | 'upgrade' | 'downgrade' | 'trial' | 'contact';
+  ctaLabel: string;
+}
+
+export interface UsageStatItem {
+  resource: string;
+  label: string;
+  icon: string;
+  used: number;
+  limit: number;
+  limitDisplay: string;
+  percent: number;
+  unit: string;
+  unlimited: boolean;
+  overLimitAction: string | null;
+}
+
+export interface CurrentSubscriptionInfo {
+  id: string;
+  planKey: PlanKey;
+  status: string;
+  billingCycle: BillingCycle;
+  startedAt: string | null;
+  expiresAt: string | null;
+  trialEndsAt: string | null;
+  autoRenew: boolean;
+  daysRemaining: number;
+  totalDaysInCycle: number;
+}
+
+export interface PeriodDetail {
+  periodStart: string;
+  periodEnd: string;
+  utilizationRate: number;
+  nextBillingDate: string;
+}
+
+export interface SubscriptionCurrentView {
+  subscription: CurrentSubscriptionInfo | null;
+  usageStats: UsageStatItem[] | null;
+  planDefinition: PlanColumnView | null;
+  periodDetails: PeriodDetail | null;
+}
 
 @Injectable()
 export class SubscriptionService {
@@ -463,8 +549,297 @@ export class SubscriptionService {
   }
 
   // ================================================================
-  // Helpers
+  // READ-ONLY: getCurrentSubscriptionDetails()
   // ================================================================
+  // Gộp dữ liệu quota tiêu thụ thực tế (usageStats[]) cho các resource có
+  // trong PlanLimits, kèm planDefinition đầy đủ + periodDetails của chu kỳ.
+  // Mọi truy vấn ràng buộc theo tenantId (đã phân giải bởi IDOR provider).
+  // ================================================================
+
+  async getCurrentSubscriptionDetails(
+    tenantId: string,
+  ): Promise<SubscriptionCurrentView> {
+    // 1) Lấy subscription active/trialing mới nhất của tenant
+    const sub = await this.prisma.subscription.findFirst({
+      where: { tenantId, status: { in: ['active', 'trialing'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!sub) {
+      return {
+        subscription: null,
+        usageStats: null,
+        planDefinition: null,
+        periodDetails: null,
+      };
+    }
+
+    const planKey = sub.planKey as PlanKey;
+    const plan = getPlan(planKey);
+    const now = new Date();
+
+    // 2) Mốc chu kỳ (fallback an toàn nếu thiếu dữ liệu legacy)
+    const periodStart = sub.startedAt ?? sub.createdAt;
+    const periodEnd =
+      sub.expiresAt ?? new Date(periodStart.getTime() + 30 * MS_PER_DAY);
+
+    const totalDaysInCycle = Math.max(
+      1,
+      Math.ceil((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY),
+    );
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((periodEnd.getTime() - now.getTime()) / MS_PER_DAY),
+    );
+    const usedDays = Math.max(0, totalDaysInCycle - daysRemaining);
+
+    // 3) Detect billingCycle: chu kỳ ≈ 1 năm → yearly
+    const billingCycle: BillingCycle = totalDaysInCycle >= 350 ? 'yearly' : 'monthly';
+
+    // 4) Thu thập usage thực tế (chỉ truy vấn model đã chắc chắn tồn tại,
+    //    các resource khác hiển thị used=0 — tránh coupling model chưa có)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [aiAgg, storageAgg, workflowCount, bwAgg] = await Promise.all([
+      this.prisma.usageRecord.aggregate({
+        _sum: { value: true },
+        where: { tenantId, category: 'ai', recordedAt: { gte: periodStart } },
+      }),
+      this.prisma.usageRecord.aggregate({
+        _sum: { value: true },
+        where: { tenantId, category: 'storage' },
+      }),
+      this.prisma.workflowTemplate.count({ where: { tenantId } }).catch(() => 0),
+      this.prisma.usageRecord.aggregate({
+        _sum: { value: true },
+        where: { tenantId, category: 'bandwidth', recordedAt: { gte: monthStart } },
+      }),
+    ]);
+
+    const aiCallsUsed = Math.round(aiAgg._sum.value ?? 0);
+    const storageUsedGB =
+      Math.round(((storageAgg._sum.value ?? 0) / 1024) * 100) / 100;
+    const activeWorkflows = workflowCount ?? 0;
+    const bandwidthUsedGB = Math.round((bwAgg._sum.value ?? 0) / 1024);
+
+    const usageStats = this.buildUsageStats(plan, {
+      aiCallsUsed,
+      storageUsedGB,
+      activeWorkflows,
+      bandwidthUsedGB,
+    });
+
+    // 5) Subscription info
+    const subscription: CurrentSubscriptionInfo = {
+      id: sub.id,
+      planKey,
+      status: sub.status,
+      billingCycle,
+      startedAt: sub.startedAt ? sub.startedAt.toISOString() : null,
+      expiresAt: sub.expiresAt ? sub.expiresAt.toISOString() : null,
+      trialEndsAt: sub.trialEndsAt ? sub.trialEndsAt.toISOString() : null,
+      autoRenew: sub.autoRenew,
+      daysRemaining,
+      totalDaysInCycle,
+    };
+
+    // 6) periodDetails
+    const periodDetails: PeriodDetail = {
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      utilizationRate: Math.min(
+        100,
+        Math.round((usedDays / totalDaysInCycle) * 100),
+      ),
+      nextBillingDate: periodEnd.toISOString(),
+    };
+
+    return {
+      subscription,
+      usageStats,
+      planDefinition: this.toPlanColumnView(planKey, planKey),
+      periodDetails,
+    };
+  }
+
+  // ================================================================
+  // Public view-model helper — chia sẻ cho query controller
+  // ================================================================
+
+  /** Map một PlanKey → PlanColumnView (view model cho bảng so sánh) */
+  toPlanColumnView(key: PlanKey, currentPlanKey: PlanKey | null): PlanColumnView {
+    const plan = PLAN_DEFINITIONS[key];
+    const monthlyTier = plan.prices.find((p) => p.billingCycle === 'monthly');
+    const yearlyTier = plan.prices.find((p) => p.billingCycle === 'yearly');
+    const monthlyPrice = monthlyTier?.priceVnd ?? getPlanPrice(key, 'monthly');
+    const yearlyPrice = yearlyTier?.priceVnd ?? 0;
+
+    const l = plan.limits;
+    const limits: ResourceLimitDisplay[] = [
+      this.limitRow('maxUsers', 'Thành viên', '👥', l.maxUsers, ' người'),
+      this.limitRow('maxWorkspaces', 'Khu vực', '📦', l.maxWorkspaces, ' nơi'),
+      this.limitRow('maxWorkflows', 'Workflow', '🔧', l.maxWorkflows, ' mẫu'),
+      this.limitRow('maxConnectors', 'Kết nối', '🔗', l.maxConnectors, ' kết nối'),
+      this.limitRow('aiCallsMonthly', 'AI Calls', '🤖', l.aiCallsMonthly, '/tháng'),
+      this.limitRow('storageGB', 'Lưu trữ', '💾', l.storageGB, 'GB'),
+      this.limitRow('bandwidthGB', 'Băng thông', '🌐', l.bandwidthGB, 'GB'),
+    ];
+
+    const f = plan.features;
+    const features: FeatureDisplay[] = [
+      { key: 'cloudBackup', value: f.cloudBackup },
+      { key: 'multiDevice', value: f.multiDevice },
+      { key: 'marketplace', value: f.marketplace },
+      { key: 'apiAccess', value: f.apiAccess },
+      { key: 'analytics', value: f.analytics },
+      { key: 'customDomain', value: f.customDomain },
+      { key: 'whiteLabel', value: f.whiteLabel },
+      { key: 'prioritySupport', value: f.prioritySupport },
+      { key: 'slaGuarantee', value: f.slaGuarantee },
+    ];
+
+    const isCurrent = currentPlanKey === key;
+    let ctaType: PlanColumnView['ctaType'] = 'upgrade';
+    let ctaLabel = 'Nâng cấp';
+
+    if (isCurrent) {
+      ctaType = 'current';
+      ctaLabel = 'Gói hiện tại';
+    } else if (key === 'enterprise') {
+      ctaType = 'contact';
+      ctaLabel = 'Liên hệ';
+    } else if (currentPlanKey) {
+      const dir = comparePlanKeys(currentPlanKey, key);
+      if (dir === 'downgrade') {
+        ctaType = 'downgrade';
+        ctaLabel = 'Chuyển sang';
+      } else {
+        ctaType = 'upgrade';
+        ctaLabel = 'Nâng cấp';
+      }
+    } else if ((monthlyTier?.trialDays ?? 0) > 0) {
+      ctaType = 'trial';
+      ctaLabel = `Dùng thử ${monthlyTier?.trialDays} ngày`;
+    }
+
+    return {
+      key,
+      name: plan.name,
+      nameEn: plan.nameEn,
+      description: plan.description,
+      tag: plan.tag && plan.tag.length > 0 ? plan.tag : null,
+      sortOrder: plan.sortOrder,
+      monthlyPrice,
+      monthlyPriceDisplay: monthlyPrice === 0 ? 'Miễn phí' : this.formatVnd(monthlyPrice),
+      yearlyPrice,
+      yearlyPriceDisplay: yearlyPrice === 0 ? '—' : this.formatVnd(yearlyPrice),
+      yearlyDiscountPercent: yearlyTier?.discountPercent ?? 0,
+      trialDays: monthlyTier?.trialDays ?? 0,
+      limits,
+      features,
+      isCurrent,
+      highlighted: key === 'pro',
+      ctaType,
+      ctaLabel,
+    };
+  }
+
+  /** Format VND server-side (đồng bộ với lib/subscription.ts formatVND) */
+  formatVnd(amount: number): string {
+    if (!Number.isFinite(amount)) return '0₫';
+    const rounded = Math.round(amount);
+    if (rounded >= 1_000_000_000) {
+      return `${(rounded / 1_000_000_000).toLocaleString('vi-VN', {
+        maximumFractionDigits: 1,
+      })} tỷ₫`;
+    }
+    return `${rounded.toLocaleString('vi-VN')}₫`;
+  }
+
+  /** Format ngày → "24 Thg 6, 2026" */
+  formatDate(d: Date | null | undefined): string {
+    if (!d) return '—';
+    const date = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  // ================================================================
+  // Helpers (private)
+  // ================================================================
+
+  /**
+   * Xây dựng mảng usageStats[] đối chiếu từng quota với mức tiêu thụ thực.
+   * Resource chưa có nguồn đếm an toàn (users/workspaces/connectors) → used=0.
+   */
+  private buildUsageStats(
+    plan: ReturnType<typeof getPlan>,
+    used: {
+      aiCallsUsed: number;
+      storageUsedGB: number;
+      activeWorkflows: number;
+      bandwidthUsedGB: number;
+    },
+  ): UsageStatItem[] {
+    const l = plan?.limits;
+    const pol = plan?.overLimitPolicy;
+    return [
+      this.statRow('ai_calls', 'AI Calls', '🤖', used.aiCallsUsed, l?.aiCallsMonthly ?? 0, '/tháng', pol?.aiCalls ?? null),
+      this.statRow('storage_gb', 'Lưu trữ', '💾', used.storageUsedGB, l?.storageGB ?? 0, 'GB', pol?.storage ?? null),
+      this.statRow('workflows', 'Workflow', '🔧', used.activeWorkflows, l?.maxWorkflows ?? 0, 'mẫu', pol?.workflows ?? null),
+      this.statRow('connectors', 'Kết nối', '🔗', 0, l?.maxConnectors ?? 0, 'kết nối', pol?.connectors ?? null),
+      this.statRow('users', 'Thành viên', '👥', 0, l?.maxUsers ?? 0, 'người', pol?.users ?? null),
+      this.statRow('workspaces', 'Khu vực', '📦', 0, l?.maxWorkspaces ?? 0, 'nơi', null),
+      this.statRow('bandwidth_gb', 'Băng thông', '🌐', used.bandwidthUsedGB, l?.bandwidthGB ?? 0, 'GB', null),
+    ];
+  }
+
+  /** Tạo một UsageStatItem (chuẩn hóa unlimited / percent) */
+  private statRow(
+    resource: string,
+    label: string,
+    icon: string,
+    usedValue: number,
+    limit: number,
+    unit: string,
+    overLimitAction: string | null,
+  ): UsageStatItem {
+    const unlimited = isUnlimited(limit);
+    return {
+      resource,
+      label,
+      icon,
+      used: usedValue,
+      limit,
+      limitDisplay: unlimited ? 'Không giới hạn' : limit.toLocaleString('vi-VN'),
+      percent: unlimited || limit <= 0 ? 0 : Math.min(100, Math.round((usedValue / limit) * 100)),
+      unit,
+      unlimited,
+      overLimitAction,
+    };
+  }
+
+  /** Tạo một ResourceLimitDisplay */
+  private limitRow(
+    key: string,
+    label: string,
+    icon: string,
+    rawValue: number,
+    unit: string,
+  ): ResourceLimitDisplay {
+    const unlimited = isUnlimited(rawValue);
+    return {
+      key,
+      label,
+      icon,
+      displayValue: unlimited ? 'Không giới hạn' : `${rawValue.toLocaleString('vi-VN')}${unit}`,
+      rawValue,
+      unlimited,
+    };
+  }
 
   /** Mốc kết thúc chu kỳ hiện tại (fallback về now nếu thiếu expiresAt) */
   private cyclesEnd(currentSub: any, fallback: Date): Date {
