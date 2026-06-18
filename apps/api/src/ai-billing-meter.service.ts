@@ -12,6 +12,14 @@ export class AiBillingMeterService {
   /**
    * Record AI usage as a billable event.
    * Called by the AI gateway after every AI execution.
+   *
+   * Mỗi lần gọi tạo 2 bản ghi UsageRecord:
+   *   1. metric:'tokens'   — tổng token tiêu thụ (input + output)
+   *   2. metric:'cost'     — chi phí thực tế của lần gọi
+   *
+   * metadata của bản ghi cost chứa latencyMs + success để
+   * Analytics Service tính Avg Latency + Success Rate thay
+   * vì mặc định 0ms / 100%.
    */
   async recordAiUsage(input: {
     tenantId: string;
@@ -24,9 +32,13 @@ export class AiBillingMeterService {
     featureKey?: string;
     taskType?: string;
     cacheHit?: boolean;
+    /** Thời gian phản hồi thực tế (ms) — nếu caller không cung cấp, ghi 0 */
+    latencyMs?: number;
+    /** Kết quả lần gọi: true=thành công, false=lỗi/timeout — mặc định true */
+    success?: boolean;
   }) {
-    // Record to billing UsageRecord
     const cost = input.actualCost ?? input.estimatedCost;
+    // Ghi bản ghi token
     await this.billing.recordUsage({
       tenantId: input.tenantId,
       category: 'ai',
@@ -44,7 +56,7 @@ export class AiBillingMeterService {
       },
     });
 
-    // Also record cost as a separate metric
+    // Ghi bản ghi cost (kèm latencyMs + success cho Analytics)
     if (cost > 0) {
       await this.billing.recordUsage({
         tenantId: input.tenantId,
@@ -55,6 +67,8 @@ export class AiBillingMeterService {
           modelKey: input.modelKey,
           tokens: input.totalTokens,
           featureKey: input.featureKey ?? 'general',
+          latencyMs: input.latencyMs ?? 0,
+          success: input.success ?? true,
         },
       });
     }

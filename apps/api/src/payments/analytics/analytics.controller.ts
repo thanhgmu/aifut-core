@@ -4,8 +4,11 @@
 //   GET /ai-analytics/scorecard
 //   GET /ai-analytics/trends
 //   GET /ai-analytics/matrix
-// Bảo mật chống IDOR: tenantId LUÔN được resolve từ header x-tenant-slug
-// (resolveTenantId), KHÔNG BAO GIỜ nhận tenantId trực tiếp từ client query.
+// Bảo mật chống IDOR: tenantId LUÔN được resolve từ header, KHÔNG BAO GIỜ
+// nhận tenantId trực tiếp từ client query.
+// Resolver hỗ trợ đồng thời:
+//   - x-tenant-id   (ưu tiên — UUID, khớp auth-context các module khác)
+//   - x-tenant-slug (fallback — DX/khả dụng từ FE hiện tại)
 // Route đã nắn về @Controller('ai-analytics') khớp URL Frontend gọi sang (G1).
 // ============================================================================
 
@@ -38,18 +41,42 @@ export class AnalyticsController {
   // --------------------------------------------------------------------------
 
   /**
-   * Resolve tenantId từ header context (x-tenant-slug). Đây là biên giới cô lập
-   * dữ liệu đa thuê nhà: client không thể truyền tenantId tùy ý qua query.
+   * Resolve tenantId từ header context (x-tenant-id ưu tiên, x-tenant-slug
+   * fallback). Đây là biên giới cô lập dữ liệu đa thuê nhà: client không thể
+   * truyền tenantId tùy ý qua query.
+   *
+   * Luồng phân giải:
+   *   1. Nếu có x-tenant-id   → prisma.tenant.findUnique({ where:{ id }})
+   *   2. Else nếu x-tenant-slug → prisma.tenant.findUnique({ where:{ slug }})
+   *   3. Else → BadRequest('x-tenant-id hoặc x-tenant-slug header required')
    */
-  private async resolveTenantId(slug?: string): Promise<string> {
-    if (!slug || !slug.trim()) {
-      throw new BadRequestException('x-tenant-slug header required');
+  private async resolveTenantId(
+    slug?: string,
+    id?: string,
+  ): Promise<string> {
+    // Ưu tiên x-tenant-id (UUID)
+    if (id && id.trim()) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: id.trim() },
+      });
+      if (!tenant)
+        throw new NotFoundException(`Tenant '${id}' not found by x-tenant-id`);
+      return tenant.id;
     }
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: slug.trim() },
-    });
-    if (!tenant) throw new NotFoundException(`Tenant '${slug}' not found`);
-    return tenant.id;
+
+    // Fallback x-tenant-slug
+    if (slug && slug.trim()) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { slug: slug.trim() },
+      });
+      if (!tenant)
+        throw new NotFoundException(`Tenant '${slug}' not found by x-tenant-slug`);
+      return tenant.id;
+    }
+
+    throw new BadRequestException(
+      'x-tenant-id hoặc x-tenant-slug header required',
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -122,10 +149,11 @@ export class AnalyticsController {
   @Get('scorecard')
   async scorecard(
     @Headers('x-tenant-slug') slug: string,
+    @Headers('x-tenant-id') tenantIdHeader: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ): Promise<ScorecardResponse> {
-    const tenantId = await this.resolveTenantId(slug);
+    const tenantId = await this.resolveTenantId(slug, tenantIdHeader);
     const { start, end } = this.resolveRange(startDate, endDate);
     const scorecard = await this.analytics.getScorecardMetrics(tenantId, start, end);
     return {
@@ -143,12 +171,13 @@ export class AnalyticsController {
   @Get('trends')
   async trends(
     @Headers('x-tenant-slug') slug: string,
+    @Headers('x-tenant-id') tenantIdHeader: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('granularity') granularity?: string,
     @Query('modelKeys') modelKeys?: string,
   ): Promise<CostTrendResponse> {
-    const tenantId = await this.resolveTenantId(slug);
+    const tenantId = await this.resolveTenantId(slug, tenantIdHeader);
     const { start, end } = this.resolveRange(startDate, endDate);
     const gran = this.parseGranularity(granularity);
     const models = this.parseModelKeys(modelKeys);
@@ -175,11 +204,12 @@ export class AnalyticsController {
   @Get('matrix')
   async matrix(
     @Headers('x-tenant-slug') slug: string,
+    @Headers('x-tenant-id') tenantIdHeader: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('modelKeys') modelKeys?: string,
   ): Promise<ModelMatrixResponse> {
-    const tenantId = await this.resolveTenantId(slug);
+    const tenantId = await this.resolveTenantId(slug, tenantIdHeader);
     const { start, end } = this.resolveRange(startDate, endDate);
     const models = this.parseModelKeys(modelKeys);
     const result = await this.analytics.getModelMatrix(
