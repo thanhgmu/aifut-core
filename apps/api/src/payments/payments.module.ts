@@ -13,6 +13,7 @@ import { PayPalModule } from './paypal/paypal.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ReconciliationModule } from './reconciliation/reconciliation.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ReconciliationModule } from './reconciliation/reconciliation.module';
     LedgerModule,
     SubscriptionModule,
     ReconciliationModule,
+    AnalyticsModule,
   ],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [
