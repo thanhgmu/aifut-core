@@ -1,11 +1,12 @@
 // ============================================================================
 // payments/analytics/analytics.controller.ts
-// REST endpoints cho AI Cost Analytics Dashboard (Batch 1).
-//   GET /billing/analytics/scorecard
-//   GET /billing/analytics/trends
-//   GET /billing/analytics/matrix
+// REST endpoints cho AI Cost Analytics Dashboard (Batch 1 → Batch 4).
+//   GET /ai-analytics/scorecard
+//   GET /ai-analytics/trends
+//   GET /ai-analytics/matrix
 // Bảo mật chống IDOR: tenantId LUÔN được resolve từ header x-tenant-slug
 // (resolveTenantId), KHÔNG BAO GIỜ nhận tenantId trực tiếp từ client query.
+// Route đã nắn về @Controller('ai-analytics') khớp URL Frontend gọi sang (G1).
 // ============================================================================
 
 import {
@@ -25,7 +26,7 @@ import type {
   ScorecardResponse,
 } from './analytics.types';
 
-@Controller('billing/analytics')
+@Controller('ai-analytics')
 export class AnalyticsController {
   constructor(
     private readonly analytics: AnalyticsService,
@@ -44,7 +45,9 @@ export class AnalyticsController {
     if (!slug || !slug.trim()) {
       throw new BadRequestException('x-tenant-slug header required');
     }
-    const tenant = await this.prisma.tenant.findUnique({ where: { slug: slug.trim() } });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: slug.trim() },
+    });
     if (!tenant) throw new NotFoundException(`Tenant '${slug}' not found`);
     return tenant.id;
   }
@@ -70,18 +73,25 @@ export class AnalyticsController {
   /** Parse ISO date an toàn; fallback về giá trị mặc định nếu thiếu/invalid. */
   private parseDate(value: string | undefined, fallback: Date, endOfDay = false): Date {
     if (!value) return fallback;
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) {
-      throw new BadRequestException(`Invalid date: ${value}`);
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) {
+        throw new BadRequestException(`Invalid date: ${value}`);
+      }
+      if (endOfDay && value.length <= 10) {
+        d.setUTCHours(23, 59, 59, 999);
+      }
+      return d;
+    } catch {
+      return fallback;
     }
-    if (endOfDay && value.length <= 10) {
-      d.setUTCHours(23, 59, 59, 999);
-    }
-    return d;
   }
 
   /** Chuẩn hóa khoảng thời gian + chặn range đảo ngược. */
-  private resolveRange(startDate?: string, endDate?: string): { start: Date; end: Date } {
+  private resolveRange(
+    startDate?: string,
+    endDate?: string,
+  ): { start: Date; end: Date } {
     const start = this.parseDate(startDate, this.defaultStart());
     const end = this.parseDate(endDate, this.defaultEnd(), true);
     if (start.getTime() > end.getTime()) {
@@ -91,7 +101,8 @@ export class AnalyticsController {
   }
 
   private parseGranularity(value?: string): AnalyticsGranularity {
-    if (value === 'week' || value === 'month') return value;
+    if (value === 'day' || value === 'week' || value === 'month' || value === 'auto')
+      return value;
     return 'day';
   }
 
@@ -101,10 +112,6 @@ export class AnalyticsController {
       .split(',')
       .map((m) => m.trim())
       .filter(Boolean);
-  }
-
-  private isoDate(d: Date): string {
-    return d.toISOString().slice(0, 10);
   }
 
   // --------------------------------------------------------------------------
@@ -123,7 +130,10 @@ export class AnalyticsController {
     const scorecard = await this.analytics.getScorecardMetrics(tenantId, start, end);
     return {
       tenantId,
-      period: { start: this.isoDate(start), end: this.isoDate(end) },
+      period: {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+      },
       scorecard,
       generatedAt: new Date().toISOString(),
     };
@@ -142,29 +152,48 @@ export class AnalyticsController {
     const { start, end } = this.resolveRange(startDate, endDate);
     const gran = this.parseGranularity(granularity);
     const models = this.parseModelKeys(modelKeys);
-    const costTrend = await this.analytics.getCostTrends(tenantId, start, end, gran, models);
+    const costTrend = await this.analytics.getCostTrends(
+      tenantId,
+      start,
+      end,
+      gran,
+      models,
+    );
     return {
       tenantId,
-      period: { start: this.isoDate(start), end: this.isoDate(end) },
+      period: {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+      },
       granularity: gran,
       costTrend,
       generatedAt: new Date().toISOString(),
     };
   }
 
-  /** Zone 3 — Model efficiency matrix + anomaly. */
+  /** Zone 3 — Model efficiency matrix + anomaly 3 tầng. */
   @Get('matrix')
   async matrix(
     @Headers('x-tenant-slug') slug: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('modelKeys') modelKeys?: string,
   ): Promise<ModelMatrixResponse> {
     const tenantId = await this.resolveTenantId(slug);
     const { start, end } = this.resolveRange(startDate, endDate);
-    const result = await this.analytics.getModelMatrix(tenantId, start, end);
+    const models = this.parseModelKeys(modelKeys);
+    const result = await this.analytics.getModelMatrix(
+      tenantId,
+      start,
+      end,
+      models,
+    );
     return {
       tenantId,
-      period: { start: this.isoDate(start), end: this.isoDate(end) },
+      period: {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+      },
       models: result.models,
       anomalyCount: result.anomalyCount,
       anomalyModels: result.anomalyModels,
@@ -177,13 +206,15 @@ export class AnalyticsController {
   @Get('capabilities')
   capabilities() {
     return {
-      capability: 'billing-analytics',
+      capability: 'ai-analytics',
       status: 'active',
       supports: {
         scorecard: true,
         costTrend: true,
         modelMatrix: true,
         anomalyDetection: true,
+        autoGranularity: true,
+        modelKeysFilter: true,
         tenantIsolation: true,
       },
     };

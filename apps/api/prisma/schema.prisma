@@ -80,6 +80,7 @@ enum AuditSeverity {
   CRITICAL
 }
 
+
 model Tenant {
   id                 String                  @id @default(cuid())
   name               String
@@ -119,6 +120,8 @@ model Tenant {
   wallet              Wallet?
   ledgerTransactions  LedgerTransaction[]
   refundRecords       RefundRecord[]
+  aiBudgetLimits      AiBudgetLimit[]
+  budgetAccumulationLogs BudgetAccumulationLog[]
 }
 
 model Workspace {
@@ -416,6 +419,7 @@ model AiRoutingPolicy {
   @@index([workspaceSlug])
   @@index([defaultLane])
 }
+
 
 model AiBudgetPolicy {
   id                             String   @id @default(cuid())
@@ -943,6 +947,7 @@ model MarketplaceListingRating {
   @@index([tenantId])
 }
 
+
 enum NotificationChannel {
   EMAIL
   WEBHOOK
@@ -1308,6 +1313,7 @@ model EInvoice {
 
 // ── Wallet / Ledger (Internal Balance Tracking) ─────────────────────
 
+
 enum LedgerTransactionType {
   CREDIT
   DEBIT
@@ -1502,4 +1508,71 @@ model FinancialReportJob {
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@index([status])
+}
+
+// ── Anti-Drain Budget Caps (Phase 4) ────────────────────────────────────
+// Cost-based AI budget enforcement theo period DAILY/WEEKLY/MONTHLY (VND, BigInt).
+// Chạy song song với AiBudgetPolicy (token-based) — module này lo CHI PHÍ (VND).
+// Module: apps/api/src/payments/budget/
+// State machine: ACTIVE → SOFT_LOCKED (vượt alertThreshold) → HARD_LOCKED (chạm maxCostAmount).
+// Cron reset currentCostSpent = 0 khi periodEnd < now.
+
+enum BudgetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum BudgetStatus {
+  ACTIVE          // Còn hạn mức, mọi request AI được phép
+  SOFT_LOCKED     // Vượt alertThreshold (mặc định 80%), chặn AI request mới không ưu tiên
+  HARD_LOCKED     // Chạm maxCostAmount, chặn HOÀN TOÀN mọi request AI
+}
+
+model AiBudgetLimit {
+  id                String        @id @default(cuid())
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // ── Cấu hình hạn mức ─────────────────────────────────────────────
+  maxCostAmount     BigInt        // Số tiền tối đa (VND, BigInt tránh mất precision)
+  currency          String        @default("VND")
+  period            BudgetPeriod  // DAILY | WEEKLY | MONTHLY
+
+  // ── Trạng thái luỹ kế ────────────────────────────────────────────
+  currentCostSpent  BigInt        @default(0) // Tiền đã tiêu luỹ kế trong kỳ hiện tại (VND)
+  status            BudgetStatus  @default(ACTIVE)
+
+  // ── Ngưỡng cảnh báo ─────────────────────────────────────────────
+  alertThreshold    Float         @default(0.8) // 0.0 – 1.0, mặc định 80%
+
+  // ── Timestamps period ────────────────────────────────────────────
+  periodStart       DateTime      // Thời điểm bắt đầu kỳ hiện tại
+  periodEnd         DateTime      // Thời điểm kết thúc kỳ hiện tại
+  lastResetAt       DateTime?     // Lần reset gần nhất
+  softLockedAt      DateTime?     // Thời điểm chuyển sang SOFT_LOCKED
+  hardLockedAt      DateTime?     // Thời điểm chuyển sang HARD_LOCKED
+
+  // ── Notification anti-spam ───────────────────────────────────────
+  lastAlertSentAt   DateTime?     // Tránh spam: chỉ gửi alert khi lần cuối > cooldown
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([tenantId, period])
+  @@index([tenantId, status])
+  @@index([periodEnd])
+}
+
+model BudgetAccumulationLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestId   String   // reference đến AI request (idempotency key)
+  cost        BigInt   // Số tiền đã accumulate (VND)
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@unique([requestId, tenantId])
+  @@index([tenantId, createdAt])
 }

@@ -1,11 +1,12 @@
 // ============================================================================
 // payments/analytics/analytics.types.ts
-// Domain types for the AI Cost Analytics backend (Batch 1).
-// Tham chiếu thiết kế: docs/roadmap/AI-ANALYTICS-DASHBOARD-DESIGN.md
+// Domain types for the AI Cost Analytics backend (Batch 1 → Batch 4).
+// Tham chiếu thiết kế: BACKEND-ANALYTICS-BATCH4-DESIGN.md
+// Bổ sung: auto granularity, model-level display, anomaly score 3 tầng.
 // ============================================================================
 
-/** Mức gom nhóm thời gian cho biểu đồ xu hướng. */
-export type AnalyticsGranularity = 'day' | 'week' | 'month';
+/** Mức gom nhóm thời gian cho biểu đồ xu hướng (+ auto). */
+export type AnalyticsGranularity = 'day' | 'week' | 'month' | 'auto';
 
 /**
  * Hình dạng metadata được `AiBillingMeterService.recordAiUsage()` ghi kèm
@@ -52,6 +53,14 @@ export interface AnalyticsScorecardView {
   totalRequests: number;
 }
 
+/** Dữ liệu theo model trong một bucket trend (Zone 2). */
+export interface CostTrendByModel {
+  cost: number;
+  tokens: number;
+  costDisplay?: string; // VND rút gọn hiển thị
+  tokensDisplay?: string; // token rút gọn hiển thị
+}
+
 /** Một điểm trên chuỗi thời gian (Zone 2). */
 export interface CostTrendPoint {
   date: string; // khóa bucket (ISO date / tuần / tháng)
@@ -59,13 +68,14 @@ export interface CostTrendPoint {
   totalCost: number;
   totalCostDisplay: string;
   totalTokens: number;
-  byModel: Record<
-    string,
-    {
-      cost: number;
-      tokens: number;
-    }
-  >;
+  byModel: Record<string, CostTrendByModel>;
+}
+
+/** Chi tiết điểm bất thường 3 tầng (Zone 3). */
+export interface AnomalyBreakdown {
+  errorRateScore: number;
+  costSpikeScore: number;
+  volumeAnomalyScore: number;
 }
 
 /** Một dòng trong ma trận hiệu quả model (Zone 3). */
@@ -77,11 +87,14 @@ export interface ModelMatrixRow {
   avgCostPerRequest: number;
   avgCostPerRequestDisplay: string;
   totalTokens: number;
+  totalTokensDisplay: string;
   avgTokensPerRequest: number;
   avgLatencyMs: number;
   errorCount: number;
   errorRate: number; // 0-100
   anomaly: boolean;
+  anomalyScore: number; // 0-100 composite
+  anomalyBreakdown?: AnomalyBreakdown; // chi tiết 3 tầng
   anomalyReason?: string;
   cacheHitRate: number; // 0-100
 }

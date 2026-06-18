@@ -14,6 +14,7 @@ import { LedgerModule } from './ledger/ledger.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ReconciliationModule } from './reconciliation/reconciliation.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { BudgetModule } from './budget/budget.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     SubscriptionModule,
     ReconciliationModule,
     AnalyticsModule,
+    BudgetModule,
   ],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [
