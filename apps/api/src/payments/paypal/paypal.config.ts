@@ -34,6 +34,18 @@ export interface PayPalCredentials {
   defaultCurrency: string;
   /** Resolved operating mode. */
   mode: PayPalMode;
+  /**
+   * Tỷ giá VND per 1 USD (định nghĩa tĩnh).
+   * Đọc từ PAYPAL_USD_VND_RATE, mặc định 25400.
+   * Dùng làm nguồn fallback khi PAYPAL_FX_PROVIDER_URL không được set hoặc lỗi.
+   */
+  usdVndRate: number;
+  /**
+   * URL provider FX tùy chọn.
+   * Đọc từ PAYPAL_FX_PROVIDER_URL (rỗng = tắt, dùng usdVndRate tĩnh).
+   * Kỳ vọng trả về JSON: { "conversion_rate": 25450 }.
+   */
+  fxProviderUrl: string;
 }
 
 interface CachedToken {
@@ -70,6 +82,13 @@ export class PayPalConfig {
     const mode: PayPalMode =
       process.env['PAYPAL_MODE'] === 'live' ? 'live' : 'sandbox';
 
+    // Parse PAYPAL_USD_VND_RATE — fallback 25400 nếu thiếu hoặc không hợp lệ
+    const rawRate = process.env['PAYPAL_USD_VND_RATE'];
+    const usdVndRate =
+      rawRate && Number.isFinite(Number(rawRate)) && Number(rawRate) > 0
+        ? Number(rawRate)
+        : 25400;
+
     this.credentials = {
       clientId,
       clientSecret,
@@ -77,6 +96,8 @@ export class PayPalConfig {
       baseUrl: mode === 'live' ? LIVE_BASE_URL : SANDBOX_BASE_URL,
       defaultCurrency: process.env['PAYPAL_CURRENCY'] || 'USD',
       mode,
+      usdVndRate,
+      fxProviderUrl: process.env['PAYPAL_FX_PROVIDER_URL'] || '',
     };
   }
 

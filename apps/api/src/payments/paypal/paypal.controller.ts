@@ -8,13 +8,14 @@
  *   GET    /payments/paypal/verify/:orderId — Active reconciliation (safety net)
  *   POST   /payments/paypal/reconcile      — Manual reconcile & fallback activation
  *   GET    /payments/paypal/return         — User redirect after PayPal approval
+ *   GET    /payments/paypal/fx-rate        — USD/VND FX rate với spread (mới)
+ *   POST   /payments/paypal/capture-order/:orderId — Client-driven capture (mới)
  *
  * Security:
- *   - /create-order is tenant-authenticated (tenantId from auth context, NOT
- *     client-supplied body) to prevent IDOR attacks.
- *   - /webhook is protected by PayPal's POST-back signature verification
- *     (no session auth needed — PayPal IPN is server-to-server).
- *   - /verify and /reconcile are authenticated via auth context for IDOR safety.
+ *   - /create-order, /capture-order, /fx-rate, /verify, /reconcile, /return
+ *     đều tenant-authenticated (tenantId từ auth context — hỗ trợ x-tenant-id
+ *     VÀ x-tenant-slug) để chống IDOR.
+ *   - /webhook được bảo vệ bằng PayPal POST-back signature verification.
  */
 
 import {
@@ -35,8 +36,11 @@ import {
 import type { Request } from 'express';
 import { PayPalService } from './paypal.service';
 import { PayPalConfig } from './paypal.config';
+import { PayPalFxService } from './paypal.fx.service';
 import { PrismaService } from '../../prisma.service';
 import type {
+  PayPalCaptureOrderInput,
+  PayPalCaptureOrderResult,
   PayPalCreateOrderInput,
   PayPalWebhookEvent,
   PayPalWebhookHeaders,
@@ -67,6 +71,12 @@ interface ReconcileBody {
   gatewayTxId?: string;
 }
 
+/** Body cho POST /capture-order/:orderId (tuỳ chọn — đối soát chéo). */
+interface CaptureOrderBody {
+  /** orderId nội bộ (tuỳ chọn — đối soát chéo, không tin tuyệt đối). */
+  orderId?: string;
+}
+
 /** Response envelope consistent across all endpoints. */
 interface PayPalApiResponse {
   success: boolean;
@@ -75,13 +85,18 @@ interface PayPalApiResponse {
 }
 
 /**
- * Resolve tenantId from the auth context to prevent IDOR attacks.
- * In production, replace with a shared AuthGuard / session middleware.
+ * Resolve tenantId từ auth context để chống IDOR.
+ *
+ * Thứ tự ưu tiên:
+ *   1. req.user.tenantId (JWT/session auth guard).
+ *   2. x-tenant-id header (explicit tenant id).
+ *   3. x-tenant-slug header (tenant slug — đồng bộ với SubscriptionController).
  */
 function resolveTenantId(req: Request): string {
   const fromContext =
     (req as any).user?.tenantId ??
-    (req.headers['x-tenant-id'] as string | undefined);
+    (req.headers['x-tenant-id'] as string | undefined) ??
+    (req.headers['x-tenant-slug'] as string | undefined);
   if (fromContext && typeof fromContext === 'string' && fromContext.length > 0) {
     return fromContext;
   }
@@ -95,6 +110,7 @@ export class PayPalController {
   constructor(
     private readonly paypalService: PayPalService,
     private readonly paypalConfig: PayPalConfig,
+    private readonly paypalFxService: PayPalFxService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -278,7 +294,7 @@ export class PayPalController {
    * If the capture is COMPLETED but local state is still pending, this
    * endpoint triggers the full settle+activate flow automatically.
    *
-   * Protected by tenant auth context (IDOR prevention via x-tenant-id).
+   * Protected by tenant auth context (IDOR prevention via x-tenant-id/x-tenant-slug).
    */
   @Get('verify/:paypalOrderId')
   async verifyOrder(
@@ -454,5 +470,138 @@ export class PayPalController {
         error: 'Không thể tra cứu trạng thái giao dịch.',
       };
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // GET /payments/paypal/fx-rate — endpoint mới
+  // --------------------------------------------------------------------------
+
+  /**
+   * Lấy tỷ giá USD/VND hiện tại (bao gồm spread 1%) cho UI hiển thị.
+   *
+   * Chiến lược 2 tầng:
+   *   - Tầng cấu hình (mặc định): đọc PAYPAL_USD_VND_RATE từ env.
+   *   - Tầng provider (tuỳ chọn): gọi PAYPAL_FX_PROVIDER_URL với cache TTL 1h.
+   *
+   * IDOR: Bắt buộc x-tenant-id hoặc x-tenant-slug header (read-only nhưng
+   * vẫn yêu cầu tenant context). Không nhận tham số FX từ query.
+   */
+  @Get('fx-rate')
+  async getFxRate(@Req() req: Request): Promise<PayPalApiResponse> {
+    // CHỐNG IDOR: yêu cầu tenant context
+    try {
+      resolveTenantId(req);
+    } catch (err) {
+      throw new UnauthorizedException((err as Error).message);
+    }
+
+    // Kiểm tra cấu hình
+    if (!this.paypalConfig.isConfigured) {
+      return {
+        success: false,
+        error: 'PayPal gateway chưa được cấu hình.',
+      };
+    }
+
+    const fx = await this.paypalFxService.getUsdVndRate();
+
+    return {
+      success: true,
+      data: {
+        base: fx.base,
+        quote: fx.quote,
+        baseRate: fx.baseRate,
+        spreadRate: fx.spreadRate,
+        spreadPercentDisplay: `${(fx.spreadRate * 100).toFixed(2)}%`,
+        effectiveRate: fx.effectiveRate,
+        source: fx.source,
+        asOf: fx.asOf,
+      },
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /payments/paypal/capture-order/:orderId — endpoint mới
+  // --------------------------------------------------------------------------
+
+  /**
+   * Capture (khóa) một PayPal order sau khi user approve trên JS SDK.
+   *
+   * Luồng:
+   *   1. User approve trên PayPal popup → JS SDK `onApprove` callback.
+   *   2. Frontend gọi POST /payments/paypal/capture-order/:paypalOrderId.
+   *   3. Backend gọi real PayPal REST POST /v2/checkout/orders/{id}/capture.
+   *   4. Tự động nạp BigInt vào Wallet + Ledger.
+   *   5. Best-effort kích hoạt subscription nếu order gắn với gói.
+   *
+   * Bảo mật:
+   *   - tenantId chỉ từ auth context (x-tenant-id / x-tenant-slug), KHÔNG từ body.
+   *   - orderId nội bộ đối soát từ PayPal echo (invoice_id) — không tin body tuyệt đối.
+   *
+   * Idempotency 2 lớp:
+   *   (a) PayPal-Request-Id: chống double-capture phía PayPal.
+   *   (b) PayPalIpnGuard.claim(): chống nạp ví 2 lần (cùng captureId).
+   */
+  @Post('capture-order/:orderId')
+  @HttpCode(HttpStatus.OK)
+  async captureOrder(
+    @Param('orderId') paypalOrderId: string,
+    @Body() dto: CaptureOrderBody,
+    @Req() req: Request,
+  ): Promise<PayPalApiResponse> {
+    // ---- Validate ----------------------------------------------------------
+    if (!paypalOrderId || typeof paypalOrderId !== 'string' || paypalOrderId.length === 0) {
+      throw new BadRequestException('orderId (PayPal Order ID) is required');
+    }
+
+    // ---- Resolve tenant từ auth context (CHỐNG IDOR) ------------------------
+    let tenantId: string;
+    try {
+      tenantId = resolveTenantId(req);
+    } catch (err) {
+      throw new UnauthorizedException((err as Error).message);
+    }
+
+    // ---- Check PayPal configured --------------------------------------------
+    if (!this.paypalConfig.isConfigured) {
+      this.logger.warn('PayPal gateway not configured, cannot capture order');
+      throw new BadRequestException(
+        'PayPal gateway chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+      );
+    }
+
+    // ---- Delegate to service ------------------------------------------------
+    const input: PayPalCaptureOrderInput = {
+      paypalOrderId,
+      tenantId,                           // TỪ CONTEXT, không từ body
+      expectedOrderId: dto?.orderId,       // Đối soát chéo (không tin tuyệt đối)
+    };
+
+    const result: PayPalCaptureOrderResult =
+      await this.paypalService.capturePayPalOrder(input);
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.errorMessage ?? 'Capture thất bại',
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        paypalOrderId: result.paypalOrderId,
+        captureId: result.captureId,
+        captureStatus: result.captureStatus,
+        grossAmount: result.grossAmount,
+        netAmount: result.netAmount,
+        paypalFee: result.paypalFee,
+        currency: result.currency,
+        walletCredited: result.walletCredited,
+        newBalanceDisplay: result.newBalanceDisplay,
+        ledgerTransactionId: result.ledgerTransactionId,
+        subscriptionActivated: result.subscriptionActivated,
+      },
+    };
   }
 }

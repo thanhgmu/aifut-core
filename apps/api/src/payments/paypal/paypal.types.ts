@@ -68,6 +68,70 @@ export interface PayPalCreateOrderResult {
   errorMessage?: string;
 }
 
+// ── Capture Order — Input/Result (mới) ────────────────────────────────────────
+
+/**
+ * Đầu vào cho capturePayPalOrder().
+ * tenantId LUÔN được phân giải từ auth context (x-tenant-id / x-tenant-slug),
+ * KHÔNG BAO GIỜ nhận từ body (chống IDOR).
+ */
+export interface PayPalCaptureOrderInput {
+  /** PayPal Order ID trả về từ create-order. */
+  paypalOrderId: string;
+  /** Tenant phân giải từ context (IDOR-safe). */
+  tenantId: string;
+  /** orderId nội bộ kỳ vọng (đối soát chéo, tuỳ chọn). */
+  expectedOrderId?: string;
+}
+
+/** Kết quả trả về từ capturePayPalOrder(). */
+export interface PayPalCaptureOrderResult {
+  success: boolean;
+  paypalOrderId: string;
+  captureId?: string;
+  /** COMPLETED | DECLINED | PENDING. */
+  captureStatus?: string;
+  /** PayPal decimal string (tổng thu). */
+  grossAmount?: string;
+  /** Số tiền sau phí PayPal. */
+  netAmount?: string;
+  /** Phí PayPal (decimal string). */
+  paypalFee?: string;
+  /** Currency code. */
+  currency?: string;
+  /** Internal BigInt đã nạp vào ví (smallest unit). */
+  internalAmount?: bigint;
+  /** Đã nạp ví thành công. */
+  walletCredited: boolean;
+  /** Hiển thị số dư mới (format VNĐ). */
+  newBalanceDisplay?: string;
+  /** Ledger transaction ID (nếu nạp thành công). */
+  ledgerTransactionId?: string;
+  /** Subscription được kích hoạt (best-effort). */
+  subscriptionActivated: boolean;
+  errorMessage?: string;
+}
+
+// ── FX Rate (mới) ──────────────────────────────────────────────────────────────
+
+/** Kết quả trả về từ PayPalFxService.getUsdVndRate(). */
+export interface FxRateResult {
+  /** Đồng tiền gốc. */
+  base: 'USD';
+  /** Đồng tiền đích. */
+  quote: 'VND';
+  /** VND per 1 USD trước spread. */
+  baseRate: number;
+  /** Spread áp dụng (0.01 = 1%). */
+  spreadRate: number;
+  /** VND per 1 USD sau khi cộng spread — số user thực chịu. */
+  effectiveRate: number;
+  /** Nguồn tỷ giá. */
+  source: 'config' | 'provider';
+  /** Thời gian lấy tỷ giá. */
+  asOf: string;
+}
+
 // ── Webhook ────────────────────────────────────────────────────────────────────
 
 export interface PayPalWebhookHeaders {
@@ -212,5 +276,5 @@ export interface PayPalApiError {
   name: string;
   message: string;
   details?: Array<{ issue: string; field?: string; description?: string }>;
-  debug_id?: string;
+  debug_id: string;
 }

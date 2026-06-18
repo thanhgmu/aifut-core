@@ -14,6 +14,11 @@
  *   - verifyPayPalOrder(): Active reconciliation (GET /v2/checkout/orders/:id),
  *     safety net for dropped webhook delivery.
  *
+ * Lượt 3 scope (this commit):
+ *   - capturePayPalOrder(): POST /v2/checkout/orders/{id}/capture — client-driven
+ *     capture sau JS SDK `onApprove`. Tích hợp Idempotency 2 lớp, tự động nạp
+ *     BigInt vào ví qua LedgerService, best-effort kích hoạt subscription.
+ *
  * Webhook verification (handlePayPalWebhook) and active reconciliation
  * (verifyPayPalOrder) are declared in the design and land in subsequent waves.
  *
@@ -27,11 +32,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { LedgerReferenceTypes } from '../ledger/ledger.types';
 import { PayPalConfig } from './paypal.config';
 import {
   PayPalApiError,
   PayPalApiOrderResponse,
   PayPalCaptureResource,
+  PayPalCaptureOrderInput,
+  PayPalCaptureOrderResult,
   PayPalCreateOrderInput,
   PayPalCreateOrderResult,
   PayPalOAuthResponse,
@@ -655,6 +663,272 @@ export class PayPalService {
       internalAmount,
       amountMatch,
       reconciled,
+    };
+  }
+
+  // ── Hàm #4: capturePayPalOrder (mới) ───────────────────────────────────────
+
+  /**
+   * Capture a PayPal order after user approval (JS SDK `onApprove`).
+   *
+   * Flow:
+   *   1. OAuth2 token.
+   *   2. POST /v2/checkout/orders/{id}/capture với PayPal-Request-Id idempotency.
+   *   3. Bóc tách capture resource, parse số tiền.
+   *   4. Idempotency claim qua PayPalIpnGuard.
+   *   5. Settle PaymentTransaction = success.
+   *   6. Nạp BigInt vào ví qua LedgerService.creditBalance(TOPUP).
+   *   7. Best-effort kích hoạt subscription.
+   *
+   * Idempotency 2 lớp:
+   *   (a) PayPal-Request-Id header — chống double-capture phía PayPal.
+   *   (b) PayPalIpnGuard.claim() + LedgerService.creditBalance idempotent key
+   *       (captureId) — webhook + client-capture trùng nhau vẫn chỉ nạp 1 lần.
+   *
+   * An toàn tài chính: nếu credit ví lỗi sau khi PayPal đã COMPLETED, KHÔNG
+   * rollback — ghi log để reconcile cron bù (mất tiền nặng hơn rollback ảo).
+   */
+  async capturePayPalOrder(
+    input: PayPalCaptureOrderInput,
+  ): Promise<PayPalCaptureOrderResult> {
+    const { paypalOrderId, tenantId, expectedOrderId } = input;
+    const base: Pick<
+      PayPalCaptureOrderResult,
+      'success' | 'paypalOrderId' | 'walletCredited' | 'subscriptionActivated'
+    > = {
+      success: false,
+      paypalOrderId,
+      walletCredited: false,
+      subscriptionActivated: false,
+    };
+
+    // ---- 1. OAuth token ----------------------------------------------------
+    let token: string;
+    try {
+      token = await this.getAccessToken();
+    } catch (err) {
+      return {
+        ...base,
+        errorMessage: 'Không lấy được token xác thực PayPal.',
+      };
+    }
+
+    const creds = this.config.require();
+
+    // ---- 2. POST /v2/checkout/orders/{id}/capture ---------------------------
+    // Idempotency lớp 1: PayPal-Request-Id header
+    // Giúp PayPal idempotency-safe nếu client gửi trùng request.
+    let cap: PayPalApiOrderResponse;
+    try {
+      cap = await this.postJson<PayPalApiOrderResponse>(
+        `${creds.baseUrl}${ORDERS_PATH}/${paypalOrderId}/capture`,
+        {}, // Body rỗng — PayPal capture không cần body
+        token,
+        { 'PayPal-Request-Id': `cap-${paypalOrderId}` },
+      );
+    } catch (err) {
+      const message = this.friendlyError(err);
+      this.logger.error(
+        `PayPal capture failed paypalOrderId=${paypalOrderId}: ${message}`,
+      );
+      return { ...base, errorMessage: message };
+    }
+
+    // ---- 3. Bóc tách capture resource ----------------------------------------
+    const pu = cap.purchase_units?.[0];
+    const captures = pu?.payments?.captures;
+    const capture = captures?.[0];
+
+    if (!capture || capture.status !== 'COMPLETED') {
+      return {
+        ...base,
+        captureStatus: capture?.status ?? cap.status,
+        errorMessage:
+          capture && capture.status !== 'COMPLETED'
+            ? `Capture chưa COMPLETED (status=${capture.status}).`
+            : 'Không tìm thấy capture resource.',
+      };
+    }
+
+    const captureId = capture.id;
+    const grossAmount = capture.amount?.value ?? '0.00';
+    const currency = capture.amount?.currency_code ?? 'USD';
+    const netAmount =
+      capture.seller_receivable_breakdown?.net_amount?.value ?? grossAmount;
+    const paypalFee =
+      capture.seller_receivable_breakdown?.paypal_fee?.value ?? '0.00';
+
+    // orderId nội bộ ưu tiên từ PayPal echo (invoice_id/custom_id).
+    // KHÔNG tin dto.expectedOrderId tuyệt đối — chỉ dùng làm fallback.
+    const orderId =
+      pu?.invoice_id ?? pu?.reference_id ?? expectedOrderId ?? paypalOrderId;
+
+    // Chuyển đổi PayPal decimal → internal BigInt
+    let internalAmount: bigint;
+    try {
+      internalAmount = payPalDecimalToInternal(grossAmount);
+    } catch {
+      return {
+        ...base,
+        captureId,
+        captureStatus: capture.status,
+        errorMessage: 'Sai định dạng số tiền capture (PayPal decimal).',
+      };
+    }
+
+    // ---- 4. Idempotency claim (chống nạp ví 2 lần) ------------------------
+    // Dùng chung guard với webhook — webhook và client-capture không thể
+    // cùng nạp ví cho cùng một captureId.
+    let claim;
+    try {
+      claim = await this.ipnGuard.claim(orderId, captureId, internalAmount);
+    } catch (err) {
+      this.logger.error(
+        `Capture IPN claim error paypalOrderId=${paypalOrderId}: ${(err as Error).message}`,
+      );
+      return {
+        ...base,
+        captureId,
+        captureStatus: capture.status,
+        errorMessage: 'Idempotency guard error.',
+      };
+    }
+
+    // 4a. Đã xử lý trước đó → trả về idempotent (không nạp lại)
+    if (claim.decision === 'duplicate' && claim.currentStatus === 'success') {
+      this.logger.log(
+        `Capture idempotent: paypalOrderId=${paypalOrderId} captureId=${captureId} — already processed.`,
+      );
+      return {
+        success: true,
+        paypalOrderId,
+        captureId,
+        captureStatus: 'COMPLETED',
+        grossAmount,
+        netAmount,
+        paypalFee,
+        currency,
+        walletCredited: true,
+        subscriptionActivated: true,
+        errorMessage: 'Idempotent: giao dịch đã được xử lý.',
+      };
+    }
+
+    if (claim.decision !== 'claimed' || !claim.transactionId) {
+      return {
+        ...base,
+        captureId,
+        captureStatus: capture.status,
+        errorMessage: `Không claim được giao dịch (decision=${claim.decision}).`,
+      };
+    }
+
+    // ---- 5. Settle PaymentTransaction = success ---------------------------
+    // Serializable transaction trong guard
+    const settled = await this.ipnGuard.settle(
+      claim.transactionId,
+      'success',
+      {
+        gatewayTxId: captureId,
+        gateway: 'paypal',
+        metadata: {
+          paypalOrderId,
+          paypalCaptureId: captureId,
+          grossAmount,
+          netAmount,
+          paypalFee,
+          currency,
+          source: 'client-capture',
+          capturedAt: new Date().toISOString(),
+        },
+      } as any,
+    );
+
+    if (!settled) {
+      this.logger.warn(
+        `Capture settle race lost tx=${claim.transactionId} paypalOrderId=${paypalOrderId}`,
+      );
+      return {
+        ...base,
+        captureId,
+        captureStatus: 'COMPLETED',
+        errorMessage: 'Settle race lost — đang được xử lý bởi luồng khác.',
+      };
+    }
+
+    // ---- 6. NẠP VÍ qua LedgerService.creditBalance --------------------------
+    // Idempotent key: (tenantId, referenceType=topup, referenceId=captureId)
+    // LedgerService đã có unique constraint + CAS + interactive transaction.
+    // Không rollback nếu credit lỗi — tiền PayPal đã capture.
+    let walletCredited = false;
+    let ledgerTransactionId: string | undefined;
+    let newBalanceDisplay: string | undefined;
+
+    try {
+      const ledgerRes = await this.ledger.creditBalance({
+        tenantId,
+        amount: internalAmount, // BigInt smallest unit
+        referenceType: LedgerReferenceTypes.TOPUP, // 'topup'
+        referenceId: captureId, // idempotency key
+        description: `PayPal capture nạp ví: ${grossAmount} ${currency}`,
+        metadata: {
+          paypalOrderId,
+          captureId,
+          grossAmount,
+          netAmount,
+          paypalFee,
+          currency,
+        },
+      });
+
+      walletCredited = ledgerRes.success;
+      ledgerTransactionId = ledgerRes.transactionId;
+      newBalanceDisplay = `${(Number(ledgerRes.balanceAfter) / 100).toLocaleString('vi-VN')}₫`;
+    } catch (err) {
+      this.logger.error(
+        `Wallet credit fail order=${orderId}: ${(err as Error).message}`,
+      );
+      // An toàn tài chính: không rollback — log để reconcile cron xử lý.
+    }
+
+    // ---- 7. Kích hoạt subscription (best-effort, non-fatal) -----------------
+    let subscriptionActivated = false;
+    try {
+      const act = await this.subscriptionActivator.activateByOrderId({
+        orderId,
+        gateway: 'paypal',
+        gatewayTxId: captureId,
+        paidAt: new Date((capture as any).create_time ?? Date.now()),
+        ipnPayload: {
+          source: 'client-capture',
+          paypalOrderId,
+          captureId,
+        },
+      });
+      subscriptionActivated = !!act.activated;
+      this.logger.log(
+        `Capture subscription activation orderId=${orderId} activated=${subscriptionActivated}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Capture activation warning orderId=${orderId}: ${(err as Error).message}`,
+      );
+    }
+
+    return {
+      success: true,
+      paypalOrderId,
+      captureId,
+      captureStatus: 'COMPLETED',
+      grossAmount,
+      netAmount,
+      paypalFee,
+      currency,
+      internalAmount,
+      walletCredited,
+      newBalanceDisplay,
+      ledgerTransactionId,
+      subscriptionActivated,
     };
   }
 

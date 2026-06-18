@@ -3,9 +3,10 @@
  *
  * Encapsulates the entire PayPal payment subsystem:
  *   - PayPalConfig             — environment-sourced credentials provider + OAuth2 cache
- *   - PayPalService            — order creation, webhook handling, active reconciliation
+ *   - PayPalService            — order creation, webhook handling, active reconciliation, capture
+ *   - PayPalFxService          — USD/VND FX rate 2 tầng + cache (mới)
  *   - PayPalIpnGuard           — 3-layer idempotency guard (CAS + Serializable tx)
- *   - PayPalController         — 5 HTTP endpoints under /payments/paypal
+ *   - PayPalController         — 7 HTTP endpoints under /payments/paypal
  *
  * Import this module into PaymentsModule (or AppModule) to register the PayPal
  * payment gateway. The module bootstraps cleanly in unconfigured environments
@@ -22,6 +23,7 @@ import { Module } from '@nestjs/common';
 import { PayPalController } from './paypal.controller';
 import { PayPalService } from './paypal.service';
 import { PayPalConfig } from './paypal.config';
+import { PayPalFxService } from './paypal.fx.service';
 import { PayPalIpnGuard } from './paypal.ipn.guard';
 import { SubscriptionActivatorService } from '../subscription-activator.service';
 import { PrismaService } from '../../prisma.service';
@@ -33,6 +35,7 @@ import { LedgerNotificationService } from '../ledger/ledger-notification.service
   providers: [
     PayPalService,
     PayPalConfig,
+    PayPalFxService,
     PayPalIpnGuard,
     SubscriptionActivatorService,
     PrismaService,
@@ -42,6 +45,7 @@ import { LedgerNotificationService } from '../ledger/ledger-notification.service
   exports: [
     PayPalService,
     PayPalConfig,
+    PayPalFxService,
     PayPalIpnGuard,
   ],
 })
