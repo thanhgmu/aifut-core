@@ -1520,6 +1520,7 @@ model FinancialReportJob {
 enum BudgetPeriod {
   DAILY
   WEEKLY
+
   MONTHLY
 }
 
@@ -1575,4 +1576,71 @@ model BudgetAccumulationLog {
 
   @@unique([requestId, tenantId])
   @@index([tenantId, createdAt])
+}
+
+// ── Developer Sandbox Environment ─────────────────────────────────────────
+// Hỗ trợ UI live tracing, webhook inspection và mock API endpoints
+// cho phép developer test real-time workflow của tenant.
+// Module: apps/api/src/sandbox/
+
+model SandboxSession {
+  id        String         @id @default(uuid())
+  tenantId  String
+  name      String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  traces    SandboxTrace[]
+
+  @@index([tenantId])
+}
+
+model SandboxTrace {
+  id                String   @id @default(uuid())
+  sessionId         String
+  session           SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  nodeId            String?
+  actionType        String
+  inputPayload      Json
+  outputPayload     Json?
+  isMocked          Boolean  @default(false)
+  latencyMs         Int      @default(0)
+  isSuccess         Boolean  @default(true)
+  errorMessage      String?
+  virtualCostBigInt BigInt   @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model WebhookInspectionLog {
+  id             String   @id @default(uuid())
+  tenantId       String
+  endpointId     String?
+  method         String
+  headers        Json
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  durationMs     Int      @default(0)
+  direction      String
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model SandboxMockEndpoint {
+  id           String   @id @default(uuid())
+  tenantId     String
+  path         String
+  httpStatus   Int      @default(200)
+  responseBody Json
+  delayMs      Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, path])
 }

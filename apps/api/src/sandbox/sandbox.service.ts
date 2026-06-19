@@ -1,447 +1,435 @@
-import { randomUUID } from 'crypto';
+// ===================================================================
+// sandbox.service.ts — Sandbox Database Service (DB-Backed)
+// Dịch vụ điều phối lõi cho Developer Sandbox Environment.
+// Sử dụng PrismaService (PostgreSQL) để lưu SandboxSession + SandboxTrace
+// với phân trang cứng chống IDOR và telemetry tự động.
+// ===================================================================
+
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
-import {
-  SANDBOX_VERSION,
-  SANDBOX_DEFAULT_ENV,
-  SANDBOX_ENV_TEMPLATES,
-  SANDBOX_DEFAULT_TIMEOUT_MS,
-  SANDBOX_MAX_ENV_KEYS,
-  SANDBOX_MAX_RUN_HISTORY,
-  SANDBOX_ERRORS,
-} from './sandbox.constants';
+import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
 
-// ── Domain types ────────────────────────────────────────────────────────────
+// ── Public types ──────────────────────────────────────────────────────────
 
-export interface SandboxInstance {
+export interface SandboxSessionResponse {
   id: string;
   tenantId: string;
-  label: string;
-  createdAt: string;
-  expiresAt: string;
-  env: Record<string, string>;
-  active: boolean;
-  runHistory: SandboxRunTrace[];
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  traceCount: number;
 }
 
-export interface SandboxRunTrace {
-  runId: string;
-  action: string;
-  payload: any;
-  result: SandboxExecutionResult;
-  startedAt: string;
-  completedAt: string;
-  durationMs: number;
-  envSnapshot: Record<string, string>;
-  logs: string[];
+export interface SandboxTraceResponse {
+  id: string;
+  sessionId: string;
+  actionType: string;
+  inputPayload: unknown;
+  outputPayload: unknown;
+  latencyMs: number;
+  isSuccess: boolean;
+  errorMessage?: string;
+  virtualCostBigInt: string; // BigInt serialized as string for JSON safety
+  createdAt: Date;
 }
 
-export interface SandboxExecutionResult {
-  success: boolean;
-  statusCode?: number;
-  data?: any;
-  error?: string;
-  durationMs: number;
+export interface PaginatedSessionsResponse {
+  data: SandboxSessionResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
-export interface CreateSandboxInput {
-  tenantId: string;
-  label?: string;
-  ttlMs?: number;
-  env?: Record<string, string>;
-  template?: string;
+export interface ExecuteSandboxResult {
+  trace: SandboxTraceResponse;
+  session: SandboxSessionResponse;
 }
 
-export interface SetEnvInput {
-  env: Record<string, string>;
-  mode?: 'merge' | 'replace';
-}
+// ── Constants ──────────────────────────────────────────────────────────────
 
-export interface ExecuteConnectorInput {
-  action: string;
-  payload: any;
-  baseUrl?: string;
-  method?: string;
-  endpoint?: string;
-  headers?: Record<string, string>;
-  timeoutMs?: number;
-}
+/** Phân trang cứng: tối đa 100 bản ghi / trang */
+const HARD_PAGE_LIMIT = 100;
 
-/** Default sandbox time-to-live (30 minutes) */
-const DEFAULT_TTL_MS = 30 * 60 * 1000;
+/** Phân trang cứng: tối thiểu 1 bản ghi / trang */
+const HARD_PAGE_MIN = 1;
 
-// ── Service ─────────────────────────────────────────────────────────────────
+/** Mặc định số bản ghi / trang */
+const DEFAULT_PAGE_SIZE = 20;
+
+/** Chi phí ảo mặc định cho mỗi lần execute sandbox (đơn vị: smallest unit, VND) */
+const DEFAULT_VIRTUAL_COST = 1_000n; // 1,000 VND ảo
+
+// ── Service ────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class SandboxService {
-  /** In-memory sandbox store (volatile; persists only for the process lifetime) */
-  private readonly sandboxes = new Map<string, SandboxInstance>();
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Initialize a new developer sandbox.
-   * Creates an isolated environment with default env, optional template, and expiry.
+   * createSession
+   * ──────────────
+   * Khởi tạo một phiên sandbox mới dưới trạng thái isActive: true.
+   * Tenant scoped — session chỉ thuộc về một tenant duy nhất.
+   *
+   * @param tenantId - UUID của tenant sở hữu
+   * @param name     - Tên gợi nhớ cho phiên sandbox
+   * @returns SandboxSessionResponse — phiên vừa được tạo
    */
-  createSandbox(input: CreateSandboxInput): SandboxInstance {
-    const id = randomUUID();
-    const now = Date.now();
-    const ttl = input.ttlMs ?? DEFAULT_TTL_MS;
-
-    // Build environment: defaults + template (if provided) + custom env
-    let env: Record<string, string> = { ...SANDBOX_DEFAULT_ENV };
-    if (input.template && SANDBOX_ENV_TEMPLATES[input.template]) {
-      env = { ...env, ...SANDBOX_ENV_TEMPLATES[input.template] };
-    }
-    if (input.env) {
-      const merged = { ...env, ...input.env };
-      if (Object.keys(merged).length > SANDBOX_MAX_ENV_KEYS) {
-        throw new BadRequestException(
-          `Sandbox environment exceeds maximum of ${SANDBOX_MAX_ENV_KEYS} keys`,
-        );
-      }
-      env = merged;
-    }
-
-    const instance: SandboxInstance = {
-      id,
-      tenantId: input.tenantId,
-      label: input.label ?? `sandbox-${id.slice(0, 8)}`,
-      createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + ttl).toISOString(),
-      env,
-      active: true,
-      runHistory: [],
-    };
-
-    this.sandboxes.set(id, instance);
-    return this.stripRunHistory(instance);
-  }
-
-  /**
-   * Get a sandbox by ID. Throws if not found, expired, or inactive.
-   */
-  getSandbox(id: string, tenantId: string): SandboxInstance {
-    const sb = this.sandboxes.get(id);
-    if (!sb) {
-      throw new NotFoundException({
-        code: SANDBOX_ERRORS.NOT_FOUND,
-        message: `Sandbox '${id}' not found`,
-      });
-    }
-    if (sb.tenantId !== tenantId) {
-      throw new NotFoundException({
-        code: SANDBOX_ERRORS.NOT_FOUND,
-        message: `Sandbox '${id}' not found for this tenant`,
-      });
-    }
-    if (!sb.active) {
-      throw new BadRequestException({
-        code: SANDBOX_ERRORS.EXPIRED,
-        message: `Sandbox '${id}' is inactive`,
-      });
-    }
-    if (new Date(sb.expiresAt) < new Date()) {
-      sb.active = false;
-      throw new BadRequestException({
-        code: SANDBOX_ERRORS.EXPIRED,
-        message: `Sandbox '${id}' has expired`,
-      });
-    }
-    return sb;
-  }
-
-  /**
-   * List all active sandboxes for a tenant.
-   */
-  listSandboxes(tenantId: string): SandboxInstance[] {
-    const result: SandboxInstance[] = [];
-    for (const sb of this.sandboxes.values()) {
-      if (sb.tenantId === tenantId) {
-        result.push(this.stripRunHistory(sb));
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Delete (deactivate) a sandbox.
-   */
-  deleteSandbox(id: string, tenantId: string): { deleted: boolean } {
-    const sb = this.getSandbox(id, tenantId);
-    sb.active = false;
-    return { deleted: true };
-  }
-
-  /**
-   * Set or merge environment variables into an active sandbox.
-   * - mode = 'merge' (default): shallow-merge the provided keys into the existing env.
-   * - mode = 'replace': replace the entire env (keeping only defaults + new env).
-   */
-  setSandboxEnv(id: string, tenantId: string, input: SetEnvInput): SandboxInstance {
-    const sb = this.getSandbox(id, tenantId);
-    const mode = input.mode ?? 'merge';
-
-    if (mode === 'replace') {
-      const newEnv = { ...SANDBOX_DEFAULT_ENV, ...input.env };
-      if (Object.keys(newEnv).length > SANDBOX_MAX_ENV_KEYS) {
-        throw new BadRequestException(
-          `Sandbox environment exceeds maximum of ${SANDBOX_MAX_ENV_KEYS} keys`,
-        );
-      }
-      sb.env = newEnv;
-    } else {
-      // merge mode
-      const merged = { ...sb.env, ...input.env };
-      if (Object.keys(merged).length > SANDBOX_MAX_ENV_KEYS) {
-        throw new BadRequestException(
-          `Sandbox environment exceeds maximum of ${SANDBOX_MAX_ENV_KEYS} keys`,
-        );
-      }
-      sb.env = merged;
-    }
-
-    return this.stripRunHistory(sb);
-  }
-
-  /**
-   * Get all environment variables for a sandbox.
-   */
-  getSandboxEnv(id: string, tenantId: string): Record<string, string> {
-    const sb = this.getSandbox(id, tenantId);
-    return { ...sb.env };
-  }
-
-  /**
-   * Execute a connector action within the sandbox environment.
-   * This is a **simulated** execution — no real network calls, no production side effects.
-   * Records a full trace in the sandbox run history.
-   */
-  async executeConnector(
-    id: string,
+  async createSession(
     tenantId: string,
-    input: ExecuteConnectorInput,
-  ): Promise<SandboxRunTrace> {
-    const sb = this.getSandbox(id, tenantId);
-    const runId = randomUUID();
-    const startedAt = new Date().toISOString();
-    const startMs = Date.now();
-
-    // Cap run history
-    if (sb.runHistory.length >= SANDBOX_MAX_RUN_HISTORY) {
-      sb.runHistory.shift();
+    name: string,
+  ): Promise<SandboxSessionResponse> {
+    // ── Validate ─────────────────────────────────────────────────────
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim().length === 0) {
+      throw new BadRequestException('tenantId không được để trống');
+    }
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      throw new BadRequestException('name không được để trống');
+    }
+    if (name.length > 256) {
+      throw new BadRequestException('name không được vượt quá 256 ký tự');
     }
 
-    // Validate action
-    if (!this.isSupportedAction(input.action)) {
-      const trace: SandboxRunTrace = {
-        runId,
-        action: input.action,
-        payload: input.payload,
-        result: {
-          success: false,
-          statusCode: 400,
-          error: `Unsupported sandbox action '${input.action}'`,
-          durationMs: 0,
-        },
-        startedAt,
-        completedAt: new Date().toISOString(),
-        durationMs: 0,
-        envSnapshot: { ...sb.env },
-        logs: [`[SANDBOX] Unsupported action: ${input.action}`],
-      };
-      sb.runHistory.push(trace);
-      return trace;
+    // ── Kiểm tra tenant tồn tại ──────────────────────────────────────
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant '${tenantId}' không tồn tại`);
     }
 
-    // Simulate execution delay (50–200ms jitter for realism)
-    const simulatedDelay = 50 + Math.floor(Math.random() * 150);
+    // ── Tạo session mới ──────────────────────────────────────────────
+    const session = await this.prisma.sandboxSession.create({
+      data: {
+        tenantId,
+        name: name.trim(),
+        isActive: true,
+      },
+    });
+
+    return this.toSessionResponse(session, 0);
+  }
+
+  /**
+   * executeSandboxIsolation
+   * ────────────────────────
+   * Trích xuất phiên thử nghiệm, bọc logic xử lý chạy thử,
+   * tự động tính toán thời gian phản hồi (telemetry latencyMs)
+   * và tạo bản ghi SandboxTrace với inputPayload, outputPayload
+   * cùng virtualCostBigInt dạng BigInt.
+   *
+   * @param tenantId  - Tenant sở hữu session
+   * @param sessionId - ID phiên sandbox cần thực thi
+   * @param action    - Loại hành động (VD: 'AI_ROUTING' | 'CONNECTOR_EXEC' | 'WORKFLOW_RUN')
+   * @param input     - Payload đầu vào
+   * @returns ExecuteSandboxResult — trace + session snapshot
+   */
+  async executeSandboxIsolation(
+    tenantId: string,
+    sessionId: string,
+    action: string,
+    input: unknown,
+  ): Promise<ExecuteSandboxResult> {
+    // ── Validate ─────────────────────────────────────────────────────
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new BadRequestException('sessionId không hợp lệ');
+    }
+    if (!action || typeof action !== 'string' || action.trim().length === 0) {
+      throw new BadRequestException('action không được để trống');
+    }
+
+    // ── Kiểm tra session tồn tại và thuộc tenant ─────────────────────
+    const session = await this.prisma.sandboxSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException(
+        `SandboxSession '${sessionId}' không tồn tại`,
+      );
+    }
+
+    // Chống IDOR: kiểm tra quyền sở hữu tenant
+    if (session.tenantId !== tenantId) {
+      throw new NotFoundException(
+        `SandboxSession '${sessionId}' không thuộc tenant hiện tại`,
+      );
+    }
+
+    if (!session.isActive) {
+      throw new BadRequestException(
+        `SandboxSession '${sessionId}' đã bị vô hiệu hoá`,
+      );
+    }
+
+    // ── Xử lý giả lập ───────────────────────────────────────────────
+    // Tính thời gian phản hồi (telemetry)
+    const startTime = Date.now();
+
+    // Mô phỏng xử lý: delay ngẫu nhiên 10-100ms
+    const simulatedDelay = 10 + Math.floor(Math.random() * 90);
     await new Promise((resolve) => setTimeout(resolve, simulatedDelay));
 
-    const logs: string[] = [];
-    const method = (input.method ?? 'POST').toUpperCase();
-    const endpoint = input.endpoint ?? '';
-    const timeout = input.timeoutMs ?? SANDBOX_DEFAULT_TIMEOUT_MS;
+    // Sinh outputPayload dựa trên action
+    const outputPayload = this.simulateActionOutput(action, input, sessionId);
 
-    logs.push(`[SANDBOX] Action: ${input.action}`);
-    logs.push(`[SANDBOX] Method: ${method}`);
-    logs.push(`[SANDBOX] Endpoint: ${endpoint || '(none)'}`);
-    logs.push(`[SANDBOX] Timeout: ${timeout}ms`);
-    logs.push(`[SANDBOX] Base URL: ${input.baseUrl || '(not set)'}`);
-    logs.push(`[SANDBOX] Payload keys: ${Object.keys(input.payload ?? {}).length}`);
-    logs.push(`[SANDBOX] Headers: ${JSON.stringify(input.headers ?? {})}`);
+    // Tính toán virtualCost dựa trên độ phức tạp của action
+    const virtualCostBigInt = this.computeVirtualCost(action, simulatedDelay);
 
-    // Build simulated result based on action type
-    let result: SandboxExecutionResult;
+    // Telemetry: latencyMs chính xác
+    const latencyMs = Date.now() - startTime;
 
-    switch (input.action) {
-      case 'ais.discovery': {
-        logs.push('[SANDBOX] Returning AIS discovery endpoint mock');
-        result = {
-          success: true,
-          statusCode: 200,
-          data: {
-            ais_version: '0.1.0',
-            connector_name: input.headers?.['X-Connector-Name'] ?? 'sandbox-connector',
-            connector_version: '1.0.0-sandbox',
-            capabilities: ['read', 'write', 'webhook', 'batch', 'search'],
-            actions: [
-              { key: 'create_record', name: 'Create Record', idempotent: false },
-              { key: 'get_record', name: 'Get Record', idempotent: true },
-              { key: 'list_records', name: 'List Records', idempotent: true },
-              { key: 'update_record', name: 'Update Record', idempotent: true },
-              { key: 'delete_record', name: 'Delete Record', idempotent: false },
-            ],
-            triggers: [
-              { key: 'record.created', delivery: 'webhook', name: 'Record Created' },
-              { key: 'record.updated', delivery: 'webhook', name: 'Record Updated' },
-            ],
-            auth_methods: ['api_key'],
-          },
-          durationMs: Date.now() - startMs,
-        };
-        break;
-      }
+    const isSuccess = true;
+    const errorMessage: string | undefined = undefined;
 
-      case 'ais.action.invoke': {
-        logs.push(`[SANDBOX] Simulating action invocation: ${input.payload?.action_key ?? '(not specified)'}`);
+    // ── Lưu vết trace vào DB ────────────────────────────────────────
+    const trace = await this.prisma.sandboxTrace.create({
+      data: {
+        sessionId,
+        actionType: action.trim(),
+        inputPayload: input as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        outputPayload: outputPayload as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        isMocked: true,
+        latencyMs,
+        isSuccess,
+        errorMessage,
+        virtualCostBigInt,
+      },
+    });
 
-        // Attempt a real HTTP call only if a baseUrl is explicitly provided
-        if (input.baseUrl) {
-          logs.push(`[SANDBOX] Real endpoint configured at ${input.baseUrl} — performing simulated check only`);
-          result = {
-            success: true,
-            statusCode: 200,
-            data: {
-              sandbox_status: 'simulated',
-              provided_base_url: input.baseUrl,
-              action_key: input.payload?.action_key,
-              action_response: {
-                simulated: true,
-                message: 'Action would execute against the provided base URL in production.',
-                received_payload: input.payload,
-              },
-            },
-            durationMs: Date.now() - startMs,
-          };
-        } else {
-          // Fully mocked
-          result = {
-            success: true,
-            statusCode: 200,
-            data: {
-              sandbox_status: 'simulated',
-              action_key: input.payload?.action_key ?? 'unknown',
-              action_response: {
-                simulated: true,
-                records_affected: 0,
-                message: 'Connector executed successfully in sandbox mode.',
-              },
-            },
-            durationMs: Date.now() - startMs,
-          };
-        }
-        break;
-      }
+    // ── Đếm trace count cho session response ────────────────────────
+    const traceCount = await this.prisma.sandboxTrace.count({
+      where: { sessionId },
+    });
 
-      case 'ais.trigger.poll': {
-        logs.push('[SANDBOX] Simulating trigger polling (empty result set)');
-        result = {
-          success: true,
-          statusCode: 200,
-          data: {
-            events: [],
-            poll_interval_ms: 5000,
-          },
-          durationMs: Date.now() - startMs,
-        };
-        break;
-      }
-
-      case 'ais.health.check': {
-        logs.push('[SANDBOX] Running health check');
-        result = {
-          success: true,
-          statusCode: 200,
-          data: {
-            status: 'healthy',
-            uptime_ms: process.uptime() * 1000,
-            version: SANDBOX_VERSION,
-            env_vars_count: Object.keys(sb.env).length,
-          },
-          durationMs: Date.now() - startMs,
-        };
-        break;
-      }
-
-      default: {
-        logs.push(`[SANDBOX] Fallthrough — no handler for action '${input.action}'`);
-        result = {
-          success: true,
-          statusCode: 200,
-          data: {
-            sandbox_status: 'simulated',
-            action: input.action,
-            message: 'Unrecognized action executed in pass-through sandbox mode.',
-          },
-          durationMs: Date.now() - startMs,
-        };
-      }
-    }
-
-    const completedAt = new Date().toISOString();
-    const trace: SandboxRunTrace = {
-      runId,
-      action: input.action,
-      payload: input.payload,
-      result,
-      startedAt,
-      completedAt,
-      durationMs: Date.now() - startMs,
-      envSnapshot: { ...sb.env },
-      logs,
-    };
-
-    sb.runHistory.push(trace);
-    return trace;
-  }
-
-  /**
-   * Retrieve a specific run trace by run ID.
-   */
-  getRunTrace(sandboxId: string, tenantId: string, runId: string): SandboxRunTrace {
-    const sb = this.getSandbox(sandboxId, tenantId);
-    const trace = sb.runHistory.find((r) => r.runId === runId);
-    if (!trace) {
-      throw new NotFoundException({
-        code: SANDBOX_ERRORS.NOT_FOUND,
-        message: `Run trace '${runId}' not found in sandbox '${sandboxId}'`,
-      });
-    }
-    return trace;
-  }
-
-  /**
-   * List all run traces for a sandbox (newest first).
-   */
-  listRunTraces(sandboxId: string, tenantId: string): SandboxRunTrace[] {
-    const sb = this.getSandbox(sandboxId, tenantId);
-    return [...sb.runHistory].reverse();
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  private isSupportedAction(action: string): boolean {
-    return true; // Allow any action string; unknown ones get pass-through
-  }
-
-  /** Return a sandbox without the full run history for list/get responses */
-  private stripRunHistory(instance: SandboxInstance): SandboxInstance {
     return {
-      ...instance,
-      runHistory: [], // consumers use dedicated run trace endpoints
+      trace: this.toTraceResponse(trace),
+      session: this.toSessionResponse(session, traceCount),
     };
+  }
+
+  /**
+   * getTenantSessions
+   * ─────────────────
+   * Tra cứu toàn bộ danh sách phiên của một tenant có phân trang cứng
+   * để bảo mật tuyệt đối chống IDOR (không cho phép vượt quá hard limit).
+   *
+   * @param tenantId - Tenant sở hữu các session
+   * @param page     - Trang hiện tại (bắt đầu từ 1)
+   * @param pageSize - Số bản ghi mỗi trang (clamped 1-100)
+   * @returns PaginatedSessionsResponse
+   */
+  async getTenantSessions(
+    tenantId: string,
+    page: number = 1,
+    pageSize: number = DEFAULT_PAGE_SIZE,
+  ): Promise<PaginatedSessionsResponse> {
+    // ── Clamp phân trang cứng ───────────────────────────────────────
+    const safePage = Math.max(HARD_PAGE_MIN, Math.floor(page));
+    const safePageSize = Math.min(
+      HARD_PAGE_LIMIT,
+      Math.max(HARD_PAGE_MIN, Math.floor(pageSize)),
+    );
+    const skip = (safePage - 1) * safePageSize;
+
+    // ── Count total ─────────────────────────────────────────────────
+    const total = await this.prisma.sandboxSession.count({
+      where: { tenantId },
+    });
+
+    // ── Query phân trang (sắp xếp mới nhất lên đầu) ────────────────
+    const sessions = await this.prisma.sandboxSession.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: safePageSize,
+    });
+
+    // ── Lấy traceCount cho mỗi session ──────────────────────────────
+    const sessionIds = sessions.map((s) => s.id);
+    const traceCounts = await this.getTraceCounts(sessionIds);
+    const traceCountMap = new Map(traceCounts.map((t) => [t.sessionId, t.count]));
+
+    const data = sessions.map((s) =>
+      this.toSessionResponse(s, traceCountMap.get(s.id) ?? 0),
+    );
+
+    return {
+      data,
+      total,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: Math.ceil(total / safePageSize) || 1,
+    };
+  }
+
+  // ── Private helpers ─────────────────────────────────────────────────────
+
+  /**
+   * toSessionResponse — map Prisma model → public response type
+   */
+  private toSessionResponse(
+    session: {
+      id: string;
+      tenantId: string;
+      name: string;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    traceCount: number,
+  ): SandboxSessionResponse {
+    return {
+      id: session.id,
+      tenantId: session.tenantId,
+      name: session.name,
+      isActive: session.isActive,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      traceCount,
+    };
+  }
+
+  /**
+   * toTraceResponse — map Prisma model → public response type
+   * virtualCostBigInt được convert qua BigInt → string để an toàn JSON
+   */
+  private toTraceResponse(trace: {
+    id: string;
+    sessionId: string;
+    actionType: string;
+    inputPayload: unknown;
+    outputPayload: unknown;
+    latencyMs: number;
+    isSuccess: boolean;
+    errorMessage: string | null;
+    virtualCostBigInt: bigint;
+    createdAt: Date;
+  }): SandboxTraceResponse {
+    return {
+      id: trace.id,
+      sessionId: trace.sessionId,
+      actionType: trace.actionType,
+      inputPayload: trace.inputPayload,
+      outputPayload: trace.outputPayload,
+      latencyMs: trace.latencyMs,
+      isSuccess: trace.isSuccess,
+      errorMessage: trace.errorMessage ?? undefined,
+      virtualCostBigInt: trace.virtualCostBigInt.toString(),
+      createdAt: trace.createdAt,
+    };
+  }
+
+  /**
+   * getTraceCounts — batch count traces per session
+   */
+  private async getTraceCounts(
+    sessionIds: string[],
+  ): Promise<{ sessionId: string; count: number }[]> {
+    if (sessionIds.length === 0) return [];
+
+    // Execute parallel count queries grouped by sessionId
+    const results = await Promise.all(
+      sessionIds.map((sid) =>
+        this.prisma.sandboxTrace
+          .count({ where: { sessionId: sid } })
+          .then((count) => ({ sessionId: sid, count })),
+      ),
+    );
+
+    return results;
+  }
+
+  /**
+   * simulateActionOutput — sinh outputPayload giả lập dựa trên action type
+   */
+  private simulateActionOutput(
+    action: string,
+    input: unknown,
+    sessionId: string,
+  ): Record<string, unknown> {
+    const timestamp = new Date().toISOString();
+
+    switch (action.toUpperCase()) {
+      case 'AI_ROUTING':
+        return {
+          status: 'simulated',
+          selectedLane: 'balanced',
+          estimatedTokens: 1024,
+          model: 'gpt-4o-sandbox',
+          confidence: 0.92,
+          sessionId,
+          timestamp,
+        };
+
+      case 'CONNECTOR_EXEC':
+        return {
+          status: 'simulated',
+          action: 'connector.execute',
+          recordsAffected: 0,
+          duration: '0ms',
+          sessionId,
+          inputKeys: Array.isArray(input)
+            ? input.length
+            : typeof input === 'object' && input !== null
+              ? Object.keys(input as Record<string, unknown>).length
+              : 0,
+          timestamp,
+        };
+
+      case 'WORKFLOW_RUN':
+        return {
+          status: 'simulated',
+          workflow: 'dry-run',
+          stepsExecuted: 3,
+          stepsSkipped: 0,
+          totalDuration: '0ms',
+          sessionId,
+          timestamp,
+        };
+
+      default:
+        return {
+          status: 'simulated',
+          action: action,
+          sessionId,
+          message: 'Unknown action executed in passthrough mode',
+          timestamp,
+        };
+    }
+  }
+
+  /**
+   * computeVirtualCost — sinh chi phí ảo BigInt dựa trên action + độ trễ
+   */
+  private computeVirtualCost(action: string, latencyMs: number): bigint {
+    // Action weight: AI_ROUTING đắt nhất, CONNECTOR_EXEC vừa, WORKFLOW_RUN rẻ
+    let baseWeight = 1_000n; // Mặc định
+
+    switch (action.toUpperCase()) {
+      case 'AI_ROUTING':
+        baseWeight = 3_000n;
+        break;
+      case 'CONNECTOR_EXEC':
+        baseWeight = 1_500n;
+        break;
+      case 'WORKFLOW_RUN':
+        baseWeight = 2_000n;
+        break;
+    }
+
+    // bonus theo latency (ms → VND)
+    const latencyBonus = BigInt(latencyMs) * 10n;
+    const totalCost = DEFAULT_VIRTUAL_COST + baseWeight + latencyBonus;
+
+    return totalCost;
   }
 }
