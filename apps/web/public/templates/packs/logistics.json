@@ -1,0 +1,45 @@
+{
+  "id": "tpl-logistics-v1",
+  "key": "logistics-shipment-tracker",
+  "name": "Giao nhận - Theo dõi vận đơn & báo cáo giao hàng",
+  "category": "shipping",
+  "industry": "logistics",
+  "version": "1.0.0",
+  "description": "Quản lý quy trình giao nhận và theo dõi vận đơn tự động: chạy báo cáo theo lịch mỗi sáng, truy vấn trạng thái giao hàng, chuyển đổi dữ liệu thành HTML, gửi email báo cáo cho quản lý. Tích hợp với các đơn vị vận chuyển (GHN, Giao Hàng Nhanh, Viettel Post, VNPost).",
+  "isPublic": true,
+  "tags": ["logistics", "shipping", "email", "report", "delivery", "vi-VN"],
+  "awl": "workflow \"ShipmentTracker\" {\n  trigger: cron \"0 8 * * 1-6\";\n  execute: query_delivery_status;\n  condition: delivery.delayed == true -> \"escalate\";\n  send: email \"{{manager.email}}\";\n  log: \"daily shipment report sent\";\n}\n\nworkflow \"DeliveryStatus\" {\n  trigger: webhook \"delivery.updated\";\n  condition: delivery.status == \"delivered\" -> \"confirm\";\n  send: zalo_zns \"{{customer.phone}}\";\n  log: \"delivery confirmed\";\n}",
+  "config": {
+    "trigger": "cron",
+    "cronExpr": "0 8 * * 1-6",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "steps": [
+      { "type": "trigger", "name": "Daily Report Cron", "params": { "schedule": "Weekdays 8:00 AM", "timezone": "Asia/Ho_Chi_Minh" } },
+      { "type": "execute", "name": "Query Delivery Status", "params": { "connector": "logistics", "action": "batch_delivery_query", "dateRange": "yesterday" } },
+      { "type": "condition", "name": "Delay Check", "params": { "field": "delivery.delayed", "operator": "==", "value": true } },
+      { "type": "send", "name": "Escalation Email", "params": { "connector": "email", "template": "delayed_delivery_report" } },
+      { "type": "transform", "name": "Format HTML Report", "params": { "format": "html", "template": "daily_report" } },
+      { "type": "send", "name": "Report Email", "params": { "connector": "email", "to": "manager", "subject": "Báo cáo giao hàng hằng ngày" } },
+      { "type": "log", "name": "Log Completion", "params": { "message": "Shipment report workflow completed" } }
+    ]
+  },
+  "samplePayload": {
+    "delivery": {
+      "id": "DH-20260627-8012",
+      "carrier": "GHN",
+      "trackingCode": "GHN1234567890",
+      "status": "in_transit",
+      "estimatedDelivery": "2026-06-28",
+      "customer": { "phone": "0988765432", "name": "Trần Thị B" }
+    },
+    "dailyReport": {
+      "date": "2026-06-27",
+      "totalShipments": 245,
+      "delivered": 198,
+      "inTransit": 38,
+      "delayed": 9,
+      "carrierBreakdown": { "GHN": 120, "ViettelPost": 65, "VNPost": 40, "GHTK": 20 }
+    }
+  },
+  "estimatedCost": { "perExecution": "~500 VND AI tokens", "connectorCalls": 2, "aiTokens": 200 }
+}

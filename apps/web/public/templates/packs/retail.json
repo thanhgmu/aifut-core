@@ -1,0 +1,36 @@
+{
+  "id": "tpl-retail-v1",
+  "key": "retail-autonotify",
+  "name": "Bán lẻ - Tự động hóa thông báo đơn hàng",
+  "category": "ecommerce",
+  "industry": "retail",
+  "version": "1.0.0",
+  "description": "Tự động hóa quy trình thông báo đơn hàng cho shop bán lẻ: nhận webhook khi có đơn mới, kiểm tra tổng tiền, gửi Zalo ZNS thông báo cho khách, chờ 2h, gửi cập nhật giao hàng. Hỗ trợ tích hợp POS và các sàn TMĐT.",
+  "isPublic": true,
+  "tags": ["retail", "ecommerce", "zalo", "notification", "vi-VN", "order-management"],
+  "awl": "workflow \"AutoNotify\" {\n  trigger: webhook \"order.created\";\n  condition: order.total >= 500000 -> \"premium\";\n  send: zalo_zns \"{{customer.phone}}\";\n  wait: 7200s;\n  send: zalo_zns \"delivery_update\";\n  log: \"order notification complete\";\n}\n\nworkflow \"InventorySync\" {\n  trigger: webhook \"order.completed\";\n  execute: deduct_inventory;\n  condition: stock < 10 -> \"low_stock_alert\";\n  send: email \"{{manager.email}}\";\n  log: \"inventory synced\";\n}",
+  "config": {
+    "trigger": "webhook",
+    "webhookPath": "/webhook/retail/order",
+    "steps": [
+      { "type": "trigger", "name": "Order Created Webhook", "params": { "source": "order.created", "method": "POST" } },
+      { "type": "condition", "name": "Premium Check", "params": { "field": "order.total", "operator": ">=", "value": 500000 } },
+      { "type": "send", "name": "Zalo ZNS Notification", "params": { "connector": "zalo_zns", "template": "order_confirmation" } },
+      { "type": "wait", "name": "Delivery Wait", "params": { "duration": 7200, "unit": "seconds" } },
+      { "type": "send", "name": "Delivery Update", "params": { "connector": "zalo_zns", "template": "delivery_update" } },
+      { "type": "log", "name": "Log Completion", "params": { "message": "Order notification workflow completed" } }
+    ]
+  },
+  "samplePayload": {
+    "order": {
+      "id": "ORD-20260627-001",
+      "total": 750000,
+      "customer": { "phone": "0909123456", "name": "Nguyễn Văn A" },
+      "items": [
+        { "sku": "AO-001", "name": "Áo thun nam", "qty": 2, "price": 250000 },
+        { "sku": "QUAN-002", "name": "Quần jeans", "qty": 1, "price": 250000 }
+      ]
+    }
+  },
+  "estimatedCost": { "perExecution": "~300 VND AI tokens", "connectorCalls": 3, "aiTokens": 120 }
+}

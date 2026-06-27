@@ -123,6 +123,47 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   },
 ];
 
+/** Industry template packs */
+interface IndustryPack {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  accent: string;
+  templates: number;
+  color: string;
+}
+
+const INDUSTRY_PACKS: IndustryPack[] = [
+  {
+    id: "retail",
+    name: "Bán lẻ (Retail)",
+    description: "Tự động hóa thông báo đơn hàng, cập nhật tồn kho qua Zalo ZNS. Tích hợp POS và sàn TMĐT.",
+    icon: "🛍️",
+    accent: "from-emerald-500 to-teal-600",
+    templates: 6,
+    color: "#34d399",
+  },
+  {
+    id: "logistics",
+    name: "Giao nhận (Logistics)",
+    description: "Theo dõi vận đơn, báo cáo giao hàng tự động mỗi sáng. Tích hợp GHN, Viettel Post.",
+    icon: "🚚",
+    accent: "from-sky-500 to-blue-600",
+    templates: 8,
+    color: "#60a5fa",
+  },
+  {
+    id: "fintech",
+    name: "Tài chính (Fintech)",
+    description: "Đối soát thanh toán, phát hành hóa đơn VAT tự động. Tích hợp VNPay, MoMo, PayPal.",
+    icon: "🏦",
+    accent: "from-amber-500 to-orange-600",
+    templates: 7,
+    color: "#fbbf24",
+  },
+];
+
 const GATEWAY_OPTIONS: PaymentGateway[] = [
   {
     key: "vnpay",
@@ -1219,6 +1260,69 @@ function SuccessPanel({
 }
 
 // ─────────────────────────────────────────────────────────────
+// TEMPLATE PACK CARDS (Phase 3 ecosystem depth)
+// ─────────────────────────────────────────────────────────────
+
+function TemplatePackCards({ onUsePack }: { onUsePack: (id: string) => void }) {
+  return (
+    <div style={{
+      padding: "24px 28px",
+      borderRadius: 16,
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.06)",
+    }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9", margin: "0 0 4px" }}>
+        📦 Quick-start Template Packs
+      </h2>
+      <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px", lineHeight: 1.5 }}>
+        Chọn gói template pack theo ngành để bắt đầu nhanh hơn. Mỗi gói bao gồm workflow mẫu,
+        cấu hình connector và hướng dẫn tích hợp.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        {INDUSTRY_PACKS.map((pack) => (
+          <button
+            key={pack.id}
+            onClick={() => onUsePack(pack.id)}
+            style={{
+              padding: "18px 16px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.02)",
+              border: `1px solid ${pack.color}22`,
+              cursor: "pointer",
+              textAlign: "left" as const,
+              transition: "all 0.2s",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 28 }}>{pack.icon}</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9" }}>{pack.name}</div>
+                <div style={{ fontSize: 11, color: pack.color, fontWeight: 600 }}>
+                  {pack.templates} templates included
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, margin: 0 }}>
+              {pack.description}
+            </p>
+            <div style={{
+              marginTop: 4, padding: "8px 14px", borderRadius: 8,
+              background: `${pack.color}12`, border: `1px solid ${pack.color}22`,
+              color: pack.color, fontSize: 12, fontWeight: 600, textAlign: "center" as const,
+            }}>
+              Use Template Pack →
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // MAIN COMPONENT — ONBOARDING PAGE
 // ─────────────────────────────────────────────────────────────
 
@@ -1228,6 +1332,7 @@ export default function OnboardingPage() {
   /* ── State ─────────────────────────────────────────────── */
   const [step, setStep] = useState<WizardStep>(1);
   const [phase, setPhase] = useState<WizardPhase>("idle");
+  const [selectedPack, setSelectedPack] = useState<string | null>(null);
 
   const [tenant, setTenant] = useState<TenantInfo>({
     businessName: "",
@@ -1261,6 +1366,10 @@ export default function OnboardingPage() {
   const isProcessing = phase === "processing" || phase === "validating";
 
   /* ── Callbacks ─────────────────────────────────────────── */
+  const handleUsePack = useCallback((packId: string) => {
+    setSelectedPack(packId);
+  }, []);
+
   const handleToggleGateway = useCallback(
     (key: "vnpay" | "momo") => {
       setGateways((prev) =>
@@ -1275,7 +1384,6 @@ export default function OnboardingPage() {
   const goNext = useCallback(() => {
     if (isProcessing) return;
 
-    // Validate current step
     if (step === 1 && !step1Valid) {
       setPhase("error");
       setTimeout(() => setPhase("idle"), 2000);
@@ -1288,13 +1396,9 @@ export default function OnboardingPage() {
     }
 
     if (isLastStep) {
-      // Step 3: finish onboarding
       setPhase("processing");
-      setTimeout(() => {
-        setPhase("done");
-      }, 1500);
+      setTimeout(() => { setPhase("done"); }, 1500);
     } else {
-      // Simulate transition
       setPhase("processing");
       setTimeout(() => {
         setPhase("idle");
@@ -1312,12 +1416,13 @@ export default function OnboardingPage() {
   const handleReset = useCallback(() => {
     setStep(1);
     setPhase("idle");
+    setSelectedPack(null);
     setTenant({ businessName: "", domain: "" });
     setSelectedTemplate(null);
     setGateways(GATEWAY_OPTIONS.map((g) => ({ ...g })));
   }, []);
 
-  /* ── Render content by step ────────────────────────────── */
+  /* ── Render step ───────────────────────────────────────── */
   const renderStepContent = () => {
     if (phase === "done") {
       return <SuccessPanel onReset={handleReset} />;
@@ -1351,11 +1456,10 @@ export default function OnboardingPage() {
     if (isProcessing) return false;
     if (step === 1) return step1Valid;
     if (step === 2) return step2Valid;
-    if (step === 3) return true; // optional, can finish without gates
+    if (step === 3) return true;
     return false;
   }, [step, isProcessing, step1Valid, step2Valid, step3Valid]);
 
-  /* ── Loading message ───────────────────────────────────── */
   const loadingMessage =
     phase === "processing"
       ? isLastStep
@@ -1369,7 +1473,6 @@ export default function OnboardingPage() {
     <div style={PAGE_WRAPPER}>
       {/* ─── LEFT COLUMN ─────────────────────────────────── */}
       <div style={LEFT_COL}>
-        {/* Page header */}
         <div>
           <h1
             style={{
@@ -1392,10 +1495,8 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        {/* Stepper Indicator */}
         {phase !== "done" && <StepperHeader current={step} />}
 
-        {/* Step content */}
         <div style={STEP_BOX}>
           {phase === "processing" || phase === "validating" ? (
             <LoadingOverlay message={loadingMessage} />
@@ -1404,7 +1505,6 @@ export default function OnboardingPage() {
           )}
         </div>
 
-        {/* Toolbar */}
         {phase !== "done" && (
           <div style={TOOLBAR}>
             <button
@@ -1413,48 +1513,24 @@ export default function OnboardingPage() {
                 ...BTN_SECONDARY,
                 opacity: step === 1 || isProcessing ? 0.4 : 1,
                 cursor:
-                  step === 1 || isProcessing
-                    ? "not-allowed"
-                    : "pointer",
+                  step === 1 || isProcessing ? "not-allowed" : "pointer",
                 pointerEvents:
                   step === 1 || isProcessing ? "none" : "auto",
               }}
             >
               ← Quay lại
             </button>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 13,
-                  color: "#64748b",
-                  fontWeight: 600,
-                }}
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
                 Bước {step} / 3
               </span>
-
-              <button
-                onClick={goNext}
-                style={
-                  !canProceed
-                    ? BTN_DISABLED
-                    : BTN_PRIMARY
-                }
-              >
+              <button onClick={goNext} style={!canProceed ? BTN_DISABLED : BTN_PRIMARY}>
                 {isLastStep ? "✅ Hoàn thành" : "Tiếp tục →"}
               </button>
             </div>
           </div>
         )}
 
-        {/* Error flash */}
         {phase === "error" && (
           <div
             style={{
@@ -1468,6 +1544,25 @@ export default function OnboardingPage() {
             }}
           >
             ⚠️ Vui lòng điền đầy đủ thông tin trước khi tiếp tục.
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════ */}
+        {/* Quick-start Template Packs (after wizard done)   */}
+        {/* ═══════════════════════════════════════════════════ */}
+        {phase === "done" && (
+          <TemplatePackCards onUsePack={handleUsePack} />
+        )}
+
+        {phase === "done" && selectedPack && (
+          <div style={{
+            padding: "16px 20px", borderRadius: 12,
+            background: "rgba(34,197,94,0.06)",
+            border: "1px solid rgba(34,197,94,0.2)",
+            color: "#22c55e", fontSize: 13, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            ✅ Đã kích hoạt gói: {selectedPack === "retail" ? "Bán lẻ (Retail)" : selectedPack === "logistics" ? "Giao nhận (Logistics)" : "Tài chính (Fintech)"}
           </div>
         )}
       </div>

@@ -1,0 +1,46 @@
+{
+  "id": "tpl-fintech-v1",
+  "key": "fintech-payment-recon",
+  "name": "Tài chính - Đối soát thanh toán & phát hành hóa đơn",
+  "category": "payment",
+  "industry": "fintech",
+  "version": "1.0.0",
+  "description": "Tự động hóa quy trình đối soát thanh toán cho doanh nghiệp tài chính: nhận webhook khi thanh toán thành công, đối soát với hệ thống kế toán, phát hiện giao dịch lớn (>10tr), tự động phát hành hóa đơn VAT và gửi email cho khách hàng. Tích hợp VNPay, MoMo, PayPal.",
+  "isPublic": true,
+  "tags": ["fintech", "payment", "invoice", "reconciliation", "vat", "vi-VN"],
+  "awl": "workflow \"PaymentRecon\" {\n  trigger: webhook \"payment.success\";\n  execute: reconcile_payment;\n  condition: payment.amount > 10000000 -> \"large_tx\";\n  send: email \"{{accountant.email}}\";\n  log: \"payment reconciled\";\n}\n\nworkflow \"InvoiceGen\" {\n  trigger: webhook \"payment.settled\";\n  execute: auto_invoice;\n  condition: invoice.type == \"vat\" -> \"e_invoice\";\n  send: email \"{{customer.email}}\";\n  log: \"invoice generated and sent\";\n}",
+  "config": {
+    "trigger": "webhook",
+    "webhookPath": "/webhook/fintech/payment",
+    "steps": [
+      { "type": "trigger", "name": "Payment Success Webhook", "params": { "source": "payment.success", "method": "POST" } },
+      { "type": "execute", "name": "Reconcile Payment", "params": { "connector": "accounting", "action": "reconcile", "matchField": "transactionId" } },
+      { "type": "condition", "name": "Large Transaction Check", "params": { "field": "payment.amount", "operator": ">", "value": 10000000 } },
+      { "type": "send", "name": "Accountant Notification", "params": { "connector": "email", "template": "large_payment_alert" } },
+      { "type": "execute", "name": "Auto Invoice", "params": { "connector": "invoice", "action": "generate", "format": "vat_einvoice" } },
+      { "type": "send", "name": "Email Invoice", "params": { "connector": "email", "template": "invoice_delivery" } },
+      { "type": "log", "name": "Log Completion", "params": { "message": "Payment reconciliation and invoicing completed" } }
+    ]
+  },
+  "samplePayload": {
+    "payment": {
+      "id": "TXN-20260627-4521",
+      "amount": 25000000,
+      "currency": "VND",
+      "method": "VNPay",
+      "gateway": "vnpay",
+      "status": "settled",
+      "transactionId": "VNPAY27062026ABC123",
+      "customer": {
+        "email": "customer@company.com",
+        "name": "Công ty TNHH ABC",
+        "taxCode": "0123456789"
+      },
+      "items": [
+        { "description": "Enterprise Plan - 12 tháng", "qty": 1, "unitPrice": 20000000 },
+        { "description": "Setup fee", "qty": 1, "unitPrice": 5000000 }
+      ]
+    }
+  },
+  "estimatedCost": { "perExecution": "~600 VND AI tokens", "connectorCalls": 3, "aiTokens": 250 }
+}
