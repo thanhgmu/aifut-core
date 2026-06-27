@@ -1925,3 +1925,48 @@ model DeveloperEarning {
   @@index([profileId, createdAt])
   @@index([referenceType, referenceId])
 }
+
+// ── On-Premise License Management ────────────────────────────────────────
+// License keys for on-premise / air-gapped deployment activation.
+// Module: apps/api/src/licensing/
+
+enum LicenseStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  REVOKED
+  PENDING
+}
+
+enum LicenseTier {
+  STARTER
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+model LicenseKey {
+  id              String        @id @default(cuid())
+  key             String        @unique
+  tenantId        String?
+  tier            LicenseTier   @default(PRO)
+  status          LicenseStatus @default(PENDING)
+  maxUsers        Int           @default(5)
+  maxWorkflows    Int           @default(-1)
+  features        Json          @default("[]")
+  issuedTo        String?
+  issuedEmail     String?
+  issuedAt        DateTime      @default(now())
+  activatedAt     DateTime?
+  expiresAt       DateTime?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([key])
+  @@index([status])
+  @@index([tenantId])
+  @@index([expiresAt])
+}

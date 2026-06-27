@@ -1,7 +1,7 @@
 # STATUS.md — AIFUT Core
 
-**Last updated:** 2026-06-27 21:55 GMT+7
-**Active commit:** e0dcfbe (Phase 4 ~85%)
+**Last updated:** 2026-06-27 23:23 GMT+7
+**Active commit:** 5a182d0 (Phase 3 merged → main ✅)
 
 ---
 
@@ -60,6 +60,21 @@
 - App.module.ts already imports all needed modules
 
 ---
+
+## Phase 3 Merge — 2026-06-27 23:23
+- `feature/phase3-developer-sandbox` merged → `main` (fast-forward, 119 files, +29032/−5150)
+- Pushed to origin/main ✅
+
+## Deploy Readiness Check
+1. **`infra/airgap/setup.sh`**: Không có biến DOMAIN cố định. Dùng `localhost` mặc định, cần thêm domain thật nếu deploy production.
+2. **`docker-compose.airgap.yml`**: Có volume mount `aifut_data:/data` cho SQLite + upload, `aifut_config:/config` cho config.
+3. **`apps/api/.env.example`**: **Thiếu** VNPAY_TMN_CODE, MOMO_PARTNER_CODE và các biến payment gateway. Cần bổ sung.
+
+## Payment Gateway Status
+- **VNPay**: Default sandbox (`sandbox.vnpayment.vn`), IPN tại `/payments/vnpay/ipn`, cần `VNPAY_TMN_CODE` + `VNPAY_HASH_SECRET`.
+- **MoMo**: Default test (`test-payment.momo.vn`), IPN tại `/payments/momo/ipn`, cần `MOMO_PARTNER_CODE` + `MOMO_ACCESS_KEY` + `MOMO_SECRET_KEY`.
+- Cả 2 đang ở test mode (sandbox URL mặc định). Chưa có config production.
+- `apps/api/.env.example` cần thêm các biến này.
 
 ## Next Critical Path (Phase 4 remaining ~15%)
 - [ ] UI: Developer profile management page (Next.js)

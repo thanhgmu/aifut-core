@@ -97,6 +97,9 @@ DEFAULT_LOCALE=vi
 
 # Currency
 DEFAULT_CURRENCY=VND
+
+# License (bỏ trống để dùng trial 14 ngày)
+LICENSE_KEY=
 EOF
 
   # Generate JWT secret
@@ -107,7 +110,19 @@ else
   echo -e "${GREEN}✓ Config file exists${NC}"
 fi
 
-# ── 5. Start services ────────────────────────────────────────────────────
+# ── 5. License Check ─────────────────────────────────────────────────────
+echo -e "${YELLOW}[5/6]${NC} Checking license..."
+if grep -q "LICENSE_KEY=" "$CONFIG_FILE" && [ -z "$(grep 'LICENSE_KEY=' "$CONFIG_FILE" | cut -d'=' -f2)" ]; then
+  echo -e "${YELLOW}  ⚠ No license key configured. A 14-day trial will be activated.${NC}"
+  echo -e "  Purchase: contact@aifut.net"
+  echo -e "  Activate: POST /v1/licensing/activate with key"
+else
+  LICENSE_VAL=$(grep 'LICENSE_KEY=' "$CONFIG_FILE" | cut -d'=' -f2)
+  echo -e "${GREEN}✓ License key configured: $LICENSE_VAL${NC}"
+fi
+echo -e "${GREEN}✓ License check complete${NC}"
+
+# ── 6. Start services ────────────────────────────────────────────────────
 echo -e "${YELLOW}[5/5]${NC} Starting AIFUT Air-Gapped services..."
 cd "$PROJECT_DIR"
 
@@ -131,4 +146,5 @@ echo -e "  Logs:     ${CYAN}docker compose -f infra/docker/docker-compose.airgap
 echo ""
 echo -e "${YELLOW}  ⚠ Default admin: admin@aifut.local / admin123${NC}"
 echo -e "${YELLOW}  ⚠ CHANGE PASSWORD immediately after first login!${NC}"
+echo -e "${YELLOW}  ⚠ Activate license: POST /v1/licensing/activate with { key: 'AIFUT-XXXX-...' }${NC}"
 echo ""
