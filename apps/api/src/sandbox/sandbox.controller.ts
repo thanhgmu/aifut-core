@@ -11,9 +11,11 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Headers,
   Query,
+  Param,
   BadRequestException,
   Catch,
   ExceptionFilter,
@@ -207,6 +209,8 @@ export class SandboxController {
   async listSessions(
     @Query('page') pageQuery?: string,
     @Query('pageSize') pageSizeQuery?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
     @Headers('x-tenant-id') tenantId?: string,
   ): Promise<PaginatedSessionsResponse> {
     // ── Validate tenant context ─────────────────────────────────────
@@ -221,10 +225,17 @@ export class SandboxController {
     const pageSize = this.parsePositiveIntSafe(pageSizeQuery, DEFAULT_PAGE_SIZE);
 
     // ── Delegate to service ─────────────────────────────────────────
+    const statusFilter =
+      status === 'active' || status === 'archived'
+        ? (status as 'active' | 'archived')
+        : undefined;
+
     return this.sandboxService.getTenantSessions(
       tenantId.trim(),
       page,
       pageSize,
+      search,
+      statusFilter,
     );
   }
 
@@ -294,6 +305,87 @@ export class SandboxController {
     );
   }
 
+  /**
+   * PATCH /v1/sandbox/sessions/:id/pause
+   * Tạm dừng phiên sandbox.
+   */
+  @Patch('sessions/:id/pause')
+  async pauseSession(
+    @Param('id') sessionId: string,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    this.requireTenant(tenantId);
+    this.requireParam(sessionId, 'id');
+    return this.sandboxService.updateSessionStatus(
+      tenantId!.trim(),
+      sessionId.trim(),
+      'pause',
+    );
+  }
+
+  /**
+   * PATCH /v1/sandbox/sessions/:id/resume
+   * Tiếp tục phiên sandbox.
+   */
+  @Patch('sessions/:id/resume')
+  async resumeSession(
+    @Param('id') sessionId: string,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    this.requireTenant(tenantId);
+    this.requireParam(sessionId, 'id');
+    return this.sandboxService.updateSessionStatus(
+      tenantId!.trim(),
+      sessionId.trim(),
+      'resume',
+    );
+  }
+
+  /**
+   * PATCH /v1/sandbox/sessions/:id/archive
+   * Lưu trữ phiên sandbox.
+   */
+  @Patch('sessions/:id/archive')
+  async archiveSession(
+    @Param('id') sessionId: string,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    this.requireTenant(tenantId);
+    this.requireParam(sessionId, 'id');
+    return this.sandboxService.updateSessionStatus(
+      tenantId!.trim(),
+      sessionId.trim(),
+      'archive',
+    );
+  }
+
+  /**
+   * GET /v1/sandbox/sessions/:id/stats
+   * Thống kê chi tiết của một phiên sandbox.
+   */
+  @Get('sessions/:id/stats')
+  async sessionStats(
+    @Param('id') sessionId: string,
+    @Headers('x-tenant-id') tenantId?: string,
+  ) {
+    this.requireTenant(tenantId);
+    this.requireParam(sessionId, 'id');
+    return this.sandboxService.getSessionStats(
+      tenantId!.trim(),
+      sessionId.trim(),
+    );
+  }
+
+  /**
+   * GET /v1/sandbox/summary
+   * Tổng quan tất cả sandbox của tenant.
+   */
+  @Get('summary')
+  async sandboxSummary(@Headers('x-tenant-id') tenantId?: string) {
+    this.requireTenant(tenantId);
+    return this.sandboxService.getTenantSandboxSummary(tenantId!.trim());
+  }
+
   // ── Private Helpers ─────────────────────────────────────────────────────
 
   /**
@@ -310,10 +402,13 @@ export class SandboxController {
    * @param defaultValue   — Giá trị mặc định khi không parse được
    * @returns number — Số nguyên dương an toàn
    */
+  private requireParam(value: unknown, name: string): asserts value is string {
+    if (!value || typeof value !== 'string' || value.trim().length === 0) {
+      throw new BadRequestException(`'${name}' param là bắt buộc.`);
+    }
+  }
+
   private parsePositiveIntSafe(
-    value: string | undefined | null,
-    defaultValue: number,
-  ): number {
     // null/undefined → fallback
     if (value === undefined || value === null) {
       return defaultValue;

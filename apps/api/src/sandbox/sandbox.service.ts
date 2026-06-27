@@ -13,6 +13,18 @@ import {
 import { PrismaService } from '../prisma.service';
 import { Prisma } from '@prisma/client';
 
+// ── Pagination constants ──────────────────────────────────────────────────
+
+const HARD_PAGE_LIMIT = 100;
+const HARD_PAGE_MIN = 1;
+const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_VIRTUAL_COST = 1_000n;
+
+// ── Session action types ──────────────────────────────────────────────────
+
+type SessionAction = 'pause' | 'resume' | 'archive';
+
+
 // ── Public types ──────────────────────────────────────────────────────────
 
 export interface SandboxSessionResponse {
@@ -51,23 +63,10 @@ export interface ExecuteSandboxResult {
   session: SandboxSessionResponse;
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
-/** Phân trang cứng: tối đa 100 bản ghi / trang */
-const HARD_PAGE_LIMIT = 100;
-
-/** Phân trang cứng: tối thiểu 1 bản ghi / trang */
-const HARD_PAGE_MIN = 1;
-
-/** Mặc định số bản ghi / trang */
-const DEFAULT_PAGE_SIZE = 20;
-
-/** Chi phí ảo mặc định cho mỗi lần execute sandbox (đơn vị: smallest unit, VND) */
-const DEFAULT_VIRTUAL_COST = 1_000n; // 1,000 VND ảo
-
 // ── Service ────────────────────────────────────────────────────────────────
 
 @Injectable()
+
 export class SandboxService {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -81,10 +80,161 @@ export class SandboxService {
    * @param name     - Tên gợi nhớ cho phiên sandbox
    * @returns SandboxSessionResponse — phiên vừa được tạo
    */
-  async createSession(
+  /**
+   * updateSessionStatus
+   * ────────────────────
+   * Pause, Resumé, hoặc Archive một phiên sandbox.
+   * pause → isActive=false, resume → isActive=true
+   */
+  async updateSessionStatus(
     tenantId: string,
-    name: string,
+    sessionId: string,
+    action: SessionAction,
   ): Promise<SandboxSessionResponse> {
+    const session = await this.prisma.sandboxSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new NotFoundException(`SandboxSession '${sessionId}' không tồn tại`);
+    }
+    if (session.tenantId !== tenantId) {
+      throw new NotFoundException(`SandboxSession '${sessionId}' không thuộc tenant`);
+    }
+
+    let isActive: boolean;
+    switch (action) {
+      case 'pause':
+        if (!session.isActive) {
+          throw new BadRequestException('Session đã ở trạng thái paused.');
+        }
+        isActive = false;
+        break;
+      case 'resume':
+        if (session.isActive) {
+          throw new BadRequestException('Session đã ở trạng thái active.');
+        }
+        isActive = true;
+        break;
+      case 'archive':
+        isActive = false;
+        break;
+    }
+
+    const updated = await this.prisma.sandboxSession.update({
+      where: { id: sessionId },
+      data: { isActive },
+    });
+
+    const traceCount = await this.prisma.sandboxTrace.count({
+      where: { sessionId },
+    });
+
+    return this.toSessionResponse(updated, traceCount);
+  }
+
+  /**
+   * getSessionStats
+   * ───────────────
+   * Thống kê cho một session: tổng traces, success rate, tổng cost, latency avg.
+   */
+  async getSessionStats(tenantId: string, sessionId: string) {
+    const session = await this.prisma.sandboxSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new NotFoundException('Session không tồn tại.');
+    }
+    if (session.tenantId !== tenantId) {
+      throw new NotFoundException('Session không thuộc tenant.');
+    }
+
+    const traces = await this.prisma.sandboxTrace.findMany({
+      where: { sessionId },
+    });
+
+    const totalExecutions = traces.length;
+    const successCount = traces.filter((t) => t.isSuccess).length;
+    const failCount = totalExecutions - successCount;
+    const successRate =
+      totalExecutions > 0 ? (successCount / totalExecutions) * 100 : 0;
+
+    const totalCost = traces.reduce(
+      (sum, t) => sum + t.virtualCostBigInt,
+      BigInt(0),
+    );
+    const totalLatencyMs = traces.reduce((sum, t) => sum + t.latencyMs, 0);
+    const avgLatencyMs =
+      totalExecutions > 0
+        ? Math.round(totalLatencyMs / totalExecutions)
+        : 0;
+
+    // Group by action type
+    const actionBreakdown: Record<string, number> = {};
+    for (const t of traces) {
+      actionBreakdown[t.actionType] =
+        (actionBreakdown[t.actionType] ?? 0) + 1;
+    }
+
+    return {
+      sessionId,
+      sessionName: session.name,
+      isActive: session.isActive,
+      totalExecutions,
+      successCount,
+      failCount,
+      successRate: Math.round(successRate * 100) / 100,
+      totalVirtualCost: totalCost.toString(),
+      avgLatencyMs,
+      actionBreakdown,
+      createdAt: session.createdAt,
+    };
+  }
+
+  /**
+   * getTenantSandboxSummary
+   * ──────────────────────
+   * Tổng quan tất cả sandbox của tenant.
+   */
+  async getTenantSandboxSummary(tenantId: string) {
+    const sessions = await this.prisma.sandboxSession.findMany({
+      where: { tenantId },
+    });
+
+    const sessionIds = sessions.map((s) => s.id);
+    const allTraces = await this.prisma.sandboxTrace.findMany({
+      where: { sessionId: { in: sessionIds } },
+    });
+
+    const totalSessions = sessions.length;
+    const activeSessions = sessions.filter((s) => s.isActive).length;
+    const totalExecutions = allTraces.length;
+    const totalSuccess = allTraces.filter((t) => t.isSuccess).length;
+    const totalCost = allTraces.reduce(
+      (sum, t) => sum + t.virtualCostBigInt,
+      BigInt(0),
+    );
+
+    return {
+      totalSessions,
+      activeSessions,
+      archivedSessions: totalSessions - activeSessions,
+      totalExecutions,
+      successRate:
+        totalExecutions > 0
+          ? Math.round((totalSuccess / totalExecutions) * 10000) / 100
+          : 0,
+      totalVirtualCost: totalCost.toString(),
+      lastExecution:
+        allTraces.length > 0
+          ? allTraces.sort(
+              (a, b) =>
+                b.createdAt.getTime() - a.createdAt.getTime(),
+            )[0].createdAt
+          : null,
+    };
+  }
+
+  async createSession(
     // ── Validate ─────────────────────────────────────────────────────
     if (!tenantId || typeof tenantId !== 'string' || tenantId.trim().length === 0) {
       throw new BadRequestException('tenantId không được để trống');
@@ -231,7 +381,20 @@ export class SandboxService {
     tenantId: string,
     page: number = 1,
     pageSize: number = DEFAULT_PAGE_SIZE,
+    search?: string,
+    statusFilter?: 'active' | 'archived',
   ): Promise<PaginatedSessionsResponse> {
+    // ── Build where clause ───────────────────────────────────────────
+    const where: any = { tenantId };
+    if (search && search.trim().length > 0) {
+      where.name = { contains: search.trim(), mode: 'insensitive' };
+    }
+    if (statusFilter === 'active') {
+      where.isActive = true;
+    } else if (statusFilter === 'archived') {
+      where.isActive = false;
+    }
+
     // ── Clamp phân trang cứng ───────────────────────────────────────
     const safePage = Math.max(HARD_PAGE_MIN, Math.floor(page));
     const safePageSize = Math.min(
@@ -241,13 +404,11 @@ export class SandboxService {
     const skip = (safePage - 1) * safePageSize;
 
     // ── Count total ─────────────────────────────────────────────────
-    const total = await this.prisma.sandboxSession.count({
-      where: { tenantId },
-    });
+    const total = await this.prisma.sandboxSession.count({ where });
 
     // ── Query phân trang (sắp xếp mới nhất lên đầu) ────────────────
     const sessions = await this.prisma.sandboxSession.findMany({
-      where: { tenantId },
+      where,
       orderBy: { createdAt: 'desc' },
       skip,
       take: safePageSize,
