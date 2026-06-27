@@ -54,3 +54,5 @@ apps/api/dist/
 .env.*
 !.env.example
 !.env.region.example
+
+dev.db
