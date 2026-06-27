@@ -14,6 +14,8 @@
 //     (via formatSimulatedCredits).
 //  3. Click-to-expand JSON Tree (dark-styled pre/code) for inputPayload
 //     and outputPayload, enabling real-time debugging.
+//  4. Structured sync-error handling: backend error/statusCode extraction
+//     and Glassy Frost error alert block with timestamp.
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -40,6 +42,18 @@ interface PaginatedTraces {
   };
 }
 
+/** Structured error from the backend sync-error contract. */
+interface StructuredErrorInfo {
+  message: string;
+  statusCode: number;
+  timestamp: string;
+}
+
+/** Discriminated result for trace fetch — either data or structured error. */
+type TraceFetchResult =
+  | { ok: true; data: PaginatedTraces }
+  | { ok: false; error: StructuredErrorInfo };
+
 // ---------------------------------------------------------------------------
 // Fetch helper (mirrors sandbox.ts contract but for traces endpoint)
 // ---------------------------------------------------------------------------
@@ -49,30 +63,74 @@ async function fetchSandboxTraces(
   sessionId: string,
   page: number = 1,
   pageSize: number = 50,
-): Promise<PaginatedTraces | null> {
+): Promise<TraceFetchResult> {
   const token = getStoredToken();
-  if (!token) return null;
+  if (!token) {
+    return {
+      ok: false,
+      error: {
+        message: "Authentication token missing. Please log in again.",
+        statusCode: 401,
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
 
   const safePage = Math.max(1, Math.floor(page));
   const safeSize = Math.max(1, Math.min(100, Math.floor(pageSize)));
 
+  const url = `${API_BASE}/v1/sandbox/sessions/${sessionId}/traces?page=${safePage}&pageSize=${safeSize}`;
+
   try {
-    const res = await fetch(
-      `${API_BASE}/v1/sandbox/sessions/${sessionId}/traces?page=${safePage}&pageSize=${safeSize}`,
-      {
-        headers: {
-          "x-tenant-id": tenantId,
-          "x-aifut-sandbox": "true",
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
+    const res = await fetch(url, {
+      headers: {
+        "x-tenant-id": tenantId,
+        "x-aifut-sandbox": "true",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as PaginatedTraces;
-  } catch {
-    return null;
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      /* --- Extract structured error from backend sync-error contract --- */
+      let backendError = `HTTP ${res.status}`;
+      let backendStatusCode = res.status;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === "string") {
+          backendError = body.error;
+        }
+        if (body && typeof body.statusCode === "number") {
+          backendStatusCode = body.statusCode;
+        }
+      } catch {
+        /* response body is not JSON — fall back to HTTP status text */
+      }
+      return {
+        ok: false,
+        error: {
+          message: backendError,
+          statusCode: backendStatusCode,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+
+    const data = (await res.json()) as PaginatedTraces;
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        message:
+          err instanceof Error
+            ? err.message
+            : "Network failure — unable to reach sandbox trace service.",
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      },
+    };
   }
 }
 
@@ -191,7 +249,7 @@ export default function SandboxTraceViewer({
 
   const [traces, setTraces] = useState<SandboxTrace[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<StructuredErrorInfo | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -213,9 +271,11 @@ export default function SandboxTraceViewer({
 
         const tenantId = await resolveTenantId();
         if (!tenantId) {
-          setError(
-            "Unable to resolve tenant identity. Are you logged in?",
-          );
+          setError({
+            message: "Unable to resolve tenant identity. Are you logged in?",
+            statusCode: 401,
+            timestamp: new Date().toISOString(),
+          });
           return;
         }
 
@@ -225,21 +285,33 @@ export default function SandboxTraceViewer({
           targetPage,
           initialPageSize,
         );
-        if (!result) {
-          setError("Failed to load sandbox traces. The session may have expired.");
+
+        if (!result.ok) {
+          if (mountedRef.current) {
+            setError({
+              message: result.error.message,
+              statusCode: result.error.statusCode,
+              timestamp: result.error.timestamp,
+            });
+          }
           return;
         }
 
         if (mountedRef.current) {
-          setTraces(result.data);
-          setPage(result.meta.page);
-          setTotalPages(result.meta.totalPages);
+          setTraces(result.data.data);
+          setPage(result.data.meta.page);
+          setTotalPages(result.data.meta.totalPages);
         }
       } catch (err) {
         if (mountedRef.current) {
-          setError(
-            err instanceof Error ? err.message : "Unexpected error loading traces.",
-          );
+          setError({
+            message:
+              err instanceof Error
+                ? err.message
+                : "Unexpected error loading traces.",
+            statusCode: 0,
+            timestamp: new Date().toISOString(),
+          });
         }
       } finally {
         loadingRef.current = false;
@@ -278,6 +350,105 @@ export default function SandboxTraceViewer({
   const goNext = useCallback(() => {
     if (page < totalPages) loadTraces(page + 1);
   }, [page, totalPages, loadTraces]);
+
+  // -----------------------------------------------------------------------
+  // Render: Glassy Frost structured error alert
+  // -----------------------------------------------------------------------
+
+  /** Glassy Frost error alert — displays structured backend sync-error details. */
+  function renderStructuredError(err: StructuredErrorInfo) {
+    const isServerError = err.statusCode >= 500;
+    const isClientError = err.statusCode >= 400 && err.statusCode < 500;
+
+    /* Determine severity tint */
+    const severityBg = isServerError
+      ? "bg-red-950/20 border-red-500/30 text-red-400"
+      : isClientError
+        ? "bg-amber-950/20 border-amber-500/30 text-amber-400"
+        : "bg-red-950/20 border-red-500/30 text-red-400";
+
+    const severityIcon = isServerError ? "bg-red-500" : "bg-amber-500";
+    const severityLabel = isServerError
+      ? "Server Error"
+      : isClientError
+        ? "Client Error"
+        : "Network Error";
+
+    return (
+      <div
+        className={
+          "flex flex-col gap-3 rounded-xl px-5 py-4 backdrop-blur-sm " +
+          severityBg
+        }
+        role="alert"
+      >
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Severity dot */}
+            <span
+              className={
+                "inline-block w-2.5 h-2.5 rounded-full shrink-0 animate-pulse " +
+                severityIcon
+              }
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-tight truncate">
+                {severityLabel}
+              </p>
+              <p className="text-xs mt-0.5 opacity-80 break-words">
+                {err.message}
+              </p>
+            </div>
+          </div>
+
+          {/* Status Code badge */}
+          {err.statusCode > 0 && (
+            <span
+              className={
+                "shrink-0 inline-flex items-center px-2 py-0.5 rounded-md " +
+                "text-[11px] font-mono font-bold " +
+                (isServerError
+                  ? "bg-red-900/40 text-red-300 border border-red-700/40"
+                  : "bg-amber-900/40 text-amber-300 border border-amber-700/40")
+              }
+            >
+              {err.statusCode}
+            </span>
+          )}
+        </div>
+
+        {/* Timestamp + Action footer */}
+        <div className="flex items-center justify-between pt-1 border-t border-white/10">
+          <time
+            dateTime={err.timestamp}
+            className="text-[11px] font-mono text-white/40 tracking-tight"
+          >
+            {new Date(err.timestamp).toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </time>
+          <button
+            type="button"
+            onClick={() => loadTraces(1)}
+            className={
+              "text-[11px] font-medium underline underline-offset-2 " +
+              (isServerError
+                ? "text-red-400/70 hover:text-red-300"
+                : "text-amber-400/70 hover:text-amber-300")
+            }
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // -----------------------------------------------------------------------
   // Render: JSON detail block
@@ -504,32 +675,8 @@ export default function SandboxTraceViewer({
         {/* Loading skeleton */}
         {loading && traces.length === 0 && <TraceSkeleton />}
 
-        {/* Error state */}
-        {!loading && error && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <svg
-              className="w-10 h-10 text-red-500/60 mb-3"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-              />
-            </svg>
-            <p className="text-red-400 text-sm font-medium">{error}</p>
-            <button
-              type="button"
-              onClick={() => loadTraces(1)}
-              className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
+        {/* Error state — Glassy Frost structured alert */}
+        {!loading && error && renderStructuredError(error)}
 
         {/* Empty state */}
         {!loading && !error && traces.length === 0 && <EmptyState />}

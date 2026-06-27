@@ -7,6 +7,7 @@
 // ===================================================================
 
 import {
+  ArgumentsHost,
   Controller,
   Get,
   Post,
@@ -14,6 +15,12 @@ import {
   Headers,
   Query,
   BadRequestException,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  UseFilters,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { SandboxService } from './sandbox.service';
 import type {
@@ -70,6 +77,58 @@ interface ExecuteSandboxBody {
  * - Không bao giờ đọc tenantId từ body request → chống IDOR tuyệt đối
  * - Phân trang cứng (clamp 1–100) để chống quét dữ liệu
  */
+@Catch()
+class SandboxExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse();
+    const request = ctx.getRequest<{ originalUrl?: string; url?: string }>();
+    const statusCode =
+      exception instanceof HttpException ? exception.getStatus() : 500;
+    const error =
+      exception instanceof HttpException
+        ? this.resolveHttpExceptionError(exception)
+        : 'Internal server error';
+
+    response.status(statusCode).json({
+      success: false,
+      statusCode,
+      error,
+      timestamp: new Date().toISOString(),
+      path: request.originalUrl ?? request.url ?? '',
+    });
+  }
+
+  private resolveHttpExceptionError(exception: HttpException): string {
+    const response = exception.getResponse();
+
+    if (typeof response === 'string') {
+      return response;
+    }
+
+    if (response && typeof response === 'object') {
+      const { error, message } = response as {
+        error?: unknown;
+        message?: unknown;
+      };
+
+      if (typeof error === 'string' && error.trim().length > 0) {
+        return error;
+      }
+
+      if (typeof message === 'string' && message.trim().length > 0) {
+        return message;
+      }
+
+      if (Array.isArray(message) && message.length > 0) {
+        return message.join('; ');
+      }
+    }
+
+    return exception.message;
+  }
+}
+
 @Controller('v1/sandbox')
 export class SandboxController {
   constructor(private readonly sandboxService: SandboxService) {}
@@ -187,8 +246,10 @@ export class SandboxController {
    *
    * @throws 400 — nếu thiếu tenantId, sessionId hoặc action
    * @throws 404 — nếu session không tồn tại hoặc không thuộc tenant
-   */
+  */
   @Post('execute')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @UseFilters(new SandboxExceptionFilter())
   async executeSandbox(
     @Body() body: ExecuteSandboxBody,
     @Headers('x-tenant-id') tenantId?: string,

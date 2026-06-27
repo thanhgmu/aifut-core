@@ -13,8 +13,22 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  const allowedOrigins = ['https://app.aifut.net', 'http://localhost:3000'];
+
   app.enableCors({
-    origin: ['https://app.aifut.net', 'http://localhost:3000'],
+    origin(origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        (process.env.NODE_ENV !== 'production' &&
+          /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/i.test(origin))
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true,
   });
 

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { WorkflowRetryService } from './workflow-retry.service';
 import { AwlInterpreterService } from './awl-interpreter.service';
 import { IndustryTemplatesService } from './industry-templates.service';
 import { TemplatePackService } from './template-pack.service';
@@ -12,7 +13,7 @@ import { WorkflowService } from './workflow.service';
 @Module({
   controllers: [WorkflowController, TemplatePackController],
   imports: [NotificationModule],
-  providers: [WorkflowService, PrismaService, ConnectorExecutorService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService],
-  exports: [WorkflowService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService],
+  providers: [WorkflowService, PrismaService, ConnectorExecutorService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService, WorkflowRetryService],
+  exports: [WorkflowService, AwlInterpreterService, IndustryTemplatesService, TemplatePackService, WorkflowRetryService],
 })
 export class WorkflowModule {}

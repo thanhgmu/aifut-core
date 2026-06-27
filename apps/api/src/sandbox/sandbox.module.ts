@@ -6,11 +6,13 @@
 // Phụ thuộc:
 //   - TenancyModule → PrismaService (PostgreSQL) cho persistent state
 //   - VirtualCostInterceptor → ghi nhận cost ảo cho telemetry
+//   - SandboxExecutorService → quản lý môi trường thực thi cô lập
 // ===================================================================
 
 import { Module } from '@nestjs/common';
 import { SandboxController } from './sandbox.controller';
 import { SandboxService } from './sandbox.service';
+import { SandboxExecutorService } from './sandbox-executor.service';
 import { VirtualCostInterceptor } from './interceptors/virtual-cost.interceptor';
 import { TenancyModule } from '../tenancy.module';
 
@@ -22,14 +24,17 @@ import { TenancyModule } from '../tenancy.module';
  * Cấu trúc:
  * - imports:    TenancyModule → cung cấp PrismaService cho persistence
  * - controllers:SandboxController → REST routes (v1/sandbox)
- * - providers:  SandboxService (business logic) + VirtualCostInterceptor
- * - exports:    SandboxService → cho phép module khác (vd: WorkflowsModule)
- *               tái sử dụng logic sandbox mà không inject lại
+ * - providers:  SandboxService (business logic)
+ *               + SandboxExecutorService (trình thực thi cô lập)
+ *               + VirtualCostInterceptor (ghi nhận cost ảo)
+ * - exports:    SandboxService + SandboxExecutorService → cho phép module
+ *               khác (vd: WorkflowsModule, ConnectorsModule) tái sử dụng
+ *               không gian cô lập mà không inject lại
  */
 @Module({
   imports: [TenancyModule],
   controllers: [SandboxController],
-  providers: [SandboxService, VirtualCostInterceptor],
-  exports: [SandboxService],
+  providers: [SandboxService, SandboxExecutorService, VirtualCostInterceptor],
+  exports: [SandboxService, SandboxExecutorService],
 })
 export class SandboxModule {}

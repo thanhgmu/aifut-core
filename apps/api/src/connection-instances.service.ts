@@ -614,10 +614,10 @@ export class ConnectionInstancesService {
       },
       {
         key: 'mapping',
-        passed: connection.mappedObjects.length > 0,
+        passed: (connection.mappedObjects as string[]).length > 0,
         detail:
-          connection.mappedObjects.length > 0
-            ? `Mapped objects: ${connection.mappedObjects.join(', ')}`
+          (connection.mappedObjects as string[]).length > 0
+            ? `Mapped objects: ${(connection.mappedObjects as string[]).join(', ')}`
             : 'No mapped objects selected.',
       },
       {

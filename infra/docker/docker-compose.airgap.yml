@@ -1,0 +1,73 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# docker-compose.airgap.yml — AIFUT On-Premise / Air-Gapped Deployment
+# ═══════════════════════════════════════════════════════════════════════════
+# Không phụ thuộc PostgreSQL. Dùng SQLite local.
+# Chạy offline hoàn toàn — 0 external dependencies.
+# Phù hợp cho: SME Việt Nam, government, air-gapped environments.
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.airgap.yml up -d
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  ## ── AIFUT Backend & Frontend (Monolith) ──────────────────────────
+  aifut-core:
+    image: aifut/core:latest
+    container_name: aifut-airgap-core
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        RUNTIME_MODE: local-sqlite
+    restart: unless-stopped
+    ports:
+      - "3000:3000"   # Web UI
+      - "3002:3002"   # API
+    environment:
+      RUNTIME_MODE: local-sqlite
+      DATABASE_URL: file:/data/aifut.db
+      NODE_ENV: production
+      AIRGAP_MODE: "true"
+      # Tắt mọi external call
+      DISABLE_TELEMETRY: "true"
+      DISABLE_CRON_SYNC: "true"
+      # JWT tự sinh nếu không set
+      # JWT_SECRET: "<your-secret>"
+    volumes:
+      - aifut_data:/data   # SQLite DB + file uploads
+      - aifut_config:/config   # Config overrides
+    networks:
+      - aifut-airgap
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  ## ── Nginx Reverse Proxy (optional) ───────────────────────────────
+  aifut-nginx:
+    image: nginx:alpine
+    container_name: aifut-airgap-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.airgap.conf:/etc/nginx/nginx.conf:ro
+      - aifut_ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - aifut-core
+    networks:
+      - aifut-airgap
+    profiles:
+      - with-nginx   # Chỉ start với --profile with-nginx
+
+volumes:
+  aifut_data:
+  aifut_config:
+  aifut_ssl:
+
+networks:
+  aifut-airgap:
+    driver: bridge

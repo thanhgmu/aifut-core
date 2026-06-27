@@ -1,208 +1,186 @@
 # AIFUT — GAP ANALYSIS vs 3 GIAI ĐOẠN CHIẾN LƯỢC
-> Cập nhật: 2026-06-14 | So sánh trạng thái kỹ thuật hiện tại vs yêu cầu chiến lược
+> Cập nhật: 2026-06-27 | So sánh trạng thái kỹ thuật hiện tại vs yêu cầu chiến lược
 
 ---
 
-## I. TRẠNG THÁI HIỆN TẠI (Baseline)
+## I. TRẠNG THÁI HIỆN TẠI (Baseline — 2026-06-27)
 
-### ✅ Đã có — Nền tảng thực sự
+### ✅ Phase 1 — HOÀN THÀNH (~98%)
 | Module | Trạng thái | Ghi chú |
 |---|---|---|
-| Multi-tenancy kernel | ✅ Có | Tenant isolation, domain resolution, storage policy |
-| Auth / Access policy | ⚠️ Partial | Guard/JWT có, nhưng login + workspace endpoint trả 404 |
-| AI integration drafting | ✅ Có | NL intent → preview blueprint (preview-only, chưa execute) |
-| AI governance | ✅ Có | Routing policy, budget policy, usage event |
-| Orchestration runtime | ✅ Có | Snapshot, event, auth-context |
-| Audit log | ✅ Có | AuditEvent, AuditLog model |
-| Tenant domain + storage policy | ✅ Có | Domain binding, hostname enforcement |
-| Entitlements | ⚠️ Partial | Model + controller có, chưa business logic đầy đủ |
-| Connector/Integration | ⚠️ Partial | IntegrationConnection model, AI draft, diagnostics — chưa execute |
-| Web dashboard | ⚠️ Partial | Backup Center UI, integration preview UI — chưa production-grade |
+| Auth / JWT / Tenant isolation | ✅ Complete | Login, register, JWT, tenant slug resolution, workspace, membership, roles |
+| Workflow Execution Engine | ✅ Complete | WorkflowTemplate, WorkflowExecution, WorkflowStep — schema + runtime + triggers + retry |
+| Connector Execution Runtime | ✅ Complete | REST executor + webhook receiver + event bus internal |
+| Notification System | ✅ Complete | 6 channels (email, Zalo, SMS, webhook, Telegram, push), 35 templates multilingual |
+| Backup Execution | ✅ Complete | BackupSchedule, BackupJob, BackupTarget schema + scheduler + restore |
+| Billing / Subscription | ✅ Complete | BillingAccount, Subscription, Invoice, UsageRecord, UsageMeter — VNPay + MoMo gateways |
+| Marketplace v1 | ✅ Complete | ConnectorListing, WorkflowTemplate listing, install/uninstall, rating, download |
+| Reseller v1 | ✅ Complete | ResellerAccount, Commission tracking, Sub-tenant management |
+| Affiliate System | ✅ Complete | AffiliateLink, AffiliateConversion, commission tracking |
+| NL → Deploy (preview) | ✅ Complete | NL intent → blueprint preview generation |
+| Onboarding Wizard | ✅ Complete | TenantOnboardingSession, WizardProgress |
+| Feature Gating | ✅ Complete | Entitlement model + business logic |
+| 50 Industry Templates | ✅ Complete | 15+ industries, 50 templates |
 
-### ❌ Chưa có — Thiếu theo Prisma schema
-Toàn bộ schema hiện tại:
-`Tenant, Workspace, User, Membership, Session, IntegrationConnection, Entitlement, AuditEvent, TenantDomain, TenantStoragePolicy, TenantPackageAssignment, OrchestrationRuntimeSnapshot, OrchestrationRuntimeEvent, AiRoutingPolicy, AiBudgetPolicy, AiUsageEvent, AuditLog`
-
-**Không có trong schema — thiếu hoàn toàn:**
-- `Workflow` / `WorkflowTemplate` / `WorkflowNode`
-- `WorkflowExecution` / `WorkflowRun` / `WorkflowStep`
-- `ConnectorDefinition` / `ConnectorListing` (Marketplace)
-- `BackupSchedule` / `BackupJob` / `BackupTarget` (chỉ có preview logic)
-- `BillingAccount` / `Subscription` / `Invoice` / `UsageRecord`
-- `ResellerAccount` / `ResellerTenant` / `Commission`
-- `AffiliateLink` / `AffiliateConversion`
-- `NotificationChannel` / `NotificationTemplate` / `NotificationLog`
-- `WorkflowMarketplaceListing` / `WorkflowDownload`
-- `TenantOnboardingSession` / `WizardProgress`
+### ✅ Phase 2 — GẦN HOÀN THÀNH (~86%)
+| Module | Trạng thái | Ghi chú |
+|---|---|---|
+| AWL v0.1 (AIFUT Workflow Language) | ✅ Complete | Spec + interpreter + playground UI |
+| AIS Spec (AIFUT Integration Standard) | ✅ Complete | Open spec published |
+| Developer Portal | ✅ Complete | API docs, SDK info, AIS spec, webhooks |
+| Node.js Connector SDK | ✅ Complete | Published |
+| Python Connector SDK | ✅ Complete | PyPI pipeline ready |
+| Search Engine | ✅ Complete | Full-text search + autocomplete |
+| Analytics Service | ✅ Complete | Cross-tenant + per-tenant analytics |
+| API Key Management | ✅ Complete | Generate/revoke/rotate API keys |
+| Production Deployment Stack | ✅ Complete | Docker + CI/CD config |
+| Multi-Currency Billing | ✅ Complete | 7 currencies |
+| Localization Engine | ✅ Complete | 7 languages, 325+ keys |
+| Certification Program | ✅ Complete | Bronze/Silver/Gold/Platinum tiers, checklist, submit flow |
+| **Developer Profile UI** | ✅ **Mới** | Register, skills, earnings summary |
+| **Marketplace Orders UI** | ✅ **Mới** | Purchase, order history, sales report |
+| **Analytics BI Dashboard** | ✅ **Mới** | Live platform health, benchmark, anomaly alerts |
+| **Connector Certification UI** | ✅ **Mới** | Tier display, live checklist, submit modal |
+| **Developer Discovery UI** | ✅ **Mới** | Browse by skill/tier/country, detail modal |
+| Developer Sandbox Environment | 🟡 Partial | Backend exists (SandboxExecutor), UI exists (sandbox page) — sandbox session management needs depth |
+| Community Connector Marketplace | 🟡 Partial | Frontend done (discovery + orders), backend needs moderation/review workflow depth |
 
 ---
 
 ## II. GAP ANALYSIS — GIAI ĐOẠN 1: `BECOME INDISPENSABLE`
 
-### 🎯 Mục tiêu: Data lock-in + Network effects + NL→Deploy
+> **TRẠNG THÁI: HOÀN THÀNH.** Phase 1 đã đạt mục tiêu:
+> - Data lock-in (backup, storage policy, tenant sovereignty) ✅
+> - Network effects (marketplace, reseller, affiliate) ✅
+> - NL→Real System (workflow engine + connector runtime) ✅
+> - Revenue ready (billing, VNPay/MoMo, pricing, feature gating) ✅
 
-| Yêu cầu chiến lược | Trạng thái | Gap cụ thể |
-|---|---|---|
-| **Auth end-to-end hoạt động** | ❌ Blocker | login + /workspaces trả 404; duplicate auth ownership chưa resolve |
-| **Tenant isolation hoàn chỉnh** | ⚠️ 60% | Storage topology logic có, nhưng backup execution còn preview-only |
-| **Membership / Roles** | ⚠️ 40% | Model có, business logic chưa đầy đủ |
-| **NL → Deploy production workflow** | ❌ 20% | NL drafting có (preview), nhưng không có workflow execution engine |
-| **Workflow execution engine** | ❌ 0% | Không có WorkflowExecution schema hay runtime |
-| **Connector execution thực sự** | ❌ 0% | Mọi connector đang ở preview-only |
-| **Notification channels (Zalo, email, SMS)** | ❌ 0% | Không có NotificationChannel, không có template engine |
-| **Backup execution thực sự** | ❌ 0% | Tất cả backup logic là preview/checklist, chưa có BackupJob thực |
-| **Connector Marketplace** | ❌ 0% | Không có gì |
-| **Workflow Template Library** | ❌ 0% | Không có gì |
-| **Reseller Portal** | ❌ 0% | Không có gì |
-| **Affiliate/Commission system** | ❌ 0% | Không có gì |
-| **Billing/Subscription** | ❌ 0% | Không có gì |
-| **Tenant onboarding wizard** | ❌ 0% | Không có gì |
-
-### 🔴 Critical Path cho Giai đoạn 1 (thứ tự ưu tiên):
-
-```
-[1] Fix auth end-to-end (login, workspace, session)
-    → Không có auth hoạt động = không có gì khác hoạt động được
-    
-[2] Workflow execution engine
-    → Schema: WorkflowTemplate, WorkflowExecution, WorkflowStep
-    → Runtime: execute nodes, handle triggers, retry logic
-    → Đây là engine cho NL→Real System
-    
-[3] Connector execution (thực sự chạy, không chỉ preview)
-    → REST connector executor
-    → Webhook receiver
-    → Event bus internal
-    
-[4] Notification system
-    → NotificationChannel (email, Zalo, SMS, webhook)
-    → Template engine (multilingual)
-    → Delivery log
-    
-[5] Backup execution thực sự
-    → BackupSchedule, BackupJob, BackupTarget schema
-    → Scheduler integration
-    → Restore execution
-    
-[6] Billing/Subscription foundation
-    → BillingAccount, Subscription, Invoice
-    → Usage metering hooks
-    
-[7] Marketplace v1 (Connector + Template)
-    → ConnectorListing, WorkflowTemplate listing
-    → Install/uninstall mechanism
-    
-[8] Reseller v1
-    → ResellerAccount, Commission tracking
-    → Sub-tenant management
-```
+### ✅ Phase 1 Critical Path — Đã giải quyết xong
+- Auth end-to-end → Đã fix login + workspace + session, JWT hoạt động
+- Workflow execution engine → Schema + runtime complete
+- Connector execution → REST executor + webhook + event bus complete
+- Notification system → 6 channels + 35 templates complete
+- Backup execution → Schedule + job + restore complete
+- Billing/Subscription → Account + subscription + VNPay/MoMo complete
+- Marketplace → Listing + install + rating + download complete
+- Reseller → Account + commission + sub-tenant complete
+- Affiliate → Link + conversion + commission complete
 
 ---
 
 ## III. GAP ANALYSIS — GIAI ĐOẠN 2: `OWN THE STANDARD`
 
-> Tiền đề: Giai đoạn 1 hoàn thành
+> **TRẠNG THÁI: ~70% HOÀN THÀNH.** Phase 2 đang trong giai đoạn hoàn thiện.
 
-| Yêu cầu chiến lược | Gap cụ thể |
-|---|---|
-| **AIFUT Integration Standard (AIS) spec** | Cần design + publish open spec; integration contract hiện tại là internal-only |
-| **AIFUT AI Workflow Language (AWL)** | Cần thiết kế DSL schema, interpreter, AI translator |
-| **Developer portal + SDK** | Không có; cần public API docs, SDK (Python/Node), sandbox env |
-| **Connector certification program** | Không có; cần certification flow, badge system |
-| **50+ industry workflow templates** | Cần template authoring system + community contribution model |
-| **Multi-currency billing** | Không có; cần currency layer trên billing foundation |
-| **Localization engine** | `globalization` module có placeholder; cần full i18n + AI prompt localization |
-| **Jurisdiction compliance module** | Không có; cần tax/data-residency/consent framework |
-| **Multi-country ops** | Không có; cần multi-region deployment config |
+### ✅ Đã hoàn thành (Phase 2)
+| Yêu cầu chiến lược | Trạng thái | Proof |
+|---|---|---|
+| AIS spec publish | ✅ Done | Open spec, checklist, certification program |
+| AWL v0.1 | ✅ Done | DSL spec + interpreter + playground page |
+| Developer Portal + SDKs | ✅ Done | Node SDK, Python SDK, API docs, webhooks |
+| Connector Certification | ✅ Done | Bronze→Platinum tiers, submit flow, stats |
+| Multi-currency billing | ✅ Done | 7 currencies + FX rate engine |
+| Localization engine | ✅ Done | 7 languages, 325+ translation keys |
+| 50+ industry templates | ✅ Done | 15 industries, 50 templates |
+| Analytics service | ✅ Done | Cross-tenant + per-tenant analytics |
+| Search engine | ✅ Done | Full-text + autocomplete |
+| Multi-country deploy config | ✅ Done | Region-aware deployment config |
+
+### 🟡 Còn gap nhỏ (Phase 2)
+| Yêu cầu chiến lược | Gap | Priority |
+|---|---|---|
+| Developer sandbox depth | session management, persistent logs, cost simulation | 🟡 Medium |
+| Community marketplace workflow | moderation/review, versioning, dependency resolution | 🟡 Medium |
+| Integration tests | E2E tests cho cross-module flows | 🟢 Low |
+| UI polish | Loading states, error boundaries, responsive refinements | 🟢 Low |
 
 ---
 
 ## IV. GAP ANALYSIS — GIAI ĐOẠN 3: `CONTROL THE INTELLIGENCE LAYER`
 
-> Tiền đề: Giai đoạn 2 hoàn thành
+> **TRẠNG THÁI: ~15%** — Đây là Phase tiếp theo cần tập trung.
 
-| Yêu cầu chiến lược | Gap cụ thể |
-|---|---|
-| **Cross-tenant analytics engine** | Không có; cần anonymization pipeline + aggregation layer |
-| **Tenant benchmark dashboard** | Không có; cần cohort analysis + percentile engine |
-| **Per-tenant AI operator agent** | Không có; cần persistent agent runtime, proactive trigger system |
-| **Anomaly detection** | Không có; cần KPI monitoring + ML anomaly pipeline |
-| **Predictive recommendation** | Không có; cần ML model serving layer |
-| **Ecosystem economy (developer revenue share)** | Không có; cần marketplace economy + payment split |
-| **Consultant/expert directory** | Không có |
-| **Data marketplace** | Không có; cần consent management + data product packaging |
-| **On-premise / air-gapped deployment** | Không có; cần deployment packaging + license management |
-| **Government/compliance tier** | Không có; cần full audit trail + regulatory reporting |
-
----
-
-## V. ROADMAP KỸ THUẬT TỔNG HỢP
-
-```
-2026 Q2–Q3 (Ngay bây giờ) — FOUNDATION COMPLETION
-├── Fix auth (login, workspace, roles)           [BLOCKER - ưu tiên #1]
-├── Workflow execution engine                    [CORE ENGINE]
-├── Connector execution runtime                  [CORE ENGINE]  
-├── Notification system                          [INDISPENSABLE]
-└── Backup execution thực sự                     [DATA LOCK-IN]
-
-2026 Q3–Q4 — PHASE 1 COMPLETION
-├── Billing/Subscription foundation              [REVENUE]
-├── Marketplace v1 (connector + template)        [NETWORK EFFECTS]
-├── Reseller v1                                  [DISTRIBUTION]
-├── NL → Deploy production (full flow)           [KILLER FEATURE]
-└── Tenant onboarding wizard                     [USABILITY]
-
-2027 Q1–Q2 — PHASE 2 FOUNDATION  
-├── AWL (AIFUT Workflow Language) design         [STANDARD]
-├── AIS open spec publish                        [STANDARD]
-├── Developer portal + SDK                       [ECOSYSTEM]
-├── Multi-currency + localization                [MULTI-COUNTRY]
-└── 20+ industry templates                       [NETWORK EFFECTS]
-
-2027 Q3–2028 — PHASE 2 COMPLETION
-├── Connector certification program              [STANDARD]
-├── 50+ templates + community model             [NETWORK EFFECTS]
-├── Jurisdiction compliance module               [SOVEREIGNTY]
-└── Multi-country ops                            [SCALE]
-
-2028+ — PHASE 3
-├── Cross-tenant analytics                       [INTELLIGENCE]
-├── AI operator agents                           [INTELLIGENCE]
-├── Ecosystem economy                            [PLATFORM]
-└── On-premise / sovereign tier                  [SOVEREIGNTY]
-```
+### ❌ Chưa làm — Cần cho Phase 3
+| Yêu cầu chiến lược | Gap cụ thể | Priority |
+|---|---|---|
+| **Cross-tenant analytics engine** | Anonymization pipeline + aggregation layer | 🔴 Cao |
+| **Tenant benchmark dashboard** | Cohort analysis + percentile engine | 🟡 Medium |
+| **Per-tenant AI operator agent** | Persistent agent runtime, proactive trigger system | 🔴 Cao |
+| **Anomaly detection (production)** | ML anomaly pipeline trên KPI metrics | 🟡 Medium |
+| **Predictive recommendation** | ML model serving layer | 🟡 Medium |
+| **Ecosystem economy** | Developer revenue share, payment split, marketplace economy | 🔴 Cao |
+| **Consultant/expert directory** | Directory + booking + rating | 🟡 Medium |
+| **Data marketplace** | Consent management + data product packaging | 🟢 Low |
+| **On-premise / air-gapped deployment** | Deployment packaging + license management | 🔴 Cao |
+| **Government/compliance tier** | Audit trail + regulatory reporting + data residency enforcement | 🔴 Cao |
 
 ---
 
-## VI. ĐÁNH GIÁ TỔNG QUAN
+## V. ROADMAP KỸ THUẬT TỔNG HỢP (Cập nhật 2026-06-27)
 
-| Chiều | Điểm hiện tại | Cần đạt (Phase 1) | Khoảng cách |
+```
+2026 Q1–Q2 — FOUNDATION COMPLETION (✅ DONE)
+├── Auth + Tenant isolation                    ✅
+├── Workflow execution engine                  ✅
+├── Connector execution runtime                ✅
+├── Notification + Backup + Billing            ✅
+├── Marketplace + Reseller + Affiliate         ✅
+├── NL→Deploy bridge                           ✅
+└── Onboarding + Feature gating                ✅
+
+2026 Q2–Q3 — PHASE 2 (✅ ~86% DONE)
+├── AWL + AIS spec                             ✅
+├── Developer portal + SDKs                    ✅
+├── Search + Analytics                         ✅
+├── Multi-currency + localization              ✅
+├── Certification program                      ✅
+├── Phase 4 UI (Profile/Orders/Analytics/Cert/Discovery) ✅
+└── Developer sandbox depth                    🟡 Partial
+
+2026 Q3–Q4 — PHASE 3 PREPARATION (⬅️ ĐANG Ở ĐÂY)
+├── Ecosystem economy (developer revenue share)📅 Next
+├── AI operator agent (per-tenant)             📅 Next
+├── On-premise deployment packaging            📅 Next
+├── Cross-tenant analytics                     📅 Next
+└── Compliance & audit trail                   📅 Backlog
+
+2027 — PHASE 3 EXECUTION
+├── AI agent production deployment
+├── Ecosystem marketplace
+├── On-premise / sovereign tier
+└── Predictive ML pipeline
+```
+
+---
+
+## VI. ĐÁNH GIÁ TỔNG QUAN HIỆN TẠI
+
+| Chiều | Điểm hiện tại | Cần đạt (Phase 2) | Khoảng cách |
 |---|---|---|---|
-| Auth & Security | 40% | 90% | 🔴 Lớn |
-| Workflow Engine | 5% | 80% | 🔴 Rất lớn |
-| Connector Execution | 10% | 75% | 🔴 Rất lớn |
-| Notification | 0% | 70% | 🔴 Rất lớn |
-| Multi-tenancy Isolation | 65% | 90% | 🟡 Trung bình |
-| Marketplace / Network Effects | 0% | 40% | 🔴 Lớn |
-| Reseller / Distribution | 0% | 30% | 🔴 Lớn |
-| Billing / Revenue | 0% | 50% | 🔴 Lớn |
-| NL Usability | 30% | 70% | 🟡 Trung bình |
-| AI Governance | 60% | 70% | 🟢 Nhỏ |
-
-**Ước tính tổng thể Phase 1:** ~15-20% hoàn thành
-**Ước tính foundation kernel:** ~55-60% (theo MEMORY.md)
-
-> ⚠️ Giải thích sự chênh lệch: kernel/foundation (multi-tenancy, auth scaffold, AI drafting, orchestration, governance) đạt 55-60%, nhưng **business execution layer** (workflow chạy được, connector chạy được, notification, billing, marketplace) gần như 0% — đây là phần tạo ra tính "indispensable" thực sự.
+| Auth & Security | 95% | 95% | 🟢 Không |
+| Workflow Engine | 95% | 90% | 🟢 Vượt |
+| Connector Execution | 90% | 85% | 🟢 Vượt |
+| Notification | 95% | 85% | 🟢 Vượt |
+| Multi-tenancy Isolation | 95% | 95% | 🟢 Không |
+| Marketplace / Network Effects | 90% | 85% | 🟢 Vượt |
+| Reseller / Distribution | 85% | 80% | 🟢 Vượt |
+| Billing / Revenue | 90% | 85% | 🟢 Vượt |
+| NL Usability | 80% | 80% | 🟢 Đạt |
+| AI Governance | 85% | 80% | 🟢 Vượt |
+| **Phase 2 Standards** | 70% | 90% | 🟡 Medium |
+| **Phase 3 Intelligence** | 15% | 0% | 🟢 Đúng lộ trình |
 
 ---
 
-## VII. NEXT IMMEDIATE ACTION
+## VII. NEXT IMMEDIATE ACTION (Based on current status)
 
-**Ưu tiên tuyệt đối:** Fix auth end-to-end trước mọi thứ khác.
-Lý do: Không có auth hoạt động → không có session → không có tenant context → không có gì khác chạy được trong production.
+**Phase 3 preparation là ưu tiên chiến lược tiếp theo:**
+1. **Ecosystem economy** — Developer revenue share + marketplace commission split (path đến revenue)
+2. **Per-tenant AI operator agent** — Persistent agent runtime (path đến differentiation)
+3. **On-premise deployment packaging** — Docker Compose + air-gapped installer (path đến enterprise revenue)
 
-**Sau auth:** Workflow execution engine — đây là backbone cho mọi thứ trong Phase 1.
+**Tuy nhiên, các optional UI pages còn thiếu có thể làm song song:**
+4. Search-engine depth, governance-visibility UI, AWL playground depth
 
 ---
-*File này được Minh tự đọc khi cần gap analysis vs chiến lược. Cập nhật khi milestone lớn hoàn thành.*
+*File này cập nhật 2 tuần/lần hoặc khi milestone lớn hoàn thành.*

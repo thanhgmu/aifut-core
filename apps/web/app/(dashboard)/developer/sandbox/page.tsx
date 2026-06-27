@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { SandboxSessionList } from '../../../../components/developer/sandbox-session-list';
 import SandboxTraceViewer from '../../../../components/developer/sandbox-trace-viewer';
+import { SandboxActionExecutor } from '../../../../components/developer/sandbox-action-executor';
 import WebhookLogViewer from '../../../../components/developer/webhook-log-viewer';
 
 export default function DeveloperSandboxPage() {
@@ -62,7 +63,13 @@ export default function DeveloperSandboxPage() {
  selectedSessionId={selectedSessionId}
  />
  {selectedSessionId ? (
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
  <SandboxTraceViewer sessionId={selectedSessionId} />
+ <SandboxActionExecutor
+ tenantId={currentTenantId}
+ sessionId={selectedSessionId}
+ />
+ </div>
  ) : (
  <div className="p-12 rounded-xl border border-dashed border-white/10 text-center text-sm font-mono text-gray-500" style={{ backdropFilter: 'blur(12px)', background: 'rgba(255,255,255,0.02)' }}>
  ✨ Vui lòng chọn một phiên thử nghiệm (Sandbox Session) ở bảng trên để mở bung nhật ký vết viễn trắc và cấu trúc dòng tiền ảo.

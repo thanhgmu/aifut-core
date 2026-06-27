@@ -1,261 +1,183 @@
 import {
   Controller,
-  Get,
   Post,
-  Put,
-  Delete,
+  Get,
   Headers,
   Param,
   Body,
-  NotFoundException,
   Query,
+  UsePipes,
+  ValidationPipe,
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
+import { MarketplaceService } from './marketplace.service';
+import {
+  PublishWorkflowTemplateDto,
+  ReviewMarketplaceTemplateDto,
+} from './dto/publish-workflow.dto';
 import { PrismaService } from '../prisma.service';
-import { MarketplaceService, MARKETPLACE_REGIONS } from './marketplace.service';
-import { MARKETPLACE_ROADMAP } from './marketplace.constants';
 
 /**
- * Marketplace Controller v2 — Community Connector & Template Marketplace.
+ * MarketplacePublishController — v1 Publish / Review / Public Hierarchy.
  *
- * Endpoints:
- *   ├── GET    /marketplace/stats              — platform-wide stats
- *   ├── GET    /marketplace/regions            — per-region listing counts
- *   ├── GET    /marketplace/listings           — browse (paginated, filtered, sorted, region-scoped)
- *   ├── GET    /marketplace/listings/:key      — single listing detail
- *   ├── POST   /marketplace/listings           — submit a new listing (community)
- *   ├── PUT    /marketplace/listings/:key      — update listing metadata
- *   ├── DELETE /marketplace/listings/:key      — delete listing
- *   ├── POST   /marketplace/listings/:key/install  — install for a tenant
- *   ├── POST   /marketplace/listings/:key/approve  — admin: publish
- *   ├── POST   /marketplace/listings/:key/reject   — admin: reject & delete
- *   ├── POST   /marketplace/listings/:key/rate     — submit/update rating
- *   ├── GET    /marketplace/listings/:key/ratings  — paginated reviews
- *   ├── GET    /marketplace/pending             — admin: pending queue
- *   ├── GET    /marketplace/capabilities        — capability introspection
- *   └── GET    /marketplace/roadmap             — roadmap status
+ * Ba endpoint cốt lõi cho luồng phát hành template:
+ *   1. POST   /v1/marketplace/templates/:id/publish   — Developer gửi template ra marketplace
+ *   2. POST   /v1/marketplace/templates/:id/review    — Admin duyệt/từ chối template
+ *   3. GET    /v1/marketplace/public                  — Public listing đã duyệt (phân trang)
+ *   4. GET    /v1/marketplace/templates/pending       — Pending templates queue (admin)
+ *
+ * Tất cả endpoint đều nhúng DTO với ValidationPipe({ whitelist: true })
+ * để tự động chặn tham số rác (unknown properties) gửi vào từ client.
  */
-@Controller('marketplace')
-export class MarketplaceController {
+@Controller('v1/marketplace')
+export class MarketplacePublishController {
   constructor(
-    private readonly marketplace: MarketplaceService,
+    private readonly marketplaceService: MarketplaceService,
     private readonly prisma: PrismaService,
   ) {}
 
-  // ── Tenant resolution helper ──────────────────────────────────────
-
-  private async resolveTenantId(slug: string): Promise<string> {
-    const t = await this.prisma.tenant.findUnique({ where: { slug } });
-    if (!t) throw new NotFoundException(`Tenant '${slug}' not found`);
-    return t.id;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 1 — STATS / DISCOVER
-  // ═══════════════════════════════════════════════════════════════════
-
-  /** Platform-wide marketplace statistics */
-  @Get('stats')
-  async stats() {
-    return this.marketplace.getPlatformStats();
-  }
-
-  /** Per-region listing counts (VN, SG, US, JP, TH) */
-  @Get('regions')
-  async regions() {
-    return this.marketplace.getRegionStats();
-  }
+  // ═════════════════════════════════════════════════════════════════════
+  //  ENDPOINT 1 — Developer Publish
+  // ═════════════════════════════════════════════════════════════════════
 
   /**
-   * Browse published marketplace listings with full control over:
-   *   - Filter: type, category, industry, region (VN | SG | US | JP | TH)
-   *   - Search: optimized full-text on name, description, tags
-   *   - Sort: newest | popular | rating | price_asc | price_desc
-   *   - Pagination: page, pageSize
+   * POST /v1/marketplace/templates/:id/publish
+   *
+   * Developer đệ trình template lên marketplace để chờ phê duyệt.
+   *
+   * Bảo mật:
+   *   - `tenantId` được trích xuất từ HTTP Header `x-tenant-id`, KHÔNG từ body
+   *   - Service tự kiểm tra IDOR: chỉ owner mới publish được template của mình
+   *   - `@UsePipes(new ValidationPipe({ whitelist: true }))` quét sạch
+   *     tham số rác (properties không khai báo trong DTO)
+   *
+   * @param tenantId  Tenant identifier từ header (bắt buộc, nếu thiếu sẽ undefined)
+   * @param id        Template ID (UUID)
+   * @param dto       PublishWorkflowTemplateDto — isPublic + developerNotes
    */
-  @Get('listings')
-  async list(
-    @Query('type') type?: string,
-    @Query('category') category?: string,
-    @Query('industry') industry?: string,
-    @Query('region') region?: string,
-    @Query('search') search?: string,
-    @Query('sort') sort?: string,
+  @Post('templates/:id/publish')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async requestPublish(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: PublishWorkflowTemplateDto,
+  ) {
+    return this.marketplaceService.requestPublish(id, tenantId, dto);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  //  ENDPOINT 2 — Admin Review
+  // ═════════════════════════════════════════════════════════════════════
+
+  /**
+   * POST /v1/marketplace/templates/:id/review
+   *
+   * Endpoint quản trị — phê duyệt (APPROVED) hoặc từ chối (REJECTED) template.
+   *
+   * Không kiểm tra tenantId vì đây là endpoint admin, việc phân quyền
+   * được xử lý riêng ở Guard layer (AuthGuard/RolesGuard).
+   *
+   * @param id   Template ID (UUID)
+   * @param dto  ReviewMarketplaceTemplateDto — status + adminComment
+   */
+  @Post('templates/:id/review')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async reviewTemplate(
+    @Param('id') id: string,
+    @Body() dto: ReviewMarketplaceTemplateDto,
+  ) {
+    return this.marketplaceService.reviewTemplate(id, dto);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  //  ENDPOINT 3 — Public Marketplace Listing
+  // ═════════════════════════════════════════════════════════════════════
+
+  /**
+   * GET /v1/marketplace/public
+   *
+   * Public marketplace — trả về các template đã được duyệt (APPROVED + isPublic = true)
+   * với phân trang an toàn.
+   *
+   * Tham số query:
+   *   - page:     trang hiện tại (mặc định 1)
+   *   - pageSize: số item mỗi trang (mặc định 20, tối đa 50)
+   *
+   * An toàn:
+   *   - ParseIntPipe + DefaultValuePipe đảm bảo giá trị luôn là số
+   *   - Service tự clamp pageSize tối đa 50 để tránh query quá tải
+   */
+  @Get('public')
+  async getPublicMarketplace(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize?: number,
   ) {
-    return this.marketplace.listListings({
-      type,
-      category,
-      industry,
-      region,
-      search,
-      sort: (sort as any) ?? 'newest',
-      publishedOnly: true,
-      page: Math.max(1, page ?? 1),
-      pageSize: Math.max(1, Math.min(100, pageSize ?? 20)),
-    });
+    return this.marketplaceService.getPublicMarketplace(
+      Math.max(1, page ?? 1),
+      Math.max(1, Math.min(pageSize ?? 20, 50)),
+    );
   }
 
-  /** Get a single listing by key */
-  @Get('listings/:key')
-  async get(@Param('key') key: string) {
-    return this.marketplace.getListing(key);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 2 — SUBMIT / COMMUNITY CONTRIBUTION
-  // ═══════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════
+  //  ENDPOINT 4 — Pending Templates (Admin Review Queue)
+  // ═════════════════════════════════════════════════════════════════════
 
   /**
-   * Submit a new community listing.
-   * Defaults to unpublished — requires admin approval to go live.
+   * GET /v1/marketplace/templates/pending
+   *
+   * Endpoint quản trị — lấy danh sách WorkflowTemplate đang chờ duyệt
+   * (marketplaceStatus = 'PENDING'). Phân trang an toàn với hard clamp 50.
+   *
+   * Trả về các trường cần thiết cho admin review UI:
+   *   id, key, name, description, category, industry, tags,
+   *   developerNotes, version, createdAt
+   *
+   * Query params:
+   *   - page     (number, mặc định 1)  — trang hiện tại
+   *   - pageSize (number, mặc định 20) — số item mỗi trang (max 50)
    */
-  @Post('listings')
-  async create(@Body() body: any) {
-    return this.marketplace.submitListing({
-      tenantId: body.tenantId ?? null,
-      type: body.type,
-      key: body.key,
-      name: body.name,
-      description: body.description,
-      category: body.category,
-      industry: body.industry,
-      region: body.region,
-      price: body.price ?? 0,
-      currency: body.currency ?? 'VND',
-      authorName: body.authorName,
-      authorEmail: body.authorEmail,
-      config: body.config,
-      tags: body.tags,
-    });
-  }
-
-  /** Update listing metadata */
-  @Put('listings/:key')
-  async update(@Param('key') key: string, @Body() body: any) {
-    return this.marketplace.updateListing(key, {
-      name: body.name,
-      description: body.description,
-      category: body.category,
-      industry: body.industry,
-      region: body.region,
-      price: body.price,
-      currency: body.currency,
-      version: body.version,
-      tags: body.tags,
-      config: body.config,
-    });
-  }
-
-  /** Delete a listing */
-  @Delete('listings/:key')
-  async delete(@Param('key') key: string) {
-    return this.marketplace.deleteListing(key);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 3 — INSTALL
-  // ═══════════════════════════════════════════════════════════════════
-
-  /**
-   * Install a listing for a tenant.
-   * Requires x-tenant-slug header for tenant resolution.
-   */
-  @Post('listings/:key/install')
-  async install(
-    @Headers('x-tenant-slug') slug: string,
-    @Param('key') key: string,
-  ) {
-    const tenantId = await this.resolveTenantId(slug);
-    return this.marketplace.installListing(tenantId, key);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 4 — ADMIN: APPROVE / REJECT / PENDING
-  // ═══════════════════════════════════════════════════════════════════
-
-  /** Admin: approve a pending submission → publish it */
-  @Post('listings/:key/approve')
-  async approve(@Param('key') key: string) {
-    return this.marketplace.approveListing(key);
-  }
-
-  /** Admin: reject & delete a pending submission */
-  @Post('listings/:key/reject')
-  async reject(@Param('key') key: string) {
-    return this.marketplace.rejectListing(key);
-  }
-
-  /** Admin: get all pending (unpublished) submissions */
-  @Get('pending')
-  async pending() {
-    return this.marketplace.getPendingSubmissions();
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 5 — RATINGS & REVIEWS
-  // ═══════════════════════════════════════════════════════════════════
-
-  /**
-   * Rate a marketplace listing (1-5 stars).
-   * Each tenant can submit one rating; subsequent calls update it.
-   */
-  @Post('listings/:key/rate')
-  async rate(
-    @Param('key') key: string,
-    @Body() body: { tenantId: string; rating: number; review?: string },
-  ) {
-    return this.marketplace.rateListing({
-      tenantId: body.tenantId,
-      listingKey: key,
-      rating: body.rating,
-      review: body.review,
-    });
-  }
-
-  /** Get paginated ratings/reviews for a listing */
-  @Get('listings/:key/ratings')
-  async ratings(
-    @Param('key') key: string,
+  @Get('templates/pending')
+  async getPendingTemplates(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize?: number,
   ) {
-    return this.marketplace.getRatings(key, page, pageSize);
-  }
+    const safePage = Math.max(1, page ?? 1);
+    const safeSize = Math.min(Math.max(1, pageSize ?? 20), 50);
+    const skip = (safePage - 1) * safeSize;
 
-  // ═══════════════════════════════════════════════════════════════════
-  //  SECTION 6 — CAPABILITY INTROSPECTION
-  // ═══════════════════════════════════════════════════════════════════
+    const where = { marketplaceStatus: 'PENDING' } as any;
 
-  @Get('capabilities')
-  capabilities() {
+    const [items, total] = await Promise.all([
+      this.prisma.workflowTemplate.findMany({
+        where,
+        skip,
+        take: safeSize,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          description: true,
+          category: true,
+          industry: true,
+          tags: true,
+          developerNotes: true,
+          version: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.workflowTemplate.count({ where }),
+    ]);
+
     return {
-      capability: 'marketplace',
-      status: 'community',
-      supports: {
-        browsing: true,
-        search: true,
-        regionFilter: true,
-        pagination: true,
-        sort: true,
-        installTemplate: true,
-        installConnector: true,
-        publishConnector: true,
-        ratings: true,
-        reviews: true,
-        adminApproval: true,
-        pendingQueue: true,
-        revenueSharing: false,
-      },
-      regions: MARKETPLACE_REGIONS,
-      next: MARKETPLACE_ROADMAP,
+      items,
+      total,
+      page: safePage,
+      pageSize: safeSize,
+      totalPages: Math.ceil(total / safeSize),
     };
-  }
-
-  @Get('roadmap')
-  roadmap() {
-    return { capability: 'marketplace', roadmap: MARKETPLACE_ROADMAP };
   }
 }

@@ -21,6 +21,9 @@ import { ResellerModule } from './reseller/reseller.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CertificationModule } from './certification/certification.module';
+import { AnalyticsBiModule } from './analytics-bi/analytics-bi.module';
+import { AiAgentModule } from './ai-agent/ai-agent.module';
+import { ComplianceModule } from './compliance/compliance.module';
 import { BillingMeterController } from './billing-meter.controller';
 import { AiBillingMeterService } from './ai-billing-meter.service';
 import { SearchService } from './search.service';
@@ -53,6 +56,9 @@ import { ApiKeyController } from './api-key.controller';
     PaymentsModule,
     CertificationModule,
     SandboxModule,
+    AnalyticsBiModule,
+    AiAgentModule,
+    ComplianceModule,
   ],
   controllers: [AppController, BillingMeterController, SearchController, AnalyticsController, ApiKeyController],
   providers: [AiBillingMeterService, SearchService, AnalyticsService, ApiKeyService],

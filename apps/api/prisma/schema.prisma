@@ -80,98 +80,100 @@ enum AuditSeverity {
   CRITICAL
 }
 
-
 model Tenant {
-  id                 String                  @id @default(cuid())
-  name               String
-  slug               String                  @unique
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  workspaces         Workspace[]
-  users              User[]
-  memberships        Membership[]
-  sessions           Session[]
-  integrations       IntegrationConnection[]
-  entitlements       Entitlement[]
-  auditEvents        AuditEvent[]
-  auditLogs          AuditLog[]
-  domains            TenantDomain[]
-  storagePolicies    TenantStoragePolicy[]
-  packageAssignments TenantPackageAssignment[]
-  workflowTemplates   WorkflowTemplate[]
-  workflowExecutions  WorkflowExecution[]
-  backupSchedules     BackupSchedule[]
-  backupJobs          BackupJob[]
-  billingAccount      BillingAccount?
-  subscriptions       Subscription[]
-  invoices            Invoice[]
-  usageRecords        UsageRecord[]
-  paymentTransactions  PaymentTransaction[]
-  marketplaceListings MarketplaceListing[]
-  resellerAccount     ResellerAccount?
-  notificationLogs    NotificationLog[]
-  notificationTemplates NotificationTemplate[]
-  affiliateAccount    AffiliateAccount?
-  zaloConnection      ZaloOaConnection?
-  zaloSentMessages    ZaloSentMessage[]
-  zaloWebhookEvents   ZaloWebhookEvent[]
-  certifications      ConnectorCertification[]
-  eInvoices         EInvoice[]
-  wallet              Wallet?
-  ledgerTransactions  LedgerTransaction[]
-  refundRecords       RefundRecord[]
-  aiBudgetLimits      AiBudgetLimit[]
-  budgetAccumulationLogs BudgetAccumulationLog[]
+  id                       String                    @id @default(cuid())
+  name                     String
+  slug                     String                    @unique
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  workspaces               Workspace[]
+  users                    User[]
+  memberships              Membership[]
+  sessions                 Session[]
+  integrations             IntegrationConnection[]
+  entitlements             Entitlement[]
+  auditEvents              AuditEvent[]
+  auditLogs                AuditLog[]
+  domains                  TenantDomain[]
+  storagePolicies          TenantStoragePolicy[]
+  packageAssignments       TenantPackageAssignment[]
+  workflowTemplates        WorkflowTemplate[]
+  workflowExecutions       WorkflowExecution[]
+  backupSchedules          BackupSchedule[]
+  backupJobs               BackupJob[]
+  billingAccount           BillingAccount?
+  subscriptions            Subscription[]
+  invoices                 Invoice[]
+  usageRecords             UsageRecord[]
+  paymentTransactions      PaymentTransaction[]
+  marketplaceListings      MarketplaceListing[]
+  resellerAccount          ResellerAccount?
+  notificationLogs         NotificationLog[]
+  notificationTemplates    NotificationTemplate[]
+  affiliateAccount         AffiliateAccount?
+  zaloConnection           ZaloOaConnection?
+  zaloSentMessages         ZaloSentMessage[]
+  zaloWebhookEvents        ZaloWebhookEvent[]
+  certifications           ConnectorCertification[]
+  eInvoices                EInvoice[]
+  wallet                   Wallet?
+  ledgerTransactions       LedgerTransaction[]
+  refundRecords            RefundRecord[]
+  aiBudgetLimits           AiBudgetLimit[]
+  budgetAccumulationLogs   BudgetAccumulationLog[]
+  tenantAnalyticsSummaries TenantAnalyticsSummary[]
+  anomalyRecords           AnomalyRecord[]
+  developerProfiles        DeveloperProfile[]
 }
 
 model Workspace {
-  id                 String                  @id @default(cuid())
+  id                 String                    @id @default(cuid())
   name               String
   slug               String
   tenantId           String
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberships        Membership[]
   integrations       IntegrationConnection[]
   domains            TenantDomain[]
   storagePolicies    TenantStoragePolicy[]
   packageAssignments TenantPackageAssignment[]
-  workflowTemplates   WorkflowTemplate[]
-  workflowExecutions  WorkflowExecution[]
-  backupSchedules     BackupSchedule[]
-  backupJobs          BackupJob[]
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  workflowTemplates  WorkflowTemplate[]
+  workflowExecutions WorkflowExecution[]
+  backupSchedules    BackupSchedule[]
+  backupJobs         BackupJob[]
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 
   @@unique([tenantId, slug])
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  name          String?
-  passwordHash  String?
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memberships   Membership[]
-  sessions      Session[]
-  auditEvents   AuditEvent[]
-  auditLogs     AuditLog[]   @relation("AuditActorLogs")
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String?
+  passwordHash String?
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+  sessions     Session[]
+  auditEvents  AuditEvent[]
+  auditLogs    AuditLog[]   @relation("AuditActorLogs")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Membership {
-  id           String           @id @default(cuid())
-  tenantId     String
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId  String?
-  workspace    Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  role         MembershipRole
-  isDefault    Boolean          @default(false)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  workspace   Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  role        MembershipRole
+  isDefault   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@unique([tenantId, userId, workspaceId, role])
   @@index([tenantId, userId])
@@ -179,53 +181,53 @@ model Membership {
 }
 
 model Session {
-  id             String       @id @default(cuid())
-  tenantId       String
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type           SessionType
-  name           String?      // human-readable name for API keys
-  scopes         String[]     @default([]) // API key scopes: 'read', 'write', 'admin'
-  tokenHash      String       @unique
-  refreshHash    String?
-  userAgent      String?
-  ipAddress      String?
-  expiresAt      DateTime
-  revokedAt      DateTime?
-  lastSeenAt     DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        SessionType
+  name        String? // human-readable name for API keys
+  scopes      Json        @default("[]") // API key scopes: 'read', 'write', 'admin'
+  tokenHash   String      @unique
+  refreshHash String?
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@index([tenantId, userId])
   @@index([expiresAt])
 }
 
 model IntegrationConnection {
-  id                 String              @id @default(cuid())
-  tenantId           String
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspaceId        String?
-  workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  name               String
-  slug               String
-  category           IntegrationCategory
-  provider           String
-  status             ConnectionStatus    @default(PENDING)
-  config             Json?
-  secretsRef         String?
-  mappingMode        String?
-  mappedObjects      String[]            @default([])
-  fieldMappings      Json?
-  eventMappings      Json?
-  syncPolicy         Json?
-  routingMode        String?
-  targetBaseUrl      String?
-  targetEnvironment  String?
-  targetRegion       String?
-  lastVerifiedAt     DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                String              @id @default(cuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId       String?
+  workspace         Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  name              String
+  slug              String
+  category          IntegrationCategory
+  provider          String
+  status            ConnectionStatus    @default(PENDING)
+  config            Json?
+  secretsRef        String?
+  mappingMode       String?
+  mappedObjects     Json                @default("[]")
+  fieldMappings     Json?
+  eventMappings     Json?
+  syncPolicy        Json?
+  routingMode       String?
+  targetBaseUrl     String?
+  targetEnvironment String?
+  targetRegion      String?
+  lastVerifiedAt    DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@unique([tenantId, slug])
   @@index([tenantId, category])
@@ -233,52 +235,52 @@ model IntegrationConnection {
 }
 
 model Entitlement {
-  id          String           @id @default(cuid())
-  tenantId    String
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  key         String
-  kind        EntitlementKind
-  value       String
-  source      String?
-  startsAt    DateTime?
-  endsAt      DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id        String          @id @default(cuid())
+  tenantId  String
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key       String
+  kind      EntitlementKind
+  value     String
+  source    String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@unique([tenantId, key])
 }
 
 model AuditEvent {
-  id            String          @id @default(cuid())
-  tenantId      String
-  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // ── Actor identity ─────────────────────────────────────────────────
-  userId        String?
-  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  actorType     AuditActorType
-  actorEmail    String?         // NEW — snapshot email tại thời điểm ghi (immutable kể cả khi user bị xóa)
+  userId     String?
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorType  AuditActorType
+  actorEmail String? // NEW — snapshot email tại thời điểm ghi (immutable kể cả khi user bị xóa)
 
   // ── Action metadata ────────────────────────────────────────────────
-  action        String
-  targetType    String?
-  targetId      String?
+  action     String
+  targetType String?
+  targetId   String?
 
   // ── Context (mới) ───────────────────────────────────────────────────
-  ipAddress     String?         // NEW — client IP từ request
-  userAgent     String?         // NEW — User-Agent header
-  sessionId     String?         // NEW — session ID nếu có
+  ipAddress String? // NEW — client IP từ request
+  userAgent String? // NEW — User-Agent header
+  sessionId String? // NEW — session ID nếu có
 
   // ── Payload diff (mới) ──────────────────────────────────────────────
-  oldValue      Json?           // NEW — dữ liệu trước khi thay đổi
-  newValue      Json?           // NEW — dữ liệu sau khi thay đổi
+  oldValue Json? // NEW — dữ liệu trước khi thay đổi
+  newValue Json? // NEW — dữ liệu sau khi thay đổi
 
   // ── Metadata mở rộng ────────────────────────────────────────────────
-  metadata      Json?
-  severity      AuditSeverity?  // NEW — INFO │ WARN │ CRITICAL
+  metadata Json?
+  severity AuditSeverity? // NEW — INFO │ WARN │ CRITICAL
 
   // ── Timestamps (immutable — không có updatedAt) ─────────────────────
-  createdAt     DateTime        @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, action])
   @@index([userId])
@@ -294,21 +296,21 @@ model AuditEvent {
 }
 
 model TenantDomain {
-  id                 String             @id @default(cuid())
-  tenantId           String
-  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspaceId        String?
-  workspace          Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  hostname           String
-  kind               TenantDomainKind
-  status             TenantDomainStatus @default(PENDING)
-  isPrimary          Boolean            @default(false)
-  provider           String?
-  provisioningMode   String?
-  dnsTarget          String?
-  certificateStatus  String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  tenantId          String
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId       String?
+  workspace         Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  hostname          String
+  kind              TenantDomainKind
+  status            TenantDomainStatus @default(PENDING)
+  isPrimary         Boolean            @default(false)
+  provider          String?
+  provisioningMode  String?
+  dnsTarget         String?
+  certificateStatus String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@unique([hostname])
   @@index([tenantId, status])
@@ -316,20 +318,20 @@ model TenantDomain {
 }
 
 model TenantStoragePolicy {
-  id               String            @id @default(cuid())
-  tenantId         String
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspaceId      String?
-  workspace        Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  key              String
-  mode             TenantStorageMode
-  storageClass     String?
-  targetRef        String?
-  targetRegion     String?
-  backupTargetRef  String?
-  meteringEnabled  Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              String            @id @default(cuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId     String?
+  workspace       Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  key             String
+  mode            TenantStorageMode
+  storageClass    String?
+  targetRef       String?
+  targetRegion    String?
+  backupTargetRef String?
+  meteringEnabled Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@unique([tenantId, key])
   @@index([tenantId, mode])
@@ -337,19 +339,19 @@ model TenantStoragePolicy {
 }
 
 model TenantPackageAssignment {
-  id                String      @id @default(cuid())
+  id                String     @id @default(cuid())
   tenantId          String
-  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   workspaceId       String?
-  workspace         Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  scopeKey          String      @unique
+  workspace         Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  scopeKey          String     @unique
   basePlanKey       String
-  selectedOptions   String[]    @default([])
+  selectedOptions   Json       @default("[]")
   billingSnapshot   Json?
   provisioningState String?
   source            String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([tenantId, basePlanKey])
   @@index([workspaceId])
@@ -396,30 +398,29 @@ model OrchestrationRuntimeEvent {
 }
 
 model AiRoutingPolicy {
-  id                         String   @id @default(cuid())
-  policyKey                  String   @unique
-  scopeType                  String
-  tenantSlug                 String
-  workspaceSlug              String?
-  featureKey                 String
-  taskType                   String
-  defaultLane                String
-  maxLane                    String
-  preferredCredentialMode    String
-  allowByoKeys               Boolean  @default(false)
-  requireApprovalAboveLane   String?
-  downgradeAtQuotaPressure   String
-  cacheEnabled               Boolean  @default(true)
-  deterministicFirst         Boolean  @default(true)
-  source                     String
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  policyKey                String   @unique
+  scopeType                String
+  tenantSlug               String
+  workspaceSlug            String?
+  featureKey               String
+  taskType                 String
+  defaultLane              String
+  maxLane                  String
+  preferredCredentialMode  String
+  allowByoKeys             Boolean  @default(false)
+  requireApprovalAboveLane String?
+  downgradeAtQuotaPressure String
+  cacheEnabled             Boolean  @default(true)
+  deterministicFirst       Boolean  @default(true)
+  source                   String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@index([tenantSlug, featureKey])
   @@index([workspaceSlug])
   @@index([defaultLane])
 }
-
 
 model AiBudgetPolicy {
   id                             String   @id @default(cuid())
@@ -442,30 +443,30 @@ model AiBudgetPolicy {
 }
 
 model AiUsageEvent {
-  id                  String   @id @default(cuid())
-  eventKey            String   @unique
-  scopeType           String
-  tenantSlug          String
-  workspaceSlug       String?
-  actorKey            String
-  featureKey          String
-  taskType            String
-  providerKey         String
-  modelKey            String
-  credentialMode      String
-  executionLane       String
-  inputTokens         Int      @default(0)
-  outputTokens        Int      @default(0)
-  totalTokens         Int      @default(0)
-  estimatedCost       Float    @default(0)
-  actualCost          Float    @default(0)
-  cacheHit            Boolean  @default(false)
-  retryCount          Int      @default(0)
-  escalationCount     Int      @default(0)
-  status              String
-  source              String
-  occurredAt          DateTime
-  createdAt           DateTime @default(now())
+  id              String   @id @default(cuid())
+  eventKey        String   @unique
+  scopeType       String
+  tenantSlug      String
+  workspaceSlug   String?
+  actorKey        String
+  featureKey      String
+  taskType        String
+  providerKey     String
+  modelKey        String
+  credentialMode  String
+  executionLane   String
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  totalTokens     Int      @default(0)
+  estimatedCost   Float    @default(0)
+  actualCost      Float    @default(0)
+  cacheHit        Boolean  @default(false)
+  retryCount      Int      @default(0)
+  escalationCount Int      @default(0)
+  status          String
+  source          String
+  occurredAt      DateTime
+  createdAt       DateTime @default(now())
 
   @@index([tenantSlug, occurredAt])
   @@index([workspaceSlug])
@@ -510,27 +511,30 @@ enum WorkflowTriggerKind {
 }
 
 model WorkflowTemplate {
-  id              String                @id @default(cuid())
-  tenantId        String
-  workspaceId     String?
-  key             String
-  name            String
-  description     String?
-  category        String?
-  industry        String?
-  status          WorkflowStatus        @default(DRAFT)
-  version         Int                   @default(1)
-  tags            String[]              @default([])
-  metadata        Json?
-  source          String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id                String         @id @default(cuid())
+  tenantId          String
+  workspaceId       String?
+  key               String
+  name              String
+  description       String?
+  category          String?
+  industry          String?
+  status            WorkflowStatus @default(DRAFT)
+  version           Int            @default(1)
+  tags              Json           @default("[]")
+  metadata          Json?
+  source            String?
+  isPublic          Boolean        @default(false)
+  marketplaceStatus String         @default("DRAFT")
+  developerNotes    String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
-  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspace       Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  nodes           WorkflowNode[]
-  executions      WorkflowExecution[]
-  triggers        WorkflowTrigger[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace  Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  nodes      WorkflowNode[]
+  executions WorkflowExecution[]
+  triggers   WorkflowTrigger[]
 
   @@unique([tenantId, key])
   @@index([tenantId, status])
@@ -539,23 +543,23 @@ model WorkflowTemplate {
 }
 
 model WorkflowNode {
-  id              String                @id @default(cuid())
-  workflowId      String
-  key             String
-  name            String
-  nodeType        WorkflowNodeType
-  position        Int                   @default(0)
-  config          Json?
-  inputMapping    Json?
-  outputMapping   Json?
-  retryPolicy     Json?
-  timeoutSeconds  Int                   @default(300)
-  dependsOn       String[]              @default([])
-  metadata        Json?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id             String           @id @default(cuid())
+  workflowId     String
+  key            String
+  name           String
+  nodeType       WorkflowNodeType
+  position       Int              @default(0)
+  config         Json?
+  inputMapping   Json?
+  outputMapping  Json?
+  retryPolicy    Json?
+  timeoutSeconds Int              @default(300)
+  dependsOn      Json             @default("[]")
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  workflow        WorkflowTemplate      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow WorkflowTemplate @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@unique([workflowId, key])
   @@index([workflowId, nodeType])
@@ -563,48 +567,48 @@ model WorkflowNode {
 }
 
 model WorkflowTrigger {
-  id              String                @id @default(cuid())
-  workflowId      String
-  kind            WorkflowTriggerKind
-  config          Json?
-  schedule        String?               // cron expression
-  webhookSecret   String?
-  eventType       String?
-  enabled         Boolean               @default(true)
-  lastFiredAt     DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id            String              @id @default(cuid())
+  workflowId    String
+  kind          WorkflowTriggerKind
+  config        Json?
+  schedule      String? // cron expression
+  webhookSecret String?
+  eventType     String?
+  enabled       Boolean             @default(true)
+  lastFiredAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
-  workflow        WorkflowTemplate      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow WorkflowTemplate @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([workflowId, kind])
   @@index([eventType])
 }
 
 model WorkflowExecution {
-  id              String                    @id @default(cuid())
-  workflowId      String
-  tenantId        String
-  workspaceId     String?
-  triggerKind     WorkflowTriggerKind?
-  triggeredBy     String?
-  status          WorkflowExecutionStatus   @default(PENDING)
-  input           Json?
-  output          Json?
-  error           String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  timeoutAt       DateTime?
-  retryCount      Int                       @default(0)
-  maxRetries      Int                       @default(3)
-  metadata        Json?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  id          String                  @id @default(cuid())
+  workflowId  String
+  tenantId    String
+  workspaceId String?
+  triggerKind WorkflowTriggerKind?
+  triggeredBy String?
+  status      WorkflowExecutionStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  timeoutAt   DateTime?
+  retryCount  Int                     @default(0)
+  maxRetries  Int                     @default(3)
+  metadata    Json?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
-  workflow        WorkflowTemplate          @relation(fields: [workflowId], references: [id], onDelete: Restrict)
-  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspace       Workspace?                @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  steps           WorkflowExecutionStep[]
+  workflow  WorkflowTemplate        @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  steps     WorkflowExecutionStep[]
 
   @@index([workflowId, status])
   @@index([tenantId, status])
@@ -614,23 +618,23 @@ model WorkflowExecution {
 }
 
 model WorkflowExecutionStep {
-  id              String                    @id @default(cuid())
-  executionId     String
-  nodeId          String?
-  nodeKey         String
-  status          WorkflowExecutionStatus   @default(PENDING)
-  input           Json?
-  output          Json?
-  error           String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  durationMs      Int?
-  retryCount      Int                       @default(0)
-  metadata        Json?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  id          String                  @id @default(cuid())
+  executionId String
+  nodeId      String?
+  nodeKey     String
+  status      WorkflowExecutionStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  durationMs  Int?
+  retryCount  Int                     @default(0)
+  metadata    Json?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
-  execution       WorkflowExecution         @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([executionId, nodeKey])
   @@index([executionId, status])
@@ -664,27 +668,27 @@ enum BackupJobStatus {
 }
 
 model BackupSchedule {
-  id              String        @id @default(cuid())
-  tenantId        String
-  workspaceId     String?
-  key             String
-  name            String
-  description     String?
-  cronExpression  String?       // null = manual only
-  targetRef       String        // storage target reference
-  backupMode      String        // 'full', 'incremental', 'diff'
-  retentionDays   Int           @default(30)
-  maxBackups      Int           @default(10)
-  enabled         Boolean       @default(true)
-  lastRunAt       DateTime?
-  lastStatus      String?
-  config          Json?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String    @id @default(cuid())
+  tenantId       String
+  workspaceId    String?
+  key            String
+  name           String
+  description    String?
+  cronExpression String? // null = manual only
+  targetRef      String // storage target reference
+  backupMode     String // 'full', 'incremental', 'diff'
+  retentionDays  Int       @default(30)
+  maxBackups     Int       @default(10)
+  enabled        Boolean   @default(true)
+  lastRunAt      DateTime?
+  lastStatus     String?
+  config         Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspace       Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  jobs            BackupJob[]
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  jobs      BackupJob[]
 
   @@unique([tenantId, key])
   @@index([tenantId, enabled])
@@ -692,27 +696,27 @@ model BackupSchedule {
 }
 
 model BackupJob {
-  id              String           @id @default(cuid())
-  scheduleId      String
-  tenantId        String
-  workspaceId     String?
-  status          BackupJobStatus  @default(PENDING)
-  backupTarget    String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  totalSize       Int?             // bytes
-  fileCount       Int?
-  error           String?
-  log             String?
-  retryCount      Int              @default(0)
-  triggeredBy     String?          // 'schedule', 'manual', 'api'
-  metadata        Json?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id           String          @id @default(cuid())
+  scheduleId   String
+  tenantId     String
+  workspaceId  String?
+  status       BackupJobStatus @default(PENDING)
+  backupTarget String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  totalSize    Int? // bytes
+  fileCount    Int?
+  error        String?
+  log          String?
+  retryCount   Int             @default(0)
+  triggeredBy  String? // 'schedule', 'manual', 'api'
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  schedule        BackupSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  schedule  BackupSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([scheduleId, status])
   @@index([tenantId, status])
@@ -721,22 +725,22 @@ model BackupJob {
 }
 
 model BillingAccount {
-  id              String     @id @default(cuid())
-  tenantId        String     @unique
-  currency        String     @default("VND")
-  balance         Float      @default(0)
+  id              String    @id @default(cuid())
+  tenantId        String    @unique
+  currency        String    @default("VND")
+  balance         Float     @default(0)
   billingEmail    String?
   paymentMethod   String?
   nextBillingDate DateTime?
-  billingPeriod   String     @default("monthly") // monthly, yearly, one-time
-  status          String     @default("active") // active, past_due, suspended, cancelled
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  billingPeriod   String    @default("monthly") // monthly, yearly, one-time
+  status          String    @default("active") // active, past_due, suspended, cancelled
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subscriptions   Subscription[]
-  invoices        Invoice[]
-  usageRecords    UsageRecord[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptions       Subscription[]
+  invoices            Invoice[]
+  usageRecords        UsageRecord[]
   paymentTransactions PaymentTransaction[]
 }
 
@@ -747,44 +751,44 @@ enum BillingInterval {
 }
 
 model SubscriptionPlan {
-  id              String            @id @default(cuid())
-  key             String            @unique
-  name            String
-  description     String?
-  price           Float
-  currency        String            @default("VND")
-  interval        BillingInterval   @default(MONTHLY)
-  features        Json?             // feature flags
-  limits          Json?             // usage limits
-  maxUsers        Int               @default(1)
-  maxWorkflows    Int               @default(5)
-  aiCallsMonthly  Int               @default(1000)
-  storageGB       Int               @default(10)
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String          @id @default(cuid())
+  key            String          @unique
+  name           String
+  description    String?
+  price          Float
+  currency       String          @default("VND")
+  interval       BillingInterval @default(MONTHLY)
+  features       Json? // feature flags
+  limits         Json? // usage limits
+  maxUsers       Int             @default(1)
+  maxWorkflows   Int             @default(5)
+  aiCallsMonthly Int             @default(1000)
+  storageGB      Int             @default(10)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  subscriptions   Subscription[]
+  subscriptions Subscription[]
 }
 
 model Subscription {
-  id              String            @id @default(cuid())
-  accountId       String
-  planKey         String
-  tenantId        String
-  status          String            @default("active") // active, trialing, past_due, cancelled, expired
-  startedAt       DateTime?
-  expiresAt       DateTime?
-  autoRenew       Boolean           @default(true)
-  trialEndsAt     DateTime?
-  cancelledAt     DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id          String    @id @default(cuid())
+  accountId   String
+  planKey     String
+  tenantId    String
+  status      String    @default("active") // active, trialing, past_due, cancelled, expired
+  startedAt   DateTime?
+  expiresAt   DateTime?
+  autoRenew   Boolean   @default(true)
+  trialEndsAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  plan            SubscriptionPlan  @relation(fields: [planKey], references: [key])
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoices        Invoice[]
+  account  BillingAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  plan     SubscriptionPlan @relation(fields: [planKey], references: [key])
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
 
   @@index([accountId, status])
   @@index([tenantId, status])
@@ -792,25 +796,25 @@ model Subscription {
 }
 
 model Invoice {
-  id              String            @id @default(cuid())
-  accountId       String
-  subscriptionId  String?
-  tenantId        String
-  number          String            @unique
-  amount          Float
-  currency        String            @default("VND")
-  status          String            @default("pending") // pending, paid, failed, refunded
-  description     String?
-  dueDate         DateTime?
-  paidAt          DateTime?
-  metadata        Json?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String    @id @default(cuid())
+  accountId      String
+  subscriptionId String?
+  tenantId       String
+  number         String    @unique
+  amount         Float
+  currency       String    @default("VND")
+  status         String    @default("pending") // pending, paid, failed, refunded
+  description    String?
+  dueDate        DateTime?
+  paidAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  subscription    Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments        PaymentTransaction[]
+  account      BillingAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  subscription Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments     PaymentTransaction[]
 
   @@index([accountId, status])
   @@index([tenantId, status])
@@ -818,26 +822,26 @@ model Invoice {
 }
 
 model PaymentTransaction {
-  id              String            @id @default(cuid())
-  invoiceId       String?
-  accountId       String
-  tenantId        String
-  gateway         String            // 'vnpay' | 'momo' | 'stripe' | 'manual'
-  gatewayTxId     String?           // transaction ID from payment gateway
-  amount          Float
-  currency        String            @default("VND")
-  status          String            @default("pending") // pending, success, failed, refunded
-  paymentMethod   String?           // 'qr', 'card', 'bank', 'wallet'
-  paymentUrl      String?           // URL to redirect user for payment
-  paidAt          DateTime?
-  metadata        Json?
-  errorMessage    String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id            String    @id @default(cuid())
+  invoiceId     String?
+  accountId     String
+  tenantId      String
+  gateway       String // 'vnpay' | 'momo' | 'stripe' | 'manual'
+  gatewayTxId   String? // transaction ID from payment gateway
+  amount        Float
+  currency      String    @default("VND")
+  status        String    @default("pending") // pending, success, failed, refunded
+  paymentMethod String? // 'qr', 'card', 'bank', 'wallet'
+  paymentUrl    String? // URL to redirect user for payment
+  paidAt        DateTime?
+  metadata      Json?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  invoice         Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  account BillingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([accountId, status])
   @@index([tenantId, createdAt])
@@ -846,18 +850,18 @@ model PaymentTransaction {
 }
 
 model UsageRecord {
-  id              String            @id @default(cuid())
-  accountId       String
-  tenantId        String
-  category        String            // 'ai', 'storage', 'workflow', 'notification'
-  metric          String            // 'tokens', 'mb', 'executions', 'messages'
-  value           Float
-  recordedAt      DateTime
-  metadata        Json?
-  createdAt       DateTime          @default(now())
+  id         String   @id @default(cuid())
+  accountId  String
+  tenantId   String
+  category   String // 'ai', 'storage', 'workflow', 'notification'
+  metric     String // 'tokens', 'mb', 'executions', 'messages'
+  value      Float
+  recordedAt DateTime
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
-  account         BillingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account BillingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([accountId, category])
   @@index([tenantId, recordedAt])
@@ -865,64 +869,65 @@ model UsageRecord {
 }
 
 model ResellerAccount {
-  id              String     @id @default(cuid())
-  tenantId        String     @unique
-  status          String     @default("active") // active, suspended, pending
-  commissionRate  Float      @default(0.2)  // 20%
-  commissionType  String     @default("recurring") // recurring, one-time
-  discountRate    Float      @default(0.3)  // 30% for reseller pricing
-  subTenantCount  Int        @default(0)
-  totalCommission Float      @default(0)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  status          String   @default("active") // active, suspended, pending
+  commissionRate  Float    @default(0.2) // 20%
+  commissionType  String   @default("recurring") // recurring, one-time
+  discountRate    Float    @default(0.3) // 30% for reseller pricing
+  subTenantCount  Int      @default(0)
+  totalCommission Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subTenants      ResellerSubTenant[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subTenants ResellerSubTenant[]
 }
 
 model ResellerSubTenant {
-  id              String        @id @default(cuid())
-  resellerId      String
-  subTenantSlug   String
-  subTenantName   String
-  status          String        @default("active")
-  subscriptionKey String?
-  revenueAmount   Float         @default(0)
-  commissionEarned Float        @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id               String   @id @default(cuid())
+  resellerId       String
+  subTenantSlug    String
+  subTenantName    String
+  status           String   @default("active")
+  subscriptionKey  String?
+  revenueAmount    Float    @default(0)
+  commissionEarned Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  reseller        ResellerAccount @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  reseller ResellerAccount @relation(fields: [resellerId], references: [id], onDelete: Cascade)
 
   @@index([resellerId, status])
 }
 
 model MarketplaceListing {
-  id              String            @id @default(cuid())
-  tenantId        String?
-  type            String            // 'connector', 'template', 'workflow'
-  key             String            @unique
-  name            String
-  description     String?
-  category        String?
-  industry        String?
-  region          String?           @default("VN") // connector quoc gia: VN, SG, US, JP, TH
-  price           Float             @default(0)
-  currency        String            @default("VND")
-  authorName      String?
-  authorEmail     String?
-  version         String            @default("1.0.0")
-  tags            String[]          @default([])
-  config          Json?
-  downloads       Int               @default(0)
-  rating          Float?
-  isPublished     Boolean           @default(false)
-  isOfficial      Boolean           @default(false)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String?
+  type        String // 'connector', 'template', 'workflow'
+  key         String   @unique
+  name        String
+  description String?
+  category    String?
+  industry    String?
+  region      String?  @default("VN") // connector quoc gia: VN, SG, US, JP, TH
+  price       Float    @default(0)
+  currency    String   @default("VND")
+  authorName  String?
+  authorEmail String?
+  version     String   @default("1.0.0")
+  tags        Json     @default("[]")
+  config      Json?
+  downloads   Int      @default(0)
+  rating      Float?
+  isPublished Boolean  @default(false)
+  isOfficial  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  ratings         MarketplaceListingRating[]
+  tenant  Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  ratings MarketplaceListingRating[]
+  orders  MarketplaceOrder[]
 
   @@index([type, category])
   @@index([isPublished])
@@ -932,21 +937,20 @@ model MarketplaceListing {
 }
 
 model MarketplaceListingRating {
-  id              String            @id @default(cuid())
-  listingId       String
-  tenantId        String
-  rating          Int               // 1-5
-  review          String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id        String   @id @default(cuid())
+  listingId String
+  tenantId  String
+  rating    Int // 1-5
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  listing         MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([listingId, tenantId])
   @@index([listingId])
   @@index([tenantId])
 }
-
 
 enum NotificationChannel {
   EMAIL
@@ -965,17 +969,17 @@ enum NotificationStatus {
 }
 
 model NotificationTemplate {
-  id              String   @id @default(cuid())
+  id              String              @id @default(cuid())
   tenantId        String
-  key             String   // unique slug per tenant, e.g. "welcome-email"
-  name            String   // human-readable name
+  key             String // unique slug per tenant, e.g. "welcome-email"
+  name            String // human-readable name
   channel         NotificationChannel
-  subjectTemplate String?  // optional subject template with {{placeholders}}
-  bodyTemplate    String   // body with {{placeholders}}, supports HTML
-  format          String   @default("text") // "text" | "html" | "markdown"
+  subjectTemplate String? // optional subject template with {{placeholders}}
+  bodyTemplate    String // body with {{placeholders}}, supports HTML
+  format          String              @default("text") // "text" | "html" | "markdown"
   metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -984,32 +988,32 @@ model NotificationTemplate {
 }
 
 model NotificationLog {
-  id              String              @id @default(cuid())
-  tenantId        String
-  userId          String?
-  channel         NotificationChannel
-  to              String
-  subject         String?
-  templateKey     String?
-  renderedBody    String?
-  status          NotificationStatus  @default(PENDING)
-  provider        String?
+  id                String              @id @default(cuid())
+  tenantId          String
+  userId            String?
+  channel           NotificationChannel
+  to                String
+  subject           String?
+  templateKey       String?
+  renderedBody      String?
+  status            NotificationStatus  @default(PENDING)
+  provider          String?
   providerMessageId String?
-  error           String?
-  durationMs      Int?
-  metadata        Json?
-  executionId     String?
-  executionStepId String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  error             String?
+  durationMs        Int?
+  metadata          Json?
+  executionId       String?
+  executionStepId   String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
-  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, channel, status])
   @@index([executionId])
-  }
-  
+}
+
 // ── Zalo OA Integration ──────────────────────────────────────────────
 
 enum ZaloOaConnectionStatus {
@@ -1035,54 +1039,54 @@ enum ZaloMessageSendStatus {
 }
 
 model ZaloOaConnection {
-  id                       String                  @id @default(cuid())
-  tenantId                 String                  @unique
-  oaId                     String
-  appId                    String
-  encryptedSecret          String
-  encryptedRefreshToken    String
-  encryptedAccessToken     String?
-  tokenExpiresAt           DateTime?
-  status                   ZaloOaConnectionStatus  @default(ACTIVE)
-  lastVerifiedAt           DateTime?
-  dailyQuotaTotal          Int                     @default(0)
-  dailyQuotaUsed           Int                     @default(0)
-  quotaResetAt             DateTime?
-  webhookSecret            String?
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
+  id                    String                 @id @default(cuid())
+  tenantId              String                 @unique
+  oaId                  String
+  appId                 String
+  encryptedSecret       String
+  encryptedRefreshToken String
+  encryptedAccessToken  String?
+  tokenExpiresAt        DateTime?
+  status                ZaloOaConnectionStatus @default(ACTIVE)
+  lastVerifiedAt        DateTime?
+  dailyQuotaTotal       Int                    @default(0)
+  dailyQuotaUsed        Int                    @default(0)
+  quotaResetAt          DateTime?
+  webhookSecret         String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sentMessages             ZaloSentMessage[]
-  webhookEvents            ZaloWebhookEvent[]
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sentMessages  ZaloSentMessage[]
+  webhookEvents ZaloWebhookEvent[]
 
   @@index([oaId])
   @@index([status])
 }
 
 model ZaloSentMessage {
-  id                 String                  @id @default(cuid())
-  connectionId       String
-  tenantId           String
-  messageType        ZaloMessageType
-  templateId         String?
-  recipientId        String
-  templateData       Json?
-  content            String?
-  zaloMessageId      String?
-  sendStatus         ZaloMessageSendStatus   @default(PENDING)
-  errorCode          Int?
-  errorMessage       String?
-  quotaCost          Int                     @default(1)
-  sentAt             DateTime                @default(now())
-  deliveredAt        DateTime?
-  readAt             DateTime?
-  metadata           Json?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  id            String                @id @default(cuid())
+  connectionId  String
+  tenantId      String
+  messageType   ZaloMessageType
+  templateId    String?
+  recipientId   String
+  templateData  Json?
+  content       String?
+  zaloMessageId String?
+  sendStatus    ZaloMessageSendStatus @default(PENDING)
+  errorCode     Int?
+  errorMessage  String?
+  quotaCost     Int                   @default(1)
+  sentAt        DateTime              @default(now())
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  metadata      Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
-  connection         ZaloOaConnection        @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection ZaloOaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([connectionId, sentAt])
   @@index([tenantId, sentAt])
@@ -1091,28 +1095,28 @@ model ZaloSentMessage {
 }
 
 model ZaloWebhookEvent {
-  id                 String                  @id @default(cuid())
-  connectionId       String?
-  tenantId           String?
-  eventName          String
-  payload            Json
-  processed          Boolean                 @default(false)
-  processedAt        DateTime?
-  error              String?
-  receivedAt         DateTime                @default(now())
-  createdAt          DateTime                @default(now())
+  id           String    @id @default(cuid())
+  connectionId String?
+  tenantId     String?
+  eventName    String
+  payload      Json
+  processed    Boolean   @default(false)
+  processedAt  DateTime?
+  error        String?
+  receivedAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
-  connection         ZaloOaConnection?       @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  tenant             Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  connection ZaloOaConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 
   @@index([eventName, receivedAt])
   @@index([connectionId])
   @@index([processed])
 }
 
-  // ── Affiliate / Commission System ──────────────────────────────────────
-  
-  enum AffiliateStatus {
+// ── Affiliate / Commission System ──────────────────────────────────────
+
+enum AffiliateStatus {
   ACTIVE
   SUSPENDED
   PENDING
@@ -1133,75 +1137,75 @@ enum CommissionStatus {
 }
 
 model AffiliateAccount {
-  id              String            @id @default(cuid())
-  tenantId        String            @unique
-  status          AffiliateStatus   @default(PENDING)
-  referralCode    String            @unique
-  commissionRate  Float             @default(0.1)    // 10% default
-  commissionType  CommissionType    @default(PERCENTAGE)
-  totalEarned     Float             @default(0)
-  totalPaid       Float             @default(0)
-  totalConversions Int              @default(0)
-  payoutMethod    String?           // 'bank', 'momo', 'paypal'
-  payoutDetails   String?           // account number, email, etc.
-  cookieDays      Int               @default(30)     // attribution window
-  autoApprove     Boolean           @default(false)
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id               String          @id @default(cuid())
+  tenantId         String          @unique
+  status           AffiliateStatus @default(PENDING)
+  referralCode     String          @unique
+  commissionRate   Float           @default(0.1) // 10% default
+  commissionType   CommissionType  @default(PERCENTAGE)
+  totalEarned      Float           @default(0)
+  totalPaid        Float           @default(0)
+  totalConversions Int             @default(0)
+  payoutMethod     String? // 'bank', 'momo', 'paypal'
+  payoutDetails    String? // account number, email, etc.
+  cookieDays       Int             @default(30) // attribution window
+  autoApprove      Boolean         @default(false)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  links           AffiliateLink[]
-  conversions     AffiliateConversion[]
-  payouts         CommissionPayout[]
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  links       AffiliateLink[]
+  conversions AffiliateConversion[]
+  payouts     CommissionPayout[]
 }
 
 model AffiliateLink {
-  id              String            @id @default(cuid())
+  id              String   @id @default(cuid())
   accountId       String
-  key             String            @unique          // short code, e.g. "thuonghieu-2026"
-  label           String            // human-readable, e.g. "Bài blog tháng 6"
-  targetUrl       String            // where the link points
-  destination     String?           // 'landing', 'pricing', 'signup', 'checkout', 'custom'
-  campaign        String?           // utm campaign or internal campaign name
-  isActive        Boolean           @default(true)
-  clickCount      Int               @default(0)
-  conversionCount Int               @default(0)
+  key             String   @unique // short code, e.g. "thuonghieu-2026"
+  label           String // human-readable, e.g. "Bài blog tháng 6"
+  targetUrl       String // where the link points
+  destination     String? // 'landing', 'pricing', 'signup', 'checkout', 'custom'
+  campaign        String? // utm campaign or internal campaign name
+  isActive        Boolean  @default(true)
+  clickCount      Int      @default(0)
+  conversionCount Int      @default(0)
   metadata        Json?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  conversions     AffiliateConversion[]
+  account     AffiliateAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversions AffiliateConversion[]
 
   @@index([accountId, isActive])
   @@index([campaign])
 }
 
 model AffiliateConversion {
-  id              String            @id @default(cuid())
-  accountId       String
-  linkId          String?
-  tenantId        String?           // the converted tenant (nullable if pre-registration)
-  customerEmail   String?           // email of converted user
-  customerName    String?
-  conversionType  String            // 'signup', 'subscription', 'payment', 'trial'
+  id               String           @id @default(cuid())
+  accountId        String
+  linkId           String?
+  tenantId         String? // the converted tenant (nullable if pre-registration)
+  customerEmail    String? // email of converted user
+  customerName     String?
+  conversionType   String // 'signup', 'subscription', 'payment', 'trial'
   commissionAmount Float            @default(0)
   commissionStatus CommissionStatus @default(PENDING)
-  revenueAmount   Float             @default(0)       // total revenue from this conversion
-  currency        String            @default("VND")
-  referralCode    String?           // captured from the link
-  ipAddress       String?
-  userAgent       String?
-  attributedAt    DateTime          @default(now())
-  convertedAt     DateTime?         // when the actual conversion event happened
-  expiresAt       DateTime?         // cookie attribution expiry
-  metadata        Json?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  revenueAmount    Float            @default(0) // total revenue from this conversion
+  currency         String           @default("VND")
+  referralCode     String? // captured from the link
+  ipAddress        String?
+  userAgent        String?
+  attributedAt     DateTime         @default(now())
+  convertedAt      DateTime? // when the actual conversion event happened
+  expiresAt        DateTime? // cookie attribution expiry
+  metadata         Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  link            AffiliateLink?    @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  account AffiliateAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  link    AffiliateLink?   @relation(fields: [linkId], references: [id], onDelete: SetNull)
 
   @@index([accountId, commissionStatus])
   @@index([linkId])
@@ -1211,21 +1215,21 @@ model AffiliateConversion {
 }
 
 model CommissionPayout {
-  id              String            @id @default(cuid())
+  id              String           @id @default(cuid())
   accountId       String
   amount          Float
-  currency        String            @default("VND")
-  status          CommissionStatus  @default(PENDING)
-  payoutMethod    String?           // snapshot of method at time of payout
-  payoutReference String?           // transaction ID from payment provider
+  currency        String           @default("VND")
+  status          CommissionStatus @default(PENDING)
+  payoutMethod    String? // snapshot of method at time of payout
+  payoutReference String? // transaction ID from payment provider
   periodStart     DateTime?
   periodEnd       DateTime?
   notes           String?
-  conversionIds   String[]          @default([])      // references to AffiliateConversion ids
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  conversionIds   Json             @default("[]") // references to AffiliateConversion ids
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  account         AffiliateAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account AffiliateAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, status])
   @@index([createdAt])
@@ -1242,25 +1246,25 @@ enum CertificationStatus {
 }
 
 model ConnectorCertification {
-  id                String              @id @default(cuid())
-  tenantId          String
-  connectorKey      String
-  connectorName     String
-  version           String              @default("1.0.0")
-  developerEmail    String?
-  developerName     String?
-  status            CertificationStatus @default(SUBMITTED)
-  checklistResults  Json?               // JSON array of { id, name, passed, notes }
-  reviewerNotes     String?
-  reviewedBy        String?
-  submittedAt       DateTime            @default(now())
-  reviewedAt        DateTime?
-  badgeUrl          String?
-  expiresAt         DateTime?           // certification validity, 1 year default
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  id               String              @id @default(cuid())
+  tenantId         String
+  connectorKey     String
+  connectorName    String
+  version          String              @default("1.0.0")
+  developerEmail   String?
+  developerName    String?
+  status           CertificationStatus @default(SUBMITTED)
+  checklistResults Json? // JSON array of { id, name, passed, notes }
+  reviewerNotes    String?
+  reviewedBy       String?
+  submittedAt      DateTime            @default(now())
+  reviewedAt       DateTime?
+  badgeUrl         String?
+  expiresAt        DateTime? // certification validity, 1 year default
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, connectorKey])
   @@index([status])
@@ -1271,38 +1275,38 @@ model ConnectorCertification {
 // -- E-Invoice (Hoa don dien tu GTGT) ---------------------------------
 
 model InvoiceCounter {
-  id              String   @id @default(cuid())
-  tenantId        String
-  serialSymbol    String
-  counter         Int      @default(0)
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  serialSymbol String
+  counter      Int      @default(0)
+  updatedAt    DateTime @updatedAt
 
   @@unique([tenantId, serialSymbol])
   @@index([tenantId])
 }
 
 model EInvoice {
-  id                String   @id
-  tenantId          String
-  accountId         String
-  invoiceNumber     String   @unique
-  serialSymbol      String
-  formCode          String
-  fullNumber        String   @unique
-  issueDate         DateTime
-  sellerInfo        Json
-  buyerInfo         Json
-  items             Json
-  financialSummary  Json
-  htmlContent       String
-  hmacCode          String
-  transactionRef    String?
-  notes             String?
-  status            String   @default("issued")  // issued, cancelled, replaced
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id
+  tenantId         String
+  accountId        String
+  invoiceNumber    String   @unique
+  serialSymbol     String
+  formCode         String
+  fullNumber       String   @unique
+  issueDate        DateTime
+  sellerInfo       Json
+  buyerInfo        Json
+  items            Json
+  financialSummary Json
+  htmlContent      String
+  hmacCode         String
+  transactionRef   String?
+  notes            String?
+  status           String   @default("issued") // issued, cancelled, replaced
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -1313,7 +1317,6 @@ model EInvoice {
 
 // ── Wallet / Ledger (Internal Balance Tracking) ─────────────────────
 
-
 enum LedgerTransactionType {
   CREDIT
   DEBIT
@@ -1322,30 +1325,29 @@ enum LedgerTransactionType {
 model Wallet {
   id        String   @id @default(cuid())
   tenantId  String   @unique
-  balance   BigInt   @default(0)   // stored in smallest unit (satang/satoshi), avoid float errors
-  version   Int      @default(1)   // optimistic lock version, incremented on every write
+  balance   BigInt   @default(0) // stored in smallest unit (satang/satoshi), avoid float errors
+  version   Int      @default(1) // optimistic lock version, incremented on every write
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  transactions LedgerTransaction[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions LedgerTransaction[] @relation("walletLedger")
 }
 
 model LedgerTransaction {
-  id              String                @id @default(cuid())
-  tenantId        String
-  type            LedgerTransactionType
-  amount          BigInt                // positive value, sign determined by type
-  balanceAfter    BigInt                // snapshot of wallet balance after this transaction
-  referenceType   String                // e.g. 'invoice', 'payout', 'commission', 'topup'
-  referenceId     String                // ID of the referenced entity
-  description     String?
-  metadata        Json?
-  createdAt       DateTime              @default(now())
+  id            String                @id @default(cuid())
+  tenantId      String
+  type          LedgerTransactionType
+  amount        BigInt // positive value, sign determined by type
+  balanceAfter  BigInt // snapshot of wallet balance after this transaction
+  referenceType String // e.g. 'invoice', 'payout', 'commission', 'topup'
+  referenceId   String // ID of the referenced entity
+  description   String?
+  metadata      Json?
+  createdAt     DateTime              @default(now())
 
-tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "LedgerTransaction_tenant_fkey")
-wallet    Wallet    @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade, map: "LedgerTransaction_wallet_fkey")
-
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation("walletLedger", fields: [tenantId], references: [tenantId], onDelete: Cascade, map: "LedgerTransaction_wallet_tenantId_fkey")
 
   @@unique([tenantId, referenceType, referenceId])
   @@index([tenantId, type])
@@ -1362,14 +1364,14 @@ enum RefundStatus {
 }
 
 model RefundRecord {
-  id                   String       @id @default(uuid())
-  originalReferenceId  String
-  amount               BigInt
-  status               RefundStatus @default(PENDING)
-  tenantId             String
-  createdAt            DateTime     @default(now())
+  id                  String       @id @default(uuid())
+  originalReferenceId String
+  amount              BigInt
+  status              RefundStatus @default(PENDING)
+  tenantId            String
+  createdAt           DateTime     @default(now())
 
-  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([originalReferenceId, id])
   @@index([tenantId])
@@ -1390,13 +1392,13 @@ enum ReconciliationStatus {
 }
 
 enum DiscrepancyType {
-  BALANCE_MISMATCH                          // LedgerTransaction tổng ≠ Wallet.balance
-  MISSING_LEDGER_CREDIT_FOR_PAID_INVOICE    // Invoice paid nhưng thiếu LedgerTransaction CREDIT
-  ORPHAN_LEDGER_CREDIT                       // Ledger CREDIT nhưng Invoice vẫn pending
-  UNMATCHED_DEBIT                            // LedgerTransaction không có PaymentTransaction tương ứng
-  DUPLICATE_REFERENCE                        // Nhiều LedgerTransaction cùng reference
-  AMOUNT_MISMATCH                            // LedgerTransaction amount ≠ Invoice.amount
-  SUSPICIOUS_ACTIVITY                        // Anti-fraud heuristic phát hiện
+  BALANCE_MISMATCH // LedgerTransaction tổng ≠ Wallet.balance
+  MISSING_LEDGER_CREDIT_FOR_PAID_INVOICE // Invoice paid nhưng thiếu LedgerTransaction CREDIT
+  ORPHAN_LEDGER_CREDIT // Ledger CREDIT nhưng Invoice vẫn pending
+  UNMATCHED_DEBIT // LedgerTransaction không có PaymentTransaction tương ứng
+  DUPLICATE_REFERENCE // Nhiều LedgerTransaction cùng reference
+  AMOUNT_MISMATCH // LedgerTransaction amount ≠ Invoice.amount
+  SUSPICIOUS_ACTIVITY // Anti-fraud heuristic phát hiện
 }
 
 enum DiscrepancySeverity {
@@ -1432,20 +1434,20 @@ enum ReportJobStatus {
 model ReconciliationRun {
   id               String               @id @default(cuid())
   tenantId         String
-  trigger          String               // 'scheduled' | 'manual' | 'webhook'
+  trigger          String // 'scheduled' | 'manual' | 'webhook'
   startedAt        DateTime             @default(now())
   completedAt      DateTime?
   status           ReconciliationStatus @default(RUNNING)
-  walletBalance    BigInt?              // wallet.balance tại thời điểm snapshot
-  ledgerSum        BigInt?              // SUM(CREDIT) - SUM(DEBIT) tại thời điểm snapshot
-  paidInvoiceSum   BigInt?              // SUM(Invoice.amount) WHERE status='paid'
+  walletBalance    BigInt? // wallet.balance tại thời điểm snapshot
+  ledgerSum        BigInt? // SUM(CREDIT) - SUM(DEBIT) tại thời điểm snapshot
+  paidInvoiceSum   BigInt? // SUM(Invoice.amount) WHERE status='paid'
   discrepancyCount Int                  @default(0)
-  summary          Json?                // JSON báo cáo rút gọn
+  summary          Json? // JSON báo cáo rút gọn
   error            String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  discrepancies    DiscrepancyRecord[]
+  discrepancies DiscrepancyRecord[]
 
   @@index([tenantId, startedAt])
   @@index([tenantId, status])
@@ -1457,28 +1459,28 @@ model DiscrepancyRecord {
   tenantId        String
   severity        DiscrepancySeverity         @default(WARNING)
   category        DiscrepancyType
-  title           String                      // Ngắn gọn, ví dụ: "Wallet lệch -5,000 VND"
-  description     String?                     // Chi tiết
+  title           String // Ngắn gọn, ví dụ: "Wallet lệch -5,000 VND"
+  description     String? // Chi tiết
   expectedValue   BigInt?
   actualValue     BigInt?
   diffValue       BigInt?
-  source          String                      // 'wallet' | 'ledger' | 'invoice' | 'all'
-  affectedEntity  String?                     // ID của entity liên quan
-  affectedType    String?                     // 'Wallet' | 'LedgerTransaction' | 'Invoice'
+  source          String // 'wallet' | 'ledger' | 'invoice' | 'all'
+  affectedEntity  String? // ID của entity liên quan
+  affectedType    String? // 'Wallet' | 'LedgerTransaction' | 'Invoice'
   status          DiscrepancyResolutionStatus @default(OPEN)
   resolutionNote  String?
-  resolvedBy      String?                     // userId hoặc 'system'
+  resolvedBy      String? // userId hoặc 'system'
   resolvedAt      DateTime?
   walletFrozen    Boolean                     @default(false)
   freezeReason    WalletFreezeReason?
-  freezeExpiresAt DateTime?                   // auto-unfreeze sau 24h
+  freezeExpiresAt DateTime? // auto-unfreeze sau 24h
   metadata        Json?
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
-  run             ReconciliationRun?          @relation(fields: [runId], references: [id], onDelete: SetNull, map: "DiscrepancyRecord_run_fkey")
+  run ReconciliationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, runId, category, affectedEntity], map: "DiscrepancyRecord_dedupe_key")
+  @@unique([tenantId, runId, category, affectedEntity])
   @@index([tenantId, severity])
   @@index([tenantId, category, status])
   @@index([tenantId, createdAt])
@@ -1487,23 +1489,23 @@ model DiscrepancyRecord {
 }
 
 model FinancialReportJob {
-  id              String          @id @default(cuid())
-  tenantId        String
-  requestedBy     String?         // userId
-  status          ReportJobStatus @default(PENDING)
-  reportType      String          // 'daily' | 'weekly' | 'monthly' | 'custom'
-  format          String          @default("csv") // csv | xlsx
-  dateFrom        DateTime
-  dateTo          DateTime
-  includeDetails  Boolean         @default(false)
-  filePath        String?         // Đường dẫn file sau khi export
-  fileSize        Int?            // bytes
-  expiresAt       DateTime?
-  completedAt     DateTime?
-  error           String?
-  metadata        Json?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  tenantId       String
+  requestedBy    String? // userId
+  status         ReportJobStatus @default(PENDING)
+  reportType     String // 'daily' | 'weekly' | 'monthly' | 'custom'
+  format         String          @default("csv") // csv | xlsx
+  dateFrom       DateTime
+  dateTo         DateTime
+  includeDetails Boolean         @default(false)
+  filePath       String? // Đường dẫn file sau khi export
+  fileSize       Int? // bytes
+  expiresAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -1525,40 +1527,40 @@ enum BudgetPeriod {
 }
 
 enum BudgetStatus {
-  ACTIVE          // Còn hạn mức, mọi request AI được phép
-  SOFT_LOCKED     // Vượt alertThreshold (mặc định 80%), chặn AI request mới không ưu tiên
-  HARD_LOCKED     // Chạm maxCostAmount, chặn HOÀN TOÀN mọi request AI
+  ACTIVE // Còn hạn mức, mọi request AI được phép
+  SOFT_LOCKED // Vượt alertThreshold (mặc định 80%), chặn AI request mới không ưu tiên
+  HARD_LOCKED // Chạm maxCostAmount, chặn HOÀN TOÀN mọi request AI
 }
 
 model AiBudgetLimit {
-  id                String        @id @default(cuid())
-  tenantId          String
-  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // ── Cấu hình hạn mức ─────────────────────────────────────────────
-  maxCostAmount     BigInt        // Số tiền tối đa (VND, BigInt tránh mất precision)
-  currency          String        @default("VND")
-  period            BudgetPeriod  // DAILY | WEEKLY | MONTHLY
+  maxCostAmount BigInt // Số tiền tối đa (VND, BigInt tránh mất precision)
+  currency      String       @default("VND")
+  period        BudgetPeriod // DAILY | WEEKLY | MONTHLY
 
   // ── Trạng thái luỹ kế ────────────────────────────────────────────
-  currentCostSpent  BigInt        @default(0) // Tiền đã tiêu luỹ kế trong kỳ hiện tại (VND)
-  status            BudgetStatus  @default(ACTIVE)
+  currentCostSpent BigInt       @default(0) // Tiền đã tiêu luỹ kế trong kỳ hiện tại (VND)
+  status           BudgetStatus @default(ACTIVE)
 
   // ── Ngưỡng cảnh báo ─────────────────────────────────────────────
-  alertThreshold    Float         @default(0.8) // 0.0 – 1.0, mặc định 80%
+  alertThreshold Float @default(0.8) // 0.0 – 1.0, mặc định 80%
 
   // ── Timestamps period ────────────────────────────────────────────
-  periodStart       DateTime      // Thời điểm bắt đầu kỳ hiện tại
-  periodEnd         DateTime      // Thời điểm kết thúc kỳ hiện tại
-  lastResetAt       DateTime?     // Lần reset gần nhất
-  softLockedAt      DateTime?     // Thời điểm chuyển sang SOFT_LOCKED
-  hardLockedAt      DateTime?     // Thời điểm chuyển sang HARD_LOCKED
+  periodStart  DateTime // Thời điểm bắt đầu kỳ hiện tại
+  periodEnd    DateTime // Thời điểm kết thúc kỳ hiện tại
+  lastResetAt  DateTime? // Lần reset gần nhất
+  softLockedAt DateTime? // Thời điểm chuyển sang SOFT_LOCKED
+  hardLockedAt DateTime? // Thời điểm chuyển sang HARD_LOCKED
 
   // ── Notification anti-spam ───────────────────────────────────────
-  lastAlertSentAt   DateTime?     // Tránh spam: chỉ gửi alert khi lần cuối > cooldown
+  lastAlertSentAt DateTime? // Tránh spam: chỉ gửi alert khi lần cuối > cooldown
 
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenantId, period])
   @@index([tenantId, status])
@@ -1569,8 +1571,8 @@ model BudgetAccumulationLog {
   id          String   @id @default(cuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  requestId   String   // reference đến AI request (idempotency key)
-  cost        BigInt   // Số tiền đã accumulate (VND)
+  requestId   String // reference đến AI request (idempotency key)
+  cost        BigInt // Số tiền đã accumulate (VND)
   description String?
   createdAt   DateTime @default(now())
 
@@ -1584,32 +1586,32 @@ model BudgetAccumulationLog {
 // Module: apps/api/src/sandbox/
 
 model SandboxSession {
-  id        String         @id @default(uuid())
+  id        String   @id @default(uuid())
   tenantId  String
   name      String
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  traces    SandboxTrace[]
+  traces SandboxTrace[]
 
   @@index([tenantId])
 }
 
 model SandboxTrace {
-  id                String   @id @default(uuid())
+  id                String         @id @default(uuid())
   sessionId         String
   session           SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   nodeId            String?
   actionType        String
   inputPayload      Json
   outputPayload     Json?
-  isMocked          Boolean  @default(false)
-  latencyMs         Int      @default(0)
-  isSuccess         Boolean  @default(true)
+  isMocked          Boolean        @default(false)
+  latencyMs         Int            @default(0)
+  isSuccess         Boolean        @default(true)
   errorMessage      String?
-  virtualCostBigInt BigInt   @default(0)
-  createdAt         DateTime @default(now())
+  virtualCostBigInt BigInt         @default(0)
+  createdAt         DateTime       @default(now())
 
   @@index([sessionId])
 }
@@ -1643,4 +1645,283 @@ model SandboxMockEndpoint {
   updatedAt    DateTime @updatedAt
 
   @@unique([tenantId, path])
+}
+
+// ── Cross-Tenant BI Analytics ──────────────────────────────────────────
+// Module: apps/api/src/analytics/
+
+enum AnalyticsPeriod {
+  HOURLY
+  DAILY
+}
+
+enum AnomalyType {
+  SPIKING_COST
+  SPIKING_TOKENS
+  SPIKING_EXECUTIONS
+  DROPPING_SUCCESS_RATE
+  STORAGE_GROWTH
+  CROSSING_BUDGET_THRESHOLD
+  IDLE_TENANT
+  UNUSUAL_FAILURE_PATTERN
+  ZERO_REVENUE
+  OUTLIER_COMPARED_TO_INDUSTRY
+}
+
+enum AnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model TenantAnalyticsSummary {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspaceId String? // Null = toàn bộ workspace của tenant
+
+  // ── Phân kỳ ───────────────────────────────────────────────────────
+  period    AnalyticsPeriod // HOURLY | DAILY
+  timestamp DateTime // Bucket start time (UTC): 2026-06-21T00:00:00Z
+
+  // ── Workflow metrics ──────────────────────────────────────────────
+  totalExecutions        Int @default(0)
+  successfulExecutions   Int @default(0)
+  failedExecutions       Int @default(0)
+  avgExecutionDurationMs Int @default(0)
+
+  // ── AI / Token metrics ────────────────────────────────────────────
+  totalAiTokens     BigInt @default(0)
+  totalInputTokens  BigInt @default(0)
+  totalOutputTokens BigInt @default(0)
+  totalAiCost       BigInt @default(0)
+  aiCallCount       Int    @default(0)
+
+  // ── Revenue & billing metrics ─────────────────────────────────────
+  totalRevenue       BigInt @default(0)
+  invoiceCount       Int    @default(0)
+  paymentCount       Int    @default(0)
+  totalPaymentAmount BigInt @default(0)
+
+  // ── User & activity metrics ───────────────────────────────────────
+  activeUserCount     Int @default(0)
+  newUserCount        Int @default(0)
+  newIntegrationCount Int @default(0)
+
+  // ── Storage ───────────────────────────────────────────────────────
+  storageBytesTotal BigInt @default(0)
+  storageBytesDelta BigInt @default(0)
+
+  // ── Notification ──────────────────────────────────────────────────
+  notificationSentCount   Int @default(0)
+  notificationFailedCount Int @default(0)
+
+  // ── Metadata ──────────────────────────────────────────────────────
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // ── Constraints ───────────────────────────────────────────────────
+  @@unique([tenantId, period, timestamp, workspaceId])
+  @@index([tenantId, period, timestamp])
+  @@index([tenantId, timestamp])
+  @@index([workspaceId, period, timestamp])
+  @@index([period, timestamp])
+  @@index([totalAiCost])
+  @@index([totalRevenue])
+}
+
+model GlobalPlatformBenchmark {
+  id String @id @default(cuid())
+
+  // ── Phân loại ─────────────────────────────────────────────────────
+  industry   String
+  metricName String
+
+  // ── Thống kê toàn sàn ────────────────────────────────────────────
+  totalTenants Int   @default(0)
+  avgValue     Float @default(0)
+  medianValue  Float @default(0)
+  p90Value     Float @default(0)
+  p95Value     Float @default(0)
+  p99Value     Float @default(0)
+  minValue     Float @default(0)
+  maxValue     Float @default(0)
+  stdDev       Float @default(0)
+
+  // ── Phân kỳ ───────────────────────────────────────────────────────
+  windowStartDate DateTime
+  windowEndDate   DateTime
+
+  // ── Timestamps ────────────────────────────────────────────────────
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  // ── Constraints ───────────────────────────────────────────────────
+  @@unique([industry, metricName, windowEndDate])
+  @@index([industry])
+  @@index([metricName])
+  @@index([industry, metricName])
+  @@index([windowEndDate])
+}
+
+model AnomalyRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // ── Phân loại ─────────────────────────────────────────────────────
+  anomalyType AnomalyType
+  severity    AnomalySeverity @default(MEDIUM)
+
+  // ── Mô tả ─────────────────────────────────────────────────────────
+  title       String
+  description String?
+  detailsJson Json?
+
+  // ── Metric snapshot ───────────────────────────────────────────────
+  metricName     String?
+  metricValue    Float?
+  baselineValue  Float?
+  industryAvg    Float?
+  deviationScore Float?
+
+  // ── Resolved ──────────────────────────────────────────────────────
+  isResolved Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+
+  // ── Notification ──────────────────────────────────────────────────
+  notifiedAt     DateTime?
+  acknowledgedAt DateTime?
+
+  // ── Timestamps ────────────────────────────────────────────────────
+  detectedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // ── Constraints ───────────────────────────────────────────────────
+  @@index([tenantId, severity])
+  @@index([tenantId, anomalyType])
+  @@index([tenantId, isResolved])
+  @@index([tenantId, detectedAt])
+  @@index([severity, isResolved])
+  @@index([anomalyType])
+  @@index([detectedAt])
+}
+
+// ── Phase 4: Developer Profile & Marketplace Economics ────────────────────
+// Developer identity profile for marketplace listings + certification
+// Module: apps/api/src/developer/
+
+enum DeveloperStatus {
+  ACTIVE
+  INACTIVE
+  VERIFIED
+  BANNED
+}
+
+enum DeveloperTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+model DeveloperProfile {
+  id        String          @id @default(uuid())
+  tenantId  String          @unique
+  userId    String?
+  displayName String
+  bio       String?
+  avatarUrl String?
+  company   String?
+  website   String?
+  githubUrl String?
+  twitterUrl String?
+  country   String?         @default("VN")
+  languages String[]        @default([])
+  status    DeveloperStatus @default(ACTIVE)
+  tier      DeveloperTier   @default(BRONZE)
+  totalListings Int         @default(0)
+  totalSales   Int          @default(0)
+  totalEarnings BigInt      @default(0)
+  rating    Float?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  skills    DeveloperSkill[]
+  earnings  DeveloperEarning[]
+
+  @@index([tenantId, status])
+  @@index([tier])
+  @@index([totalSales])
+}
+
+model DeveloperSkill {
+  id          String   @id @default(uuid())
+  profileId   String
+  skill       String   // e.g. "Python", "REST API", "AI/ML"
+  level       Int      @default(3) // 1-5
+  createdAt   DateTime @default(now())
+
+  profile DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, skill])
+  @@index([skill])
+}
+
+model MarketplaceOrder {
+  id          String      @id @default(uuid())
+  listingId   String
+  buyerTenantId String
+  listingKey  String
+  listingName String
+  listingType String      // 'connector' | 'template' | 'workflow'
+  amount      BigInt      // price in smallest unit (VND)
+  currency    String      @default("VND")
+  fxRateSnapshot Float?   // frozen rate at purchase time
+  revenueShare Float       @default(0.7) // 70% dev, 30% platform
+  devEarnings BigInt      @default(0)
+  platformFee BigInt      @default(0)
+  status      OrderStatus @default(PENDING)
+  orderRef    String?     // unique order reference
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@unique([listingKey, buyerTenantId])
+  @@index([buyerTenantId, status])
+  @@index([listingId, status])
+  @@index([createdAt])
+}
+
+model DeveloperEarning {
+  id          String   @id @default(uuid())
+  profileId   String
+  orderId     String?
+  amount      BigInt
+  currency    String   @default("VND")
+  type        String   // 'sale' | 'commission' | 'bonus' | 'payout'
+  description String?
+  referenceType String?
+  referenceId   String?
+  createdAt   DateTime @default(now())
+
+  profile DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, type])
+  @@index([profileId, createdAt])
+  @@index([referenceType, referenceId])
 }

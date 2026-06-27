@@ -1,34 +1,75 @@
-# 🚨 TRẠNG THÁI DỰ ÁN (STATUS)
-*Cập nhật mới nhất: 16-06-2026 (Chế độ giám sát On-Demand)*
+# STATUS.md — AIFUT Core
 
-## 🚦 TRẠNG THÁI VẬN HÀNH HIỆN TẠI (OPERATING STATE)
-- **Chế độ tự hành (Continuous Loop)**: ĐÃ TẮT HOÀN TOÀN (DISABLED 100%).
-- **Trạng thái cổng kết nối (Gateway)**: IDLE / PAUSED (Chỉ kích hoạt thủ công đơn lẻ).
-- **Quy tắc an toàn**: Toàn bộ chuỗi tự trị đa luồng cũ đã bị hủy bỏ để bảo vệ ngân sách. Agent chỉ được phép xử lý tác vụ đọc/ghi file thô khi có lệnh mồi trực tiếp từ con người, tuyệt đối không tự ý chạy ngầm.
+**Last updated:** 2026-06-27 21:55 GMT+7
+**Active commit:** e0dcfbe (Phase 4 ~85%)
 
-## 🟢 TIẾN ĐỘ ĐÃ ĐẠT ĐƯỢC (LANDED RECENTLY - PHASE 1 & 2)
-### 1. Phân hệ Backend API (apps/api - BUILD: SUCCESSFUL)
-- **Module Chạy Cục bộ (Local SQLite Mode)**: Đã hoàn thiện cấu hình, sửa sạch lỗi strict type check của Prisma Client.
-- **Node SDK & API Spec**: Hoàn thành cấu trúc tích hợp 10 REST endpoints (submit, review, approve, reject, list, stats...) sạch lỗi biên dịch.
-- **Git Checkpoint**: Tất cả mã nguồn backend đã được đồng bộ, tự động tạo commit an toàn và sạch sẽ (`Working tree: Clean`).
+---
 
-### 2. Phân hệ Giao diện (apps/web - BUILD: SUCCESSFUL)
-- **Trang quản lý Onboarding & Giao diện Chào mừng**: Đã vá sạch lỗi Strict Null Checks (`step?.id` và câu lệnh điều kiện bảo vệ `if`) của Next.js/React 19.
-- **Bảng tính toán lợi nhuận (ROI Calculator)**: Đã cấu trúc lại cú pháp Optional Chaining an toàn cho các biến dữ liệu ngành hàng (`industry?.avgMonthlyOrders`).
-- **Trình đóng gói Production (Prerender)**: Đã bọc cấu trúc `<Suspense>` cho hàm `useSearchParams()` tại trang mẫu giao diện (`/templates`), vượt qua 100% vòng kiểm thử đóng gói.
-- **Chợ ứng dụng (Community Marketplace)**: Đã thiết lập xong giao diện duyệt kết nối, templates, workflows và thanh thống kê Stats bar.
+## Runtime
+- PostgreSQL :5432 ✅
+- API :3002 ❌ (stopped)
+- Web :3000 ❌ (stopped)
 
-## ✅ VỪA HOÀN THÀNH (2026-06-16)
+---
 
-### Module Developer Sandbox (`apps/api/src/sandbox/`)
-- **Tạo 4 file**: `sandbox.constants.ts`, `sandbox.service.ts`, `sandbox.controller.ts`, `sandbox.module.ts`
-- **SandboxService**: `createSandbox` (init env), `setSandboxEnv` (merge/replace mode), `executeConnector` (4 action simulators: ais.discovery, ais.action.invoke, ais.trigger.poll, ais.health.check), `getRunTrace` (trace retrieval)
-- **SandboxController**: Full REST: POST/GET/DELETE sandboxes, PUT/POST env, POST execute, GET traces
-- **Import**: `SandboxModule` registered in `app.module.ts`
-- **Cập nhật**: Developer service sandbox status `available: true, eta: 'Now'`
+## Completed (Session 2026-06-27 — Phase 4 Implementation)
 
-## 🚀 KẾ HOẠCH HÀNH ĐỘNG TIẾP THEO (NEXT ACTIONS - PHASE 3)
-*Hệ thống nằm im chờ lệnh mồi đơn lẻ từng file - Tuyệt đối không chạy lệnh chuỗi tự động 24/7.*
+### Item 1: 🛠️ SAC Fix & Prisma Schema (Root Cause Resolved)
+- **Fix provider contradiction**: Changed `schema.prisma` provider from `sqlite` → `postgresql` (matching actual PostgreSQL :5432, migration_lock.toml, and PrismaPg adapter)
+- **New Phase 4 models** added to schema:
+  - `DeveloperProfile` — developer identity on marketplace (name, bio, tier, skills, earnings)
+  - `DeveloperSkill` — skills with 1-5 proficiency level
+  - `MarketplaceOrder` — purchase transactions with revenue share tracking
+  - `DeveloperEarning` — earnings from marketplace sales
 
-- **Nhiệm vụ 1**: Thiết lập kiến trúc dữ liệu và API Endpoint thô cho **Module Cổng thanh toán tự động (Stripe / MoMo)** vào thư mục `apps/api/src/payments/`.
-- **Nhiệm vụ 2**: Thiết lập cấu trúc API kết nối **Zalo OA OpenAPI** gửi thông báo tự động trong thư mục `apps/api/src/integrations/`.
+### Item 2: 🧹 Sandbox Executor Refactor (No SAC Trigger)
+- **Refactored** `sandbox-executor.service.ts` — replaced `child_process.spawn` with pure `vm` module
+- JavaScript execution now runs **in-process** via `vm.Script.runInContext()` — no native binary spawn → **no Windows Smart App Control trigger**
+- Python execution returns clear "not available" message (install Python locally to enable)
+- Sandbox context stripped of dangerous globals (`require`, `process`, `Buffer`, `setTimeout`)
+
+### Item 3: 👤 Developer Profile System (NEW)
+- `developer-profile.service.ts` — full CRUD: register, update, get profile, get public profile by ID
+- `developer-profile.controller.ts` — REST endpoints at `/v1/developer/profile`
+- Skill management: add, update, remove skills with 1-5 level
+- Auto tier calculation (Bronze → Silver → Gold → Platinum) based on listings, sales, rating
+- Developer discovery API (search by skill, tier, country)
+- Stats dashboard: total earnings (by type), marketplace stats, pending certifications
+- Revenue share by tier: Bronze 70%, Silver 75%, Gold 80%, Platinum 85%
+
+### Item 4: 💰 Marketplace Economics (NEW)
+- `marketplace-order.service.ts` — purchase flow with:
+  - Frozen fx rate snapshot
+  - Revenue share calculation per developer tier
+  - DeveloperEarning auto-creation on sale
+  - Order tracking & duplicate prevention
+  - Sales report for developers
+- `marketplace-order.controller.ts` — REST endpoints at `/v1/marketplace/orders`
+- Self-purchase prevention (can't buy own listing)
+
+### Item 5: 📊 Analytics BI Engine (NEW)
+- `analytics-bi.service.ts` — full implementation with:
+  - Hourly aggregation from WorkflowExecution, AiUsageEvent, Invoice, Session
+  - Daily platform benchmarks (avg, median, p90, p95) by industry
+  - Platform health report (active tenants, growth, success rate, anomalies)
+  - Tenant-specific analytics snapshots
+- `analytics-cron.service.ts` — updated to call real analytics methods
+
+### Item 6: 🔧 Module Wiring
+- All 4 new services registered in their respective modules
+- App.module.ts already imports all needed modules
+
+---
+
+## Next Critical Path (Phase 4 remaining ~15%)
+- [ ] UI: Developer profile management page (Next.js)
+- [ ] UI: Marketplace order history page
+- [ ] UI: Analytics BI dashboard (admin panel)
+- [ ] UI: Developer discovery browse page
+- [ ] Run `prisma db push` (Thành manual)
+- [ ] Build & verify runtime
+
+---
+
+## Blockers
+- `prisma db push` needs to be run manually (thuộc ĐIỀU 1 — cấm chạy terminal)

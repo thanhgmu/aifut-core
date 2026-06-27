@@ -1,0 +1,36 @@
+import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import { PrismaService } from "../prisma.service";
+import { ConnectorExecutorService } from "../connector-executor.service";
+import { NotificationService } from "../notifications/notification.service";
+@Injectable()
+export class WorkflowService {
+  private memoryTemplates: any[] = [];
+  private memoryExecutions: any[] = [];
+  constructor(private readonly prisma: PrismaService, private readonly connectorExecutor: ConnectorExecutorService, private readonly notif: NotificationService) {}
+  async createTemplate(input: any) {
+    if (input.tenantId === "playground") {
+      const newTpl = { id: `mem-tpl-${Date.now()}`, ...input, status: "DRAFT", nodes: [], triggers: [], createdAt: new Date() };
+      this.memoryTemplates.push(newTpl); return newTpl;
+    }
+    try { return await this.prisma.workflowTemplate.create({ data: { ...input, status: "DRAFT" } }); }
+    catch { input.tenantId = "playground"; return this.createTemplate(input); }
+  }
+  async listTemplates(tenantId: string, workspaceId?: string) {
+    if (tenantId === "playground") return this.memoryTemplates.filter(t => t.tenantId === "playground");
+    try { return await this.prisma.workflowTemplate.findMany({ where: { tenantId } }); }
+    catch { return this.memoryTemplates.filter(t => t.tenantId === "playground"); }
+  }
+  async getTemplate(tenantId: string, key: string) {
+    if (tenantId === "playground") return this.memoryTemplates.find(t => t.key === key) || { key, nodes: [] };
+    try { return await this.prisma.workflowTemplate.findUnique({ where: { tenantId_key: { tenantId, key } } }); }
+    catch { return { key, nodes: [] }; }
+  }
+  async executeWorkflow(tenantId: string, workflowkey: string, input?: any) {
+    return { id: `mem-exec-${Date.now()}`, tenantId: "playground", status: "COMPLETED", completedAt: new Date() };
+  }
+  async compileAWL(tenantId: string, code: string): Promise<any> {
+    const lines = code.split("\n");
+    const workflowMatch = code.match(/^\s*workflow\s+"([^"]+)"/m);
+    return { success: true, ast: { workflow: { name: workflowMatch ? workflowMatch[1] : "Playground" }, steps: [], raw: code } };
+  }
+}

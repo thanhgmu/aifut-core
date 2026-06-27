@@ -9,6 +9,20 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, '../..'),
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:3002'}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

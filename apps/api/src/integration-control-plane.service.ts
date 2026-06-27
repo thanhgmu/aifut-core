@@ -302,7 +302,7 @@ export class IntegrationControlPlaneService {
             : null,
           nexovaflowAutomation: {
             packageSelected:
-              assignment?.selectedOptions.includes(NEXOVAFLOW_AUTOMATION_OPTION.key) ?? false,
+              (assignment?.selectedOptions as string[])?.includes(NEXOVAFLOW_AUTOMATION_OPTION.key) ?? false,
             provisioningState: assignment?.provisioningState ?? null,
             provisioningUpdatedAt: assignment?.updatedAt ?? null,
             provisioningRecency: this.describeProvisioningRecency(

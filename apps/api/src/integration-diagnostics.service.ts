@@ -190,10 +190,10 @@ export class IntegrationDiagnosticsService {
           },
           {
             key: 'mapping-readiness',
-            status: connection.mappedObjects.length > 0 ? 'pass' : 'warn',
+            status: (connection.mappedObjects as string[]).length > 0 ? 'pass' : 'warn',
             detail:
-              connection.mappedObjects.length > 0
-                ? `Mapped objects: ${connection.mappedObjects.join(', ')}`
+              (connection.mappedObjects as string[]).length > 0
+                ? `Mapped objects: ${(connection.mappedObjects as string[]).join(', ')}`
                 : 'No mapped objects selected yet.',
           },
           {
@@ -249,7 +249,7 @@ export class IntegrationDiagnosticsService {
                   automationEntitlement,
                 ),
                 packageSelected:
-                  assignment?.selectedOptions.includes(
+                  (assignment?.selectedOptions as string[])?.includes(
                     NEXOVAFLOW_AUTOMATION_OPTION.key,
                   ) ?? false,
                 entitlementEnabled:

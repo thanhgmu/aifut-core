@@ -178,7 +178,7 @@ export class EntitlementsService {
       ? PLAN_CATALOG.find((plan) => plan.key === assignment.basePlanKey) ?? null
       : null;
 
-    const selectedOptions = (assignment?.selectedOptions ?? []).map(
+    const selectedOptions = ((assignment?.selectedOptions as string[]) ?? []).map(
       (selectedKey) =>
         PACKAGE_OPTIONS_CATALOG.find((option) => option.key === selectedKey) ?? {
           key: selectedKey,
@@ -194,7 +194,7 @@ export class EntitlementsService {
       const entitlement = entitlements.find(
         (candidate) => candidate.key === option.entitlementKey,
       );
-      const selected = assignment?.selectedOptions.includes(option.key) ?? false;
+      const selected = (assignment?.selectedOptions as string[])?.includes(option.key) ?? false;
 
       return {
         ...option,
@@ -496,7 +496,7 @@ export class EntitlementsService {
     const entitlementSync = await this.syncEntitlementsFromAssignment({
       tenantId: context.tenant.id,
       basePlanKey: assignment.basePlanKey,
-      selectedOptions: assignment.selectedOptions,
+      selectedOptions: assignment.selectedOptions as string[],
       source: input.source?.trim() || 'package-sync',
       scope: assignmentResolution.effectiveScope,
     });
@@ -618,7 +618,7 @@ export class EntitlementsService {
           const entitlement = entitlements.find(
             (candidate) => candidate.key === option.entitlementKey,
           );
-          const selected = assignment?.selectedOptions.includes(option.key) ?? false;
+          const selected = (assignment?.selectedOptions as string[])?.includes(option.key) ?? false;
           const connectorReady = connections.some(
             (connection) => connection.status === 'ACTIVE',
           );
