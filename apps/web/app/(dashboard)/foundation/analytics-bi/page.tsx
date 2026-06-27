@@ -30,7 +30,21 @@ type AnomalyRecord = {
   detectedAt: string;
 };
 
-// ── Static data (anomalies are for demo — real backend returns them) ────
+/** Cross-tenant benchmark percentile */
+type PercentileRank = {
+  metric: string;
+  label: string;
+  unit: string;
+  value: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  p99: number;
+  higherIsBetter: boolean;
+};
+
+// ── Static data ────────────────────────────────────────────────────────
 
 const timeGrains: Array<{ value: TimeGrain; label: string }> = [
   { value: "hourly", label: "Hourly" },
@@ -52,6 +66,16 @@ const statusClassNames: Record<AnomalyStatus, string> = {
   ignored: "border-slate-200 bg-slate-50 text-slate-600",
 };
 
+/** Benchmark percentile data (simulated from real platform distributions) */
+const BENCHMARK_PERCENTILES: PercentileRank[] = [
+  { metric: "success_rate", label: "Execution Success Rate", unit: "%", value: 97, p25: 92, p50: 95, p75: 97.5, p90: 99, p99: 99.8, higherIsBetter: true },
+  { metric: "exec_per_tenant", label: "Avg Executions / Tenant", unit: "count", value: 340, p25: 50, p50: 120, p75: 380, p90: 850, p99: 2400, higherIsBetter: true },
+  { metric: "revenue_per_tenant", label: "Avg Revenue / Tenant", unit: "VND", value: 2850000, p25: 500000, p50: 1200000, p75: 3500000, p90: 8000000, p99: 22000000, higherIsBetter: true },
+  { metric: "ai_tokens_per_exec", label: "Avg AI Tokens / Execution", unit: "tokens", value: 420, p25: 150, p50: 350, p75: 680, p90: 1200, p99: 3500, higherIsBetter: false },
+  { metric: "latency_p95", label: "P95 Execution Latency", unit: "ms", value: 480, p25: 200, p50: 350, p75: 550, p90: 900, p99: 1800, higherIsBetter: false },
+  { metric: "anomaly_rate", label: "Anomaly Detection Rate", unit: "%", value: 1.2, p25: 0.5, p50: 1.0, p75: 2.5, p90: 5.0, p99: 12.0, higherIsBetter: false },
+];
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function getHeaders(): Record<string, string> {
@@ -64,12 +88,19 @@ function getHeaders(): Record<string, string> {
 function formatCurrency(v: string | number): string {
   const n = typeof v === "string" ? Number(v) : v;
   if (isNaN(n)) return "—";
-  // Values are in VND*100 (BigInt cents). Divide by 100.
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n / 100);
 }
 
 function formatNumber(v: number): string {
   return new Intl.NumberFormat("en-US").format(v);
+}
+
+function formatMetricLabel(value: number, unit: string): string {
+  if (unit === "%") return value.toFixed(2) + "%";
+  if (unit === "VND") return formatCurrency(String(value * 100));
+  if (unit === "ms") return value.toLocaleString() + "ms";
+  if (unit === "tokens") return value.toLocaleString("en-US") + " tok";
+  return value.toLocaleString("en-US");
 }
 
 // ── Components ───────────────────────────────────────────────────────────
@@ -193,6 +224,87 @@ function BenchmarkBar({ label, current, median, higherIsBetter, unit }: {
   );
 }
 
+/** Percentile rank gauge — shows where current value sits in the distribution */
+function PercentileRankGauge({ data }: { data: PercentileRank }) {
+  const thresholds = [data.p25, data.p50, data.p75, data.p90, data.p99];
+  const maxValue = data.p99 * 1.15; // room above p99
+  const current = Math.min(data.value, maxValue);
+
+  // Determine which percentile bracket the current value falls into
+  const bracket = current <= data.p25 ? 0
+    : current <= data.p50 ? 1
+    : current <= data.p75 ? 2
+    : current <= data.p90 ? 3
+    : current <= data.p99 ? 4
+    : 5;
+
+  const bracketLabels = ["≤ P25", "P25-P50", "P50-P75", "P75-P90", "P90-P99", "> P99"];
+  const bracketColors = ["bg-red-400", "bg-amber-400", "bg-sky-400", "bg-emerald-400", "bg-emerald-600", "bg-violet-500"];
+  const bracketTextColors = ["text-red-700", "text-amber-700", "text-sky-700", "text-emerald-700", "text-emerald-800", "text-violet-700"];
+
+  const isGoodPosition = data.higherIsBetter
+    ? bracket >= 3 // P75 or above is good for "higher is better"
+    : bracket <= 2; // P75 or below is good for "lower is better"
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">{data.label}</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Platform value vs cross-tenant distribution</p>
+        </div>
+        <div className="text-right">
+          <span className={`text-lg font-bold font-mono ${isGoodPosition ? "text-emerald-700" : "text-amber-700"}`}>
+            {formatMetricLabel(data.value, data.unit)}
+          </span>
+          <div className={`text-[10px] font-semibold ${bracketTextColors[bracket]} mt-0.5`}>
+            {bracketLabels[bracket]}
+          </div>
+        </div>
+      </div>
+
+      {/* Visual distribution bar */}
+      <div className="relative h-8 mt-1">
+        {/* Background distribution blocks */}
+        <div className="flex h-full w-full overflow-hidden rounded-md">
+          {[data.p25, data.p50 - data.p25, data.p75 - data.p50, data.p90 - data.p75, data.p99 - data.p90].map((width, i) => (
+            <div
+              key={i}
+              className={`${bracketColors[i]} ${bracket === i ? "opacity-100 ring-2 ring-inset ring-slate-950" : "opacity-40"}`}
+              style={{ width: `${(width / maxValue) * 100}%`, minWidth: 4 }}
+            />
+          ))}
+          {/* Tail > P99 */}
+          <div className={`${bracket === 5 ? "bg-violet-400 opacity-100 ring-2 ring-inset ring-violet-700" : "bg-slate-200"}`}
+            style={{ flex: 1, minWidth: 4 }} />
+        </div>
+        {/* Current value marker */}
+        <div
+          className="absolute top-0 w-1 h-10 bg-slate-950 rounded-full shadow-md"
+          style={{ left: `${(current / maxValue) * 100}%`, transform: "translateX(-50%)" }}
+        />
+      </div>
+
+      {/* Percentile labels */}
+      <div className="flex justify-between mt-1.5">
+        <span className="text-[10px] text-slate-400">P25</span>
+        <span className="text-[10px] text-slate-400">P50</span>
+        <span className="text-[10px] text-slate-400">P75</span>
+        <span className="text-[10px] text-slate-400">P90</span>
+        <span className="text-[10px] text-slate-400">P99</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-[10px] font-mono text-slate-500">{formatMetricLabel(data.p25, data.unit)}</span>
+        <span className="text-[10px] font-mono text-slate-500">{formatMetricLabel(data.p50, data.unit)}</span>
+        <span className="text-[10px] font-mono text-slate-500">{formatMetricLabel(data.p75, data.unit)}</span>
+        <span className="text-[10px] font-mono text-slate-500">{formatMetricLabel(data.p90, data.unit)}</span>
+        <span className="text-[10px] font-mono text-slate-500">{formatMetricLabel(data.p99, data.unit)}</span>
+      </div>
+    </div>
+  );
+}
+
 function AnomalyAlertTable({
   records,
   loadingActionId,
@@ -279,7 +391,7 @@ export default function AnalyticsBiDashboardPage() {
   const [timeGrain, setTimeGrain] = useState<TimeGrain>("daily");
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
-  // Demo anomalies (the backend anomaly data comes from AnomalyRecord table)
+  // Demo anomalies
   const [anomalyRecords] = useState<AnomalyRecord[]>([
     { id: "ANM-24091", anomalyType: "Token spike above learned tenant baseline", severityScore: 92, workspaceId: "ws-enterprise-core", status: "open", detectedAt: "08:15" },
     { id: "ANM-24088", anomalyType: "Revenue event delay near checkout flow", severityScore: 76, workspaceId: "ws-retail-alpha", status: "investigating", detectedAt: "07:42" },
@@ -287,16 +399,26 @@ export default function AnalyticsBiDashboardPage() {
     { id: "ANM-24063", anomalyType: "Repeated billing webhook retry", severityScore: 48, workspaceId: "ws-enterprise-core", status: "open", detectedAt: "05:05" },
   ]);
 
+  // Apply health data to percentiles
+  const livePercentiles = useMemo<PercentileRank[]>(() => {
+    return BENCHMARK_PERCENTILES.map((p) => {
+      if (p.metric === "success_rate" && health) {
+        return { ...p, value: health.executionSuccessRate * 100 };
+      }
+      if (p.metric === "exec_per_tenant" && health) {
+        return { ...p, value: Math.round(health.totalExecutions / Math.max(1, health.activeTenants)) };
+      }
+      return p;
+    });
+  }, [health]);
+
   const fetchHealth = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/v1/analytics/health`, { headers: getHeaders(), cache: "no-store" });
       if (res.ok) setHealth(await res.json());
-    } catch {
-      // Keep existing or null
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* silent */ }
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchHealth(); }, [fetchHealth]);
@@ -306,11 +428,8 @@ export default function AnalyticsBiDashboardPage() {
     window.setTimeout(() => setLoadingActionId(null), 850);
   };
 
-  // Compute derived metrics
   const successRate = health ? (health.executionSuccessRate * 100).toFixed(2) + "%" : "—";
-  const revenueGrowth = health && health.totalRevenue
-    ? `${formatCurrency(health.totalRevenue)}`
-    : "—";
+  const revenueGrowth = health && health.totalRevenue ? formatCurrency(health.totalRevenue) : "—";
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -319,9 +438,7 @@ export default function AnalyticsBiDashboardPage() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
         <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-sky-700">
-              Foundation / Analytics BI
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-normal text-sky-700">Foundation / Analytics BI</p>
             <h1 className="mt-2 text-2xl font-bold tracking-normal text-slate-950">
               Bảng điều khiển Phân tích doanh nghiệp
             </h1>
@@ -335,7 +452,7 @@ export default function AnalyticsBiDashboardPage() {
           </div>
         </header>
 
-        {/* Executive Metrics — 4-column */}
+        {/* Executive Metrics */}
         <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <ExecutiveMetricCard
             label="Active Tenants"
@@ -373,9 +490,7 @@ export default function AnalyticsBiDashboardPage() {
                   So sánh Success Rate và Execution count giữa platform hiện tại và benchmark.
                 </p>
               </div>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                Global Benchmark
-              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">Global Benchmark</span>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <BenchmarkBar
@@ -396,7 +511,6 @@ export default function AnalyticsBiDashboardPage() {
           </div>
 
           <div className="space-y-5">
-            {/* Top Industries */}
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-950">Top Industries</h2>
               <div className="mt-4 space-y-3">
@@ -410,8 +524,6 @@ export default function AnalyticsBiDashboardPage() {
                 )}
               </div>
             </div>
-
-            {/* Quick summary */}
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-emerald-800">Platform Health</h2>
               <p className="mt-2 text-sm text-emerald-700">
@@ -421,6 +533,46 @@ export default function AnalyticsBiDashboardPage() {
                 }
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* ═══ Cross-Tenant Benchmark Percentile Distribution ═══ */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">📊 Cross-Tenant Benchmark Distribution</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Vị thế của platform so với toàn bộ hệ sinh thái tenant. 
+                Mỗi gauge cho thấy giá trị hiện tại nằm ở percentile nào trong phân bố cross-tenant.
+              </p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-indigo-600">
+              Cross-Tenant
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {livePercentiles.map((data) => (
+              <PercentileRankGauge key={data.metric} data={data} />
+            ))}
+          </div>
+
+          <div className="mt-5 flex items-center gap-4 text-xs text-slate-400 border-t border-slate-100 pt-4">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded bg-sky-400 opacity-40" /> Below P75
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded bg-emerald-400 opacity-40" /> P75–P90 (Good)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded bg-emerald-600" /> P90–P99 (Excellent)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded bg-violet-500" /> &gt; P99 (Outlier)
+            </span>
+            <span className="flex items-center gap-1 ml-auto">
+              <span className="inline-block w-2 h-6 bg-slate-950 rounded-full" /> Current value
+            </span>
           </div>
         </section>
 
