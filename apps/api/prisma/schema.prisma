@@ -124,6 +124,7 @@ model Tenant {
   tenantAnalyticsSummaries TenantAnalyticsSummary[]
   anomalyRecords           AnomalyRecord[]
   developerProfiles        DeveloperProfile[]
+  licenseKeys              LicenseKey[]
 }
 
 model Workspace {
