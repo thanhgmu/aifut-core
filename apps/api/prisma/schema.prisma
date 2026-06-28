@@ -1927,47 +1927,83 @@ model DeveloperEarning {
   @@index([referenceType, referenceId])
 }
 
-// ── On-Premise License Management ────────────────────────────────────────
-// License keys for on-premise / air-gapped deployment activation.
-// Module: apps/api/src/licensing/
+// ----------------------------------------------------------------------
+// -- Marketplace Versioning & Dependency (Phase 4) -------------------
+// Module: apps/api/src/marketplace/
+// ----------------------------------------------------------------------
 
-enum LicenseStatus {
+enum VersionStatus {
   ACTIVE
-  INACTIVE
-  EXPIRED
-  REVOKED
-  PENDING
+  DEPRECATED
+  SUPERSEDED
 }
 
-enum LicenseTier {
-  STARTER
-  PRO
-  TEAM
-  ENTERPRISE
+model MarketplaceVersion {
+  id          String   @id @default(uuid())
+  listingId   String
+  version     String          // "1.2.3" � semver
+  changelog   String?
+  config      Json?           // snapshot of listing config at this version
+  status      VersionStatus   @default(ACTIVE)
+  publishedAt DateTime        @default(now())
+
+  listing      MarketplaceListing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  dependencies MarketplaceDependency[] @relation("versionDependencies")
+  dependents   MarketplaceDependency[] @relation("versionDependents")
+  installs     MarketplaceInstallEvent[]
+
+  @@unique([listingId, version])
+  @@index([listingId, status])
 }
 
-model LicenseKey {
-  id              String        @id @default(cuid())
-  key             String        @unique
-  tenantId        String?
-  tier            LicenseTier   @default(PRO)
-  status          LicenseStatus @default(PENDING)
-  maxUsers        Int           @default(5)
-  maxWorkflows    Int           @default(-1)
-  features        Json          @default("[]")
-  issuedTo        String?
-  issuedEmail     String?
-  issuedAt        DateTime      @default(now())
-  activatedAt     DateTime?
-  expiresAt       DateTime?
-  metadata        Json?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+model MarketplaceDependency {
+  id           String   @id @default(uuid())
+  versionId    String           // dependent version
+  dependsOnId  String           // dependency version
+  constraint   String           // ">=1.0.0 <2.0.0" � semver range
+  isOptional   Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  version   MarketplaceVersion @relation("versionDependencies", fields: [versionId], references: [id], onDelete: Cascade)
+  dependsOn MarketplaceVersion @relation("versionDependents", fields: [dependsOnId], references: [id], onDelete: Cascade)
 
-  @@index([key])
-  @@index([status])
-  @@index([tenantId])
-  @@index([expiresAt])
+  @@unique([versionId, dependsOnId])
+  @@index([dependsOnId])
 }
+
+model MarketplaceReviewAction {
+  id           String   @id @default(uuid())
+  listingId    String
+  reviewerId   String          // tenantId c?a admin/mod
+  action       String          // 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'FLAGGED' | 'CHANGES_REQUESTED'
+  reason       String?
+  configDiff   Json?           // what changed since last review
+  reviewerNote String?
+  createdAt    DateTime @default(now())
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@index([reviewerId])
+}
+
+model MarketplaceInstallEvent {
+  id             String   @id @default(uuid())
+  listingId      String
+  versionId      String?
+  buyerTenantId  String
+  eventType      String   // 'INSTALL' | 'UNINSTALL' | 'UPGRADE' | 'DOWNGRADE'
+  oldVersion     String?
+  newVersion     String?
+  createdAt      DateTime @default(now())
+
+  listing MarketplaceListing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  version MarketplaceVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  @@index([listingId, createdAt])
+  @@index([buyerTenantId])
+}
+
+// -- End Marketplace Versioning & Dependency ------------------------
+// ----------------------------------------------------------------------
+
