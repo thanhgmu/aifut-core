@@ -3,6 +3,9 @@ import localFont from "next/font/local";
 import { ClientWrapper } from "../lib/client-wrapper";
 import "./globals.css";
 
+// Disable static generation globally to work around Next.js 16 beta prerender issues
+export const dynamic = "force-dynamic";
+
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
