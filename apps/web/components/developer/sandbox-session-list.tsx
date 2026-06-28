@@ -18,6 +18,7 @@ import { resolveTenantId } from "../../lib/sandbox";
 import {
   fetchSandboxSessions,
   createSandboxSession,
+  updateSessionStatus,
 } from "../../lib/sandbox";
 
 import type { SandboxSession } from "../../types/sandbox";
@@ -79,6 +80,14 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
   const [createDialog, setCreateDialog] =
     useState<CreateDialogState>(DIALOG_INIT);
 
+  // ── Search & filter state ───────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "archived"
+  >("all");
+
+  const [actioningId, setActioningId] = useState<string | null>(null);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   /* ── Resolve tenant identity on mount ────────────────────────────── */
@@ -98,14 +107,22 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
     setError(null);
 
     try {
-      const raw = await fetchSandboxSessions(tenantId, page, pageSize);
+      const filterParam =
+        statusFilter === "all" ? undefined : statusFilter;
+      const raw = await fetchSandboxSessions(
+        tenantId,
+        page,
+        pageSize,
+        search || undefined,
+        filterParam,
+      );
       if (!raw) {
         setStatus("error");
         setError("Failed to load sandbox sessions.");
         return;
       }
-      const result = raw as unknown as PaginatedResult;
-      setSessions(result.items ?? []);
+      const result = raw;
+      setSessions(result.data ?? []);
       setTotalCount(result.total ?? 0);
       setStatus("ready");
     } catch (e: unknown) {
@@ -114,7 +131,7 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
         e instanceof Error ? e.message : "Unexpected error loading sessions.",
       );
     }
-  }, [tenantId, page, pageSize]);
+  }, [tenantId, page, pageSize, search, statusFilter]);
 
   useEffect(() => {
     if (tenantId) load();
@@ -194,6 +211,51 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
         </button>
       </div>
 
+      {/* ── Search & Filter Bar ──────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center" }}>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="🔍 Search sessions by name..."
+          style={{
+            flex: 1,
+            height: 32,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.04)",
+            color: "#f5f7ff",
+            padding: "0 10px",
+            fontSize: 12,
+            outline: "none",
+          }}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as "all" | "active" | "archived");
+            setPage(1);
+          }}
+          style={{
+            height: 32,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.04)",
+            color: "#f5f7ff",
+            padding: "0 10px",
+            fontSize: 12,
+            outline: "none",
+          }}
+        >
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+
       {sessions.length === 0 ? (
         <EmptyBox message="No sandbox sessions yet. Create one to get started." />
       ) : (
@@ -203,7 +265,8 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
             <div style={tableHeader}>
               <div>Name</div>
               <div>Status</div>
-              <div>Trace Count</div>
+              <div>Traces</div>
+              <div style={{ textAlign: "center" }}>Actions</div>
               <div style={{ textAlign: "right" }}>Created At</div>
             </div>
 
@@ -215,10 +278,48 @@ export function SandboxSessionList({ tenantId, onSelectSession, selectedSessionI
                     {s.isActive ? (
                       <span style={badgeActive}>● Active</span>
                     ) : (
-                      <span style={badgeInactive}>○ Inactive</span>
+                      <span style={badgeInactive}>○ Paused</span>
                     )}
                   </div>
                   <div style={cellNormal}>{s.traceCount}</div>
+                  <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                    {s.isActive ? (
+                      <button
+                        disabled={actioningId === s.id}
+                        onClick={async () => {
+                          setActioningId(s.id);
+                          await updateSessionStatus(tenantId, s.id, "pause");
+                          setActioningId(null);
+                          load();
+                        }}
+                        style={actionBtn}
+                        title="Pause session"
+                      >⏸</button>
+                    ) : (
+                      <button
+                        disabled={actioningId === s.id}
+                        onClick={async () => {
+                          setActioningId(s.id);
+                          await updateSessionStatus(tenantId, s.id, "resume");
+                          setActioningId(null);
+                          load();
+                        }}
+                        style={actionBtn}
+                        title="Resume session"
+                      >▶</button>
+                    )}
+                    <button
+                      disabled={actioningId === s.id}
+                      onClick={async () => {
+                        setActioningId(s.id);
+                        await updateSessionStatus(tenantId, s.id, "archive");
+                        setActioningId(null);
+                        load();
+                      }}
+                      style={{ ...actionBtn, opacity: 0.6 }}
+                      title="Archive session"
+                    >🗂</button>
+                  </div>
                   <div style={cellDate}>{fmtDate(s.createdAt)}</div>
                 </div>
               ))}
@@ -587,6 +688,21 @@ const badgeInactive: React.CSSProperties = {
   color: "#f87171",
   fontWeight: 600,
   fontSize: 13,
+};
+
+const actionBtn: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 6,
+  color: "#c8d2ff",
+  cursor: "pointer",
+  fontSize: 14,
+  width: 30,
+  height: 28,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "all 0.1s",
 };
 
 const paginationWrap: React.CSSProperties = {

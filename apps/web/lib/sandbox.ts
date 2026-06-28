@@ -16,20 +16,40 @@ import type {
 } from "../types/sandbox";
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface SessionStats {
+  sessionId: string;
+  sessionName: string;
+  isActive: boolean;
+  totalExecutions: number;
+  successCount: number;
+  failCount: number;
+  successRate: number;
+  totalVirtualCost: string;
+  avgLatencyMs: number;
+  actionBreakdown: Record<string, number>;
+  createdAt: string;
+}
+
+export interface TenantSandboxSummary {
+  totalSessions: number;
+  activeSessions: number;
+  archivedSessions: number;
+  totalExecutions: number;
+  successRate: number;
+  totalVirtualCost: string;
+  lastExecution: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve the current user's tenant UUID (NOT slug) from the auth token.
- * This is intentionally separate from `resolveTenantSlug` in billing.ts
- * because the sandbox / webhook-inspector backend enforces IDOR protection
- * via `x-tenant-id` (UUID), while the analytics module uses `x-tenant-slug`.
- * Returns `null` when unauthenticated or the tenant cannot be resolved.
- */
 export async function resolveTenantId(): Promise<string | null> {
   const token = getStoredToken();
   if (!token) return null;
-
   try {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -43,16 +63,6 @@ export async function resolveTenantId(): Promise<string | null> {
   }
 }
 
-/**
- * Build the standard header set for every sandbox / webhook-inspector
- * request.  Automatically injects:
- *   - `x-tenant-id` (UUID — IDOR guard, matches backend @TenantGuard)
- *   - `x-aifut-sandbox` (flag signals sandbox execution environment)
- *   - `Authorization` (Bearer token)
- *   - `Content-Type` (application/json)
- *
- * Returns `null` when authentication or tenant context is unavailable.
- */
 async function sandboxHeaders(
   tenantId: string | null,
   extra?: Record<string, string>,
@@ -69,46 +79,28 @@ async function sandboxHeaders(
 }
 
 // ---------------------------------------------------------------------------
-// Parameter validation (client-side clamp, mirrors backend enforcement)
-// ---------------------------------------------------------------------------
-
-function clampPage(page: number): number {
-  return Math.max(1, Math.floor(page));
-}
-
-function clampPageSize(pageSize: number): number {
-  const raw = Math.floor(pageSize);
-  if (Number.isNaN(raw) || raw < 1) return 20;
-  return Math.min(raw, 100);
-}
-
-const VALID_DIRECTIONS = new Set(["INBOUND", "OUTBOUND"]);
-
-// ---------------------------------------------------------------------------
 // Sandbox — Sessions
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch a paginated list of sandbox sessions for the given tenant.
- * Page and pageSize are clamped client-side (1…100) before the round-trip
- * to avoid unnecessary 400 responses from the backend.
- *
- * Returns `null` when auth/tenant is missing or the request fails.
- */
 export async function fetchSandboxSessions(
   tenantId: string,
   page: number = 1,
   pageSize: number = 20,
+  search?: string,
+  statusFilter?: "active" | "archived",
 ): Promise<PaginatedSessions | null> {
   const headers = await sandboxHeaders(tenantId);
   if (!headers) return null;
 
-  const safePage = clampPage(page);
-  const safeSize = clampPageSize(pageSize);
+  const params = new URLSearchParams();
+  params.set("page", String(clampPage(page)));
+  params.set("pageSize", String(clampPageSize(pageSize)));
+  if (search) params.set("search", search);
+  if (statusFilter) params.set("statusFilter", statusFilter);
 
   try {
     const res = await fetch(
-      `${API_BASE}/v1/sandbox/sessions?page=${safePage}&pageSize=${safeSize}`,
+      `${API_BASE}/v1/sandbox/sessions?${params.toString()}`,
       { headers, cache: "no-store" },
     );
     if (!res.ok) return null;
@@ -118,24 +110,14 @@ export async function fetchSandboxSessions(
   }
 }
 
-/**
- * Create a new sandbox session with the given human-readable name.
- * The backend enforces name length 1…256; we mirror the constraint
- * client-side to fail fast and avoid wasted round-trips.
- *
- * Returns `null` on auth/tenant failure, network error, or validation
- * rejection.
- */
 export async function createSandboxSession(
   tenantId: string,
   name: string,
 ): Promise<SandboxSession | null> {
   const trimmed = name.trim();
   if (trimmed.length < 1 || trimmed.length > 256) return null;
-
   const headers = await sandboxHeaders(tenantId);
   if (!headers) return null;
-
   try {
     const res = await fetch(`${API_BASE}/v1/sandbox/sessions`, {
       method: "POST",
@@ -150,24 +132,67 @@ export async function createSandboxSession(
   }
 }
 
+/** Pause / Resume / Archive a sandbox session. */
+export async function updateSessionStatus(
+  tenantId: string,
+  sessionId: string,
+  action: "pause" | "resume" | "archive",
+): Promise<SandboxSession | null> {
+  const headers = await sandboxHeaders(tenantId);
+  if (!headers) return null;
+  try {
+    const res = await fetch(
+      `${API_BASE}/v1/sandbox/sessions/${sessionId}/${action}`,
+      { method: "PATCH", headers, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as SandboxSession;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch statistics for a single sandbox session. */
+export async function fetchSessionStats(
+  tenantId: string,
+  sessionId: string,
+): Promise<SessionStats | null> {
+  const headers = await sandboxHeaders(tenantId);
+  if (!headers) return null;
+  try {
+    const res = await fetch(
+      `${API_BASE}/v1/sandbox/sessions/${sessionId}/stats`,
+      { headers, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as SessionStats;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch tenant-level sandbox summary. */
+export async function fetchTenantSummary(
+  tenantId: string,
+): Promise<TenantSandboxSummary | null> {
+  const headers = await sandboxHeaders(tenantId);
+  if (!headers) return null;
+  try {
+    const res = await fetch(`${API_BASE}/v1/sandbox/tenant/summary`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as TenantSandboxSummary;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sandbox — Execute action
 // ---------------------------------------------------------------------------
 
-/**
- * Execute a sandboxed action inside an existing session.
- * The execution is isolated and recorded as a trace entry with latency,
- * outcome, and virtual cost (BigInt-safe).
- *
- * @param tenantId  - Tenant UUID (auto-injected into x-tenant-id).
- * @param sessionId - Target sandbox session UUID.
- * @param action    - Action type label (e.g. "AI_ROUTING", "CONNECTOR_EXEC",
- *                    "WORKFLOW_RUN").  Passed as-is to the backend.
- * @param input     - Arbitrary JSON-serialisable payload forwarded to the
- *                    downstream connector / AI / workflow node.
- *
- * Returns `null` when auth/tenant is missing or the request fails.
- */
 export async function executeSandboxAction(
   tenantId: string,
   sessionId: string,
@@ -176,16 +201,11 @@ export async function executeSandboxAction(
 ): Promise<ExecuteResult | null> {
   const headers = await sandboxHeaders(tenantId);
   if (!headers) return null;
-
   try {
     const res = await fetch(`${API_BASE}/v1/sandbox/execute`, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        sessionId,
-        action,
-        input: input ?? null,
-      }),
+      body: JSON.stringify({ sessionId, action, input: input ?? null }),
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -199,18 +219,6 @@ export async function executeSandboxAction(
 // Webhook Inspector — Logs
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch paginated webhook-inspector logs with optional filters.
- * Supported filter keys:
- *   - direction: "INBOUND" | "OUTBOUND"
- *   - method: HTTP method string (e.g. "POST", "GET")
- *   - status: HTTP status code (100–599)
- *
- * Invalid enum values / out-of-range status codes are silently dropped
- * before serialization to mirror the backend's own validation.
- *
- * Returns `null` when auth/tenant is missing or the request fails.
- */
 export async function fetchWebhookLogs(
   tenantId: string,
   filter: WebhookQueryFilter,
@@ -224,18 +232,12 @@ export async function fetchWebhookLogs(
   params.set("page", String(safePage));
   params.set("pageSize", String(safeSize));
 
+  const VALID_DIRECTIONS = new Set(["INBOUND", "OUTBOUND"]);
   if (filter.direction && VALID_DIRECTIONS.has(filter.direction)) {
     params.set("direction", filter.direction);
   }
-  if (filter.method) {
-    params.set("method", filter.method.toUpperCase());
-  }
-  if (
-    filter.status !== undefined &&
-    filter.status !== null &&
-    filter.status >= 100 &&
-    filter.status <= 599
-  ) {
+  if (filter.method) params.set("method", filter.method.toUpperCase());
+  if (filter.status !== undefined && filter.status !== null && filter.status >= 100 && filter.status <= 599) {
     params.set("status", String(filter.status));
   }
 
@@ -249,4 +251,18 @@ export async function fetchWebhookLogs(
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Param helpers
+// ---------------------------------------------------------------------------
+
+function clampPage(page: number): number {
+  return Math.max(1, Math.floor(page));
+}
+
+function clampPageSize(pageSize: number): number {
+  const raw = Math.floor(pageSize);
+  if (Number.isNaN(raw) || raw < 1) return 20;
+  return Math.min(raw, 100);
 }
