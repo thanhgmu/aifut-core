@@ -11,6 +11,8 @@ import { IntegrationDiagnosticsService } from './integration-diagnostics.service
 import { IntegrationAiDraftingService } from './integration-ai-drafting.service';
 import { IntegrationWorkflowService } from './integration-workflow.service';
 import { AccessPolicyService } from './access-policy.service';
+import { IntegrationAwlGeneratorService } from './integration-awl-generator.service';
+import { PrismaService } from './prisma.service';
 
 describe('IntegrationsController', () => {
   let controller: IntegrationsController;
@@ -38,6 +40,7 @@ describe('IntegrationsController', () => {
     recordDiagnosticRun: jest.Mock;
     reviewAndActivate: jest.Mock;
   };
+  let integrationAwlGenerator: { nlDeploy: jest.Mock };
 
   beforeEach(async () => {
     infrastructureProfileService = {
@@ -82,6 +85,10 @@ describe('IntegrationsController', () => {
       reviewAndActivate: jest.fn(),
     };
 
+    integrationAwlGenerator = {
+      nlDeploy: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IntegrationsController],
       providers: [
@@ -112,6 +119,14 @@ describe('IntegrationsController', () => {
           useValue: integrationAiDrafting,
         },
         { provide: IntegrationWorkflowService, useValue: integrationWorkflow },
+        {
+          provide: IntegrationAwlGeneratorService,
+          useValue: integrationAwlGenerator,
+        },
+        {
+          provide: PrismaService,
+          useValue: { tenant: { findUnique: jest.fn() } },
+        },
         {
           provide: AccessPolicyService,
           useValue: { resolveAndRequire: jest.fn() },

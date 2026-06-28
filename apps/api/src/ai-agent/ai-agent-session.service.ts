@@ -9,13 +9,13 @@ import { Injectable } from '@nestjs/common';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
 }
 
-interface AgentSession {
+export interface AgentSession {
   id: string;
   tenantId: string;
   title: string;

@@ -14,11 +14,22 @@ type AgentRecommendedAction = {
   description: string;
 };
 
+type AgentOperatorPlan = {
+  contractVersion: 'ai-operator-plan.v1';
+  executionMode: 'preview-only' | 'approval-required' | 'auto-safe';
+  riskLevel: 'low' | 'medium' | 'high';
+  approvalRequired: boolean;
+  evidenceKey: string;
+  nextSafeStep: string;
+  blockedUntil: string | null;
+};
+
 export type AgentCommandResult = {
   success: boolean;
   intent: AgentIntent;
   confidence: number;
   recommendedActions: AgentRecommendedAction[];
+  operatorPlan: AgentOperatorPlan;
   timestamp: string;
 };
 
@@ -52,12 +63,60 @@ export class AiAgentCoreService {
       intent: analysis.intent,
       confidence: analysis.confidence,
       recommendedActions: analysis.recommendedActions,
+      operatorPlan: this.buildOperatorPlan(
+        normalizedTenantId,
+        analysis.intent,
+        analysis.recommendedActions,
+      ),
       timestamp: new Date().toISOString(),
     };
 
     await this.writeAgentAuditLog(normalizedTenantId, normalizedQuery, result);
 
     return result;
+  }
+
+  private buildOperatorPlan(
+    tenantId: string,
+    intent: AgentIntent,
+    recommendedActions: AgentRecommendedAction[],
+  ): AgentOperatorPlan {
+    const actionTypes = recommendedActions.map((action) => action.type);
+    const evidenceKey = `tenant:${tenantId}:ai-agent:${intent.toLowerCase()}`;
+
+    if (intent === 'GENERAL_ASSISTANCE') {
+      return {
+        contractVersion: 'ai-operator-plan.v1',
+        executionMode: 'preview-only',
+        riskLevel: 'low',
+        approvalRequired: false,
+        evidenceKey,
+        nextSafeStep: actionTypes[0] ?? 'CREATE_AGENT_TASK_DRAFT',
+        blockedUntil: null,
+      };
+    }
+
+    if (intent === 'BUDGET_OPTIMIZATION' || intent === 'SYSTEM_HEALTH_CHECK') {
+      return {
+        contractVersion: 'ai-operator-plan.v1',
+        executionMode: 'auto-safe',
+        riskLevel: 'medium',
+        approvalRequired: false,
+        evidenceKey,
+        nextSafeStep: actionTypes[0] ?? 'REVIEW_AGENT_RECOMMENDATION',
+        blockedUntil: null,
+      };
+    }
+
+    return {
+      contractVersion: 'ai-operator-plan.v1',
+      executionMode: 'approval-required',
+      riskLevel: 'high',
+      approvalRequired: true,
+      evidenceKey,
+      nextSafeStep: actionTypes[0] ?? 'REVIEW_AGENT_RECOMMENDATION',
+      blockedUntil: 'operator-approval',
+    };
   }
 
   private buildTenantBoundSystemPrompt(tenantId: string): string {

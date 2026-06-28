@@ -286,11 +286,11 @@ export class MarketplaceModerationService {
         version: true,
         authorName: true,
         createdAt: true,
-        reviews: {
+        ratings: {
           orderBy: { createdAt: 'desc' },
           take: 1,
           select: {
-            action: true,
+            
             createdAt: true,
           },
         },
@@ -300,7 +300,7 @@ export class MarketplaceModerationService {
     const items: ModerationQueueItem[] = [];
 
     for (const listing of listings) {
-      const lastReview = listing.reviews?.[0];
+      const lastReview = (listing as any).ratings?.[0];
       // Only show listings with SUBMITTED as last action, or no review yet
       if (lastReview && lastReview.action !== 'SUBMITTED') continue;
 

@@ -14,7 +14,7 @@
 // =====================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { API_BASE } from "../../../lib/auth";
+import { API_BASE } from "../../../../lib/auth";
 
 // ── Types ──────────────────────────────────────────────────────────────
 

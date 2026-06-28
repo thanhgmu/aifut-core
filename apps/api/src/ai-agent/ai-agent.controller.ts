@@ -17,24 +17,9 @@ import {
 } from '@nestjs/common';
 import { AiAgentCoreService } from './ai-agent-core.service';
 import { AiAgentSessionService } from './ai-agent-session.service';
+import type { AgentSession } from './ai-agent-session.service';
 
 // ── Types ─────────────────────────────────────────────────────────────────
-
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
-}
-
-interface AgentSession {
-  id: string;
-  tenantId: string;
-  title: string;
-  messages: ChatMessage[];
-  status: 'active' | 'archived';
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 // ── Controller ────────────────────────────────────────────────────────────
 
@@ -66,10 +51,11 @@ export class AiAgentController {
     // Resolve session
     let session: AgentSession;
     if (body.sessionId) {
-      session = this.sessionService.getSession(body.sessionId);
-      if (!session || session.tenantId !== tenantId) {
+      const existingSession = this.sessionService.getSession(body.sessionId);
+      if (!existingSession || existingSession.tenantId !== tenantId) {
         throw new NotFoundException('Session not found.');
       }
+      session = existingSession;
     } else {
       session = this.sessionService.createSession(
         tenantId,
@@ -97,6 +83,9 @@ export class AiAgentController {
       '',
       actionLines,
       '',
+      `Operator plan: ${result.operatorPlan.executionMode} | risk: ${result.operatorPlan.riskLevel}`,
+      `Next safe step: ${result.operatorPlan.nextSafeStep}`,
+      '',
       `_Agent analysis completed at ${new Date().toLocaleTimeString('vi-VN')}_`,
     ].join('\n');
 
@@ -111,6 +100,7 @@ export class AiAgentController {
       intent: result.intent,
       confidence: result.confidence,
       recommendedActions: result.recommendedActions,
+      operatorPlan: result.operatorPlan,
       messages: session.messages.slice(-2), // Last exchange
     };
   }

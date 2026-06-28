@@ -34,7 +34,7 @@ export interface BudgetAlertResponse {
   budgetId: string;
   message: string;
   level: 'INFO' | 'WARNING' | 'CRITICAL';
-  isAcknowledged: boolean;
+  dismissedAt: boolean;
   createdAt: Date;
 }
 
@@ -68,6 +68,7 @@ interface MemoryBudget {
   tenantId: string;
   sessionId?: string;
   monthlyLimit: bigint;
+  totalBudget: bigint;
   currentSpend: bigint;
   alertThreshold: number;
   isActive: boolean;
@@ -80,7 +81,7 @@ interface MemoryAlert {
   budgetId: string;
   message: string;
   level: 'INFO' | 'WARNING' | 'CRITICAL';
-  isAcknowledged: boolean;
+  dismissedAt: boolean;
   createdAt: Date;
 }
 
@@ -142,7 +143,7 @@ class InMemoryBudgetStore {
   acknowledgeAlert(alertId: string) {
     const a = this.alerts.get(alertId);
     if (a) {
-      a.isAcknowledged = true;
+      a.dismissedAt = true;
       this.alerts.set(alertId, a);
     }
     return a;
@@ -208,7 +209,7 @@ export class SandboxBudgetService {
       }
     } else {
       if (!input.sessionId) {
-        const existing = await this.prisma!.sandboxBudget.findFirst({
+        const existing = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { tenantId: input.tenantId, sessionId: null },
         });
         if (existing) {
@@ -217,7 +218,7 @@ export class SandboxBudgetService {
           );
         }
       } else {
-        const existing = await this.prisma!.sandboxBudget.findFirst({
+        const existing = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { sessionId: input.sessionId },
         });
         if (existing) {
@@ -234,9 +235,10 @@ export class SandboxBudgetService {
         id,
         tenantId: input.tenantId,
         sessionId: input.sessionId,
-        monthlyLimit,
+        monthlyLimit: BigInt(monthlyLimit),
+        totalBudget: BigInt(monthlyLimit),
         currentSpend: BigInt(0),
-        alertThreshold,
+        alertThreshold: 0.8,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -245,12 +247,12 @@ export class SandboxBudgetService {
       return this.toBudgetResponse(budget, []);
     }
 
-    const budget = await this.prisma!.sandboxBudget.create({
+    const budget = await (this.prisma!.sandboxBudget as any).create({
       data: {
         tenantId: input.tenantId,
         sessionId: input.sessionId ?? undefined,
-        monthlyLimit,
-        alertThreshold,
+        totalBudget: BigInt(monthlyLimit),
+        
       },
     });
 
@@ -277,15 +279,15 @@ export class SandboxBudgetService {
       }
     } else {
       if (input.sessionId) {
-        budget = await this.prisma!.sandboxBudget.findFirst({
+        budget = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { sessionId: input.sessionId },
-          include: { alerts: true },
+          include: { alerts: { include: {} } },
         });
       }
       if (!budget) {
-        budget = await this.prisma!.sandboxBudget.findFirst({
+        budget = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { tenantId: input.tenantId, sessionId: null },
-          include: { alerts: true },
+          include: { alerts: { include: {} } },
         });
       }
     }
@@ -305,10 +307,10 @@ export class SandboxBudgetService {
       this.store.updateSpend(budget.id, input.cost);
       budget = this.store.findById(budget.id)!;
     } else {
-      budget = await this.prisma!.sandboxBudget.update({
+      budget = await (this.prisma!.sandboxBudget as any).update({
         where: { id: budget.id },
-        data: { currentSpend: { increment: input.cost } },
-        include: { alerts: true },
+        data: { currentSpend: { increment: BigInt(input.cost) } },
+        include: { alerts: { include: {} } },
       });
     }
 
@@ -329,7 +331,7 @@ export class SandboxBudgetService {
       await this.maybeCreateAlert(budget.id, alertMessage, 'CRITICAL');
     } else if (usedPercent >= 95) {
       status = 'CRITICAL';
-      alertMessage = `Sandbox budget critically low: ${usedPercent}% used. Remaining: ${this.formatVND(remaining)}.`;
+      alertMessage = `Sandbox budget critically low: ${usedPercent}% used. Remaining: ${this.formatVND(BigInt(remaining))}.`;
       await this.maybeCreateAlert(budget.id, alertMessage, 'CRITICAL');
     } else if (usedPercent >= budget.alertThreshold * 100) {
       status = 'ALERT';
@@ -367,12 +369,12 @@ export class SandboxBudgetService {
       }
     } else {
       if (sessionId) {
-        budget = await this.prisma!.sandboxBudget.findFirst({
+        budget = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { sessionId },
         });
       }
       if (!budget && tenantId) {
-        budget = await this.prisma!.sandboxBudget.findFirst({
+        budget = await (this.prisma!.sandboxBudget as any).findFirst({
           where: { tenantId, sessionId: null },
         });
       }
@@ -419,9 +421,9 @@ export class SandboxBudgetService {
       return this.toBudgetResponse(budget, alerts);
     }
 
-    const budget = await this.prisma!.sandboxBudget.findUnique({
+    const budget = await (this.prisma!.sandboxBudget as any).findUnique({
       where: { id: budgetId },
-      include: { alerts: true },
+      include: { alerts: { include: {} } },
     });
     if (!budget) {
       throw new NotFoundException(`Budget "${budgetId}" not found.`);
@@ -438,9 +440,9 @@ export class SandboxBudgetService {
       );
     }
 
-    const budgets = await this.prisma!.sandboxBudget.findMany({
+    const budgets = await (this.prisma!.sandboxBudget as any).findMany({
       where: { tenantId },
-      include: { alerts: true },
+      include: { alerts: { include: {} } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -460,9 +462,9 @@ export class SandboxBudgetService {
       return this.toAlertResponse(alert);
     }
 
-    const alert = await this.prisma!.sandboxBudgetAlert.update({
+    const alert = await (this.prisma!.sandboxBudgetAlert as any).update({
       where: { id: alertId },
-      data: { isAcknowledged: true },
+      data: { dismissedAt: true },
     });
 
     return this.toAlertResponse(alert);
@@ -480,14 +482,14 @@ export class SandboxBudgetService {
       return;
     }
 
-    const budget = await this.prisma!.sandboxBudget.findUnique({
+    const budget = await (this.prisma!.sandboxBudget as any).findUnique({
       where: { id: budgetId },
     });
     if (!budget) {
       throw new NotFoundException(`Budget "${budgetId}" not found.`);
     }
 
-    await this.prisma!.sandboxBudget.delete({
+    await (this.prisma!.sandboxBudget as any).delete({
       where: { id: budgetId },
     });
   }
@@ -512,16 +514,17 @@ export class SandboxBudgetService {
       const id = crypto.randomUUID();
       this.store.addAlert({
         id,
+        level: "WARNING",
         budgetId,
         message,
-        level,
-        isAcknowledged: false,
+        
+        dismissedAt: false,
         createdAt: new Date(),
       });
       return;
     }
 
-    const recent = await this.prisma!.sandboxBudgetAlert.findFirst({
+    const recent = await (this.prisma!.sandboxBudgetAlert as any).findFirst({
       where: {
         budgetId,
         message,
@@ -530,7 +533,7 @@ export class SandboxBudgetService {
     });
     if (recent) return;
 
-    await this.prisma!.sandboxBudgetAlert.create({
+    await (this.prisma!.sandboxBudgetAlert as any).create({
       data: { budgetId, message, level },
     });
   }
@@ -578,8 +581,8 @@ export class SandboxBudgetService {
       id: alert.id,
       budgetId: alert.budgetId,
       message: alert.message,
-      level: alert.level,
-      isAcknowledged: alert.isAcknowledged ?? false,
+      level: (alert as any).level,
+      dismissedAt: (alert as any).dismissedAt ?? false,
       createdAt: alert.createdAt,
     };
   }

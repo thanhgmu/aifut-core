@@ -598,8 +598,8 @@ export class AnalyticsBiService {
       existing.count++;
       existing.totalExecs += s.totalExecutions;
       existing.totalSuccess += s.successfulExecutions;
-      existing.totalAiCost += s.totalAiCost;
-      existing.totalRevenue += s.totalRevenue;
+      existing.totalAiCost = BigInt(Number(existing.totalAiCost) + Number(s.totalAiCost));
+      existing.totalRevenue = BigInt(Number(existing.totalRevenue) + Number(s.totalRevenue));
       existing.totalTokens += Number(s.totalAiTokens);
       cohorts.set(cohort, existing);
     }
@@ -609,8 +609,8 @@ export class AnalyticsBiService {
       count: data.count,
       avgExecutions: data.count > 0 ? Math.round(data.totalExecs / data.count) : 0,
       avgSuccessRate: data.totalExecs > 0 ? data.totalSuccess / data.totalExecs : 0,
-      avgAiCost: (data.count > 0 ? data.totalAiCost / BigInt(data.count) : BigInt(0)).toString(),
-      avgRevenue: (data.count > 0 ? data.totalRevenue / BigInt(data.count) : BigInt(0)).toString(),
+      avgAiCost: (data.count > 0 ? BigInt(Math.round(Number(data.totalAiCost) / data.count)) : BigInt(0)).toString(),
+      avgRevenue: (data.count > 0 ? BigInt(Math.round(Number(data.totalRevenue) / data.count)) : BigInt(0)).toString(),
       totalAiTokens: data.totalTokens.toString(),
     }));
 
@@ -668,8 +668,8 @@ export class AnalyticsBiService {
         executions: 0, revenue: BigInt(0), aiCost: BigInt(0), tokens: 0, tenants: new Set(),
       };
       existing.executions += s.totalExecutions;
-      existing.revenue += s.totalRevenue;
-      existing.aiCost += s.totalAiCost;
+      existing.revenue = BigInt(Number(existing.revenue) + Number(s.totalRevenue));
+      existing.aiCost = BigInt(Number(existing.aiCost) + Number(s.totalAiCost));
       existing.tokens += Number(s.totalAiTokens);
       existing.tenants.add(s.tenantId);
       dayBuckets.set(day, existing);

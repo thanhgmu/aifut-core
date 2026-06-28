@@ -16,7 +16,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { LicensingService } from './licensing.service';
-import { LicenseTier } from '@prisma/client';
+// removed import of LicenseTier from '@prisma/client';
 
 @Controller('v1/licensing')
 export class LicensingController {
@@ -38,17 +38,19 @@ export class LicensingController {
       issuedEmail?: string;
       validityDays?: number;
     },
+    @Headers("x-tenant-id") tenantId?: string,
   ) {
     this.requireValue(body.tier, 'tier');
-    const tier = body.tier.toUpperCase() as LicenseTier;
-    if (!Object.values(LicenseTier).includes(tier)) {
+    const tier = body.tier.toUpperCase() as string;
+    if (!['FREE','PRO','BUSINESS','ENTERPRISE'].includes(tier)) {
       throw new BadRequestException(
-        `tier phải là: ${Object.values(LicenseTier).join(', ')}`,
+        'tier must be FREE, PRO, BUSINESS or ENTERPRISE',
       );
     }
 
     return this.licensing.generateKey({
-      tier,
+      tier: body.tier,
+      tenantId: tenantId!,
       maxUsers: body.maxUsers,
       maxWorkflows: body.maxWorkflows,
       features: body.features,

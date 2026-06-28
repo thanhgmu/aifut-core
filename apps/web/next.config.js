@@ -6,9 +6,7 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {
-    root: path.join(__dirname, '../..'),
-  },
+  
   typescript: {
     ignoreBuildErrors: true,
   },

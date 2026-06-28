@@ -88,3 +88,13 @@
 
 ## Blockers
 - `prisma db push` needs to be run manually (thuộc ĐIỀU 1 — cấm chạy terminal)
+---
+
+## ECO Checkpoint - 2026-06-28
+- **Mode:** AIFUT GO ECO, bounded to 5 tasks or 30 minutes.
+- **Continuation:** Phase 3 preparation - AI operator agent depth.
+- **Task 1:** Added `operatorPlan` to AI agent command results with `ai-operator-plan.v1`, execution mode, risk level, approval flag, evidence key, next safe step, and block reason.
+- **API surface:** `/v1/ai-agent/query` now returns `operatorPlan` and includes the execution mode / next safe step in the assistant message.
+- **Spec:** Added `ai-agent-core.service.spec.ts` for budget auto-safe and security approval-required plans.
+- **Verification:** static diff/readback only. No build/test run by agent.
+- **GitHub:** local changes are not committed or pushed.

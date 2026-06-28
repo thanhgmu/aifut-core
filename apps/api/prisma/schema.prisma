@@ -127,6 +127,32 @@ model Tenant {
   licenseKeys              LicenseKey[]
 }
 
+
+model LicenseKey {
+  id            String   @id @default(cuid())
+  tenantId      String
+  key           String   @unique
+  tier          String   @default("PRO")
+  status        String   @default("ACTIVE")
+  maxUsers      Int      @default(5)
+  maxWorkflows  Int      @default(20)
+  features      Json
+  issuedTo      String?
+  issuedEmail   String?
+  issuedAt      DateTime @default(now())
+  activatedAt   DateTime?
+  expiresAt     DateTime?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, status])
+  @@index([key])
+}
+
+
+
 model Workspace {
   id                 String                    @id @default(cuid())
   name               String
@@ -929,6 +955,9 @@ model MarketplaceListing {
   tenant  Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   ratings MarketplaceListingRating[]
   orders  MarketplaceOrder[]
+  versions MarketplaceVersion[]
+  reviewActions MarketplaceReviewAction[]
+  installEvents MarketplaceInstallEvent[]
 
   @@index([type, category])
   @@index([isPublished])
@@ -1587,10 +1616,11 @@ model BudgetAccumulationLog {
 // Module: apps/api/src/sandbox/
 
 model SandboxSession {
-  id        String   @id @default(uuid())
-  tenantId  String
-  name      String
-  isActive  Boolean  @default(true)
+  id             String   @id @default(uuid())
+  tenantId       String
+  name           String
+  templateId     String?
+  isActive       Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2006,4 +2036,68 @@ model MarketplaceInstallEvent {
 
 // -- End Marketplace Versioning & Dependency ------------------------
 // ----------------------------------------------------------------------
+
+
+// ----------------------------------------------------------------------
+// -- Sandbox Budget & Template (Phase 4) -----------------------------
+// Module: apps/api/src/sandbox/
+// ----------------------------------------------------------------------
+
+model SandboxTemplate {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  config      Json?
+  category    String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([category])
+  @@index([isPublic])
+}
+
+model SandboxBudget {
+  id            String   @id @default(uuid())
+  tenantId      String
+  sessionId     String?
+  monthlyLimit  BigInt   @default(10000000)
+  currentSpend  BigInt   @default(0)
+  usedBudget    BigInt   @default(0)
+  totalBudget   BigInt   @default(10000000)
+  alertThreshold Float   @default(0.8)
+  currency      String   @default("VND")
+  periodStart   DateTime @default(now())
+  periodEnd     DateTime?
+  isActive      Boolean  @default(true)
+  alertSentAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  alerts SandboxBudgetAlert[]
+
+  @@unique([tenantId, sessionId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, sessionId])
+}
+
+model SandboxBudgetAlert {
+  id            String   @id @default(uuid())
+  budgetId      String
+  tenantId      String
+  threshold     Float    // 0.0-1.0
+  level         String   @default("WARNING")
+  isAcknowledged Boolean @default(false)
+  message       String?
+  notifiedAt    DateTime?
+  dismissedAt   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  budget SandboxBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@index([tenantId, createdAt])
+}
 

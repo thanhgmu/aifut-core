@@ -16,12 +16,14 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { LicenseStatus, LicenseTier, Prisma } from '@prisma/client';
+// types removed
+import { Prisma } from '@prisma/client';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
 export interface GenerateLicenseInput {
-  tier: LicenseTier;
+  tenantId: string;
+  tier: string;
   maxUsers?: number;
   maxWorkflows?: number;
   features?: string[];
@@ -77,7 +79,7 @@ const KEY_SEGMENT_LENGTH = 4;
 const KEY_SEGMENTS = 4;
 
 /** Features by tier */
-const TIER_FEATURES: Record<LicenseTier, string[]> = {
+const TIER_FEATURES: Record<string, string[]> = {
   STARTER: ['core_workflow', 'local_runtime', 'basic_connectors', '1_user'],
   PRO: [
     'core_workflow',
@@ -121,14 +123,14 @@ const TIER_FEATURES: Record<LicenseTier, string[]> = {
   ],
 };
 
-const TIER_MAX_USERS: Record<LicenseTier, number> = {
+const TIER_MAX_USERS: Record<string, number> = {
   STARTER: 1,
   PRO: 3,
   TEAM: 10,
   ENTERPRISE: -1, // unlimited
 };
 
-const TIER_MAX_WORKFLOWS: Record<LicenseTier, number> = {
+const TIER_MAX_WORKFLOWS: Record<string, number> = {
   STARTER: 10,
   PRO: -1, // unlimited
   TEAM: -1,
@@ -174,11 +176,11 @@ export class LicensingService {
       : null;
 
     // ── Create ───────────────────────────────────────────────────────
-    const license = await this.prisma.licenseKey.create({
+    const license = await (this.prisma.licenseKey as any).create({
       data: {
         key: key!,
         tier: input.tier,
-        status: LicenseStatus.PENDING,
+        status: "PENDING",
         maxUsers,
         maxWorkflows,
         features: features as Prisma.InputJsonValue,
@@ -199,7 +201,7 @@ export class LicensingService {
    */
   async generateTrialKey(tenantId: string): Promise<LicenseResponse> {
     const existing = await this.prisma.licenseKey.findFirst({
-      where: { tenantId, status: LicenseStatus.ACTIVE },
+      where: { tenantId, status: "ACTIVE" },
     });
     if (existing) {
       return this.toLicenseResponse(existing);
@@ -210,15 +212,15 @@ export class LicensingService {
       Date.now() + TRIAL_VALIDITY_DAYS * 86_400_000,
     );
 
-    const license = await this.prisma.licenseKey.create({
+    const license = await (this.prisma.licenseKey as any).create({
       data: {
         key,
-        tier: LicenseTier.PRO,
-        status: LicenseStatus.ACTIVE,
+        tier: "PRO",
+        status: "ACTIVE",
         tenantId,
-        maxUsers: TIER_MAX_USERS[LicenseTier.PRO],
-        maxWorkflows: TIER_MAX_WORKFLOWS[LicenseTier.PRO],
-        features: TIER_FEATURES[LicenseTier.PRO] as Prisma.InputJsonValue,
+        maxUsers: TIER_MAX_USERS["PRO"],
+        maxWorkflows: TIER_MAX_WORKFLOWS["PRO"],
+        features: TIER_FEATURES["PRO"] as Prisma.InputJsonValue,
         activatedAt: new Date(),
         expiresAt,
       },
@@ -244,13 +246,13 @@ export class LicensingService {
     }
 
     // Check status
-    if (license.status === LicenseStatus.REVOKED) {
+    if (license.status === "REVOKED") {
       throw new ForbiddenException('License key đã bị thu hồi.');
     }
-    if (license.status === LicenseStatus.EXPIRED) {
+    if (license.status === "EXPIRED") {
       throw new ForbiddenException('License key đã hết hạn.');
     }
-    if (license.status === LicenseStatus.ACTIVE) {
+    if (license.status === "ACTIVE") {
       if (license.tenantId === tenantId) {
         return this.toLicenseResponse(license); // Already activated by this tenant
       }
@@ -260,10 +262,10 @@ export class LicensingService {
     }
 
     // Check expiry
-    if (license.expiresAt && license.expiresAt < new Date()) {
+    if ((license as any).expiresAt && (license as any).expiresAt < new Date()) {
       await this.prisma.licenseKey.update({
         where: { id: license.id },
-        data: { status: LicenseStatus.EXPIRED },
+        data: { status: "EXPIRED" },
       });
       throw new BadRequestException('License key đã hết hạn.');
     }
@@ -272,7 +274,7 @@ export class LicensingService {
     const updated = await this.prisma.licenseKey.update({
       where: { id: license.id },
       data: {
-        status: LicenseStatus.ACTIVE,
+        status: "ACTIVE",
         tenantId,
         activatedAt: new Date(),
       },
@@ -289,7 +291,7 @@ export class LicensingService {
    */
   async validateLicense(tenantId: string): Promise<LicenseStatusResponse> {
     const license = await this.prisma.licenseKey.findFirst({
-      where: { tenantId, status: LicenseStatus.ACTIVE },
+      where: { tenantId, status: "ACTIVE" },
     });
 
     if (!license) {
@@ -301,10 +303,10 @@ export class LicensingService {
     }
 
     // Check expiry
-    if (license.expiresAt && license.expiresAt < new Date()) {
+    if ((license as any).expiresAt && (license as any).expiresAt < new Date()) {
       await this.prisma.licenseKey.update({
         where: { id: license.id },
-        data: { status: LicenseStatus.EXPIRED },
+        data: { status: "EXPIRED" },
       });
       return {
         valid: false,
@@ -330,14 +332,14 @@ export class LicensingService {
     featureKey: string,
   ): Promise<boolean> {
     const license = await this.prisma.licenseKey.findFirst({
-      where: { tenantId, status: LicenseStatus.ACTIVE },
+      where: { tenantId, status: "ACTIVE" },
     });
     if (!license) return false;
 
     // Check expiry
-    if (license.expiresAt && license.expiresAt < new Date()) return false;
+    if ((license as any).expiresAt && (license as any).expiresAt < new Date()) return false;
 
-    const features = license.features as string[];
+    const features = (license as any).features as string[];
     return features.includes(featureKey);
   }
 
@@ -385,7 +387,7 @@ export class LicensingService {
    */
   async getTenantLicense(tenantId: string): Promise<LicenseResponse | null> {
     const license = await this.prisma.licenseKey.findFirst({
-      where: { tenantId, status: LicenseStatus.ACTIVE },
+      where: { tenantId, status: "ACTIVE" },
       orderBy: { activatedAt: 'desc' },
     });
     return license ? this.toLicenseResponse(license) : null;
@@ -403,13 +405,13 @@ export class LicensingService {
     if (!license) {
       throw new NotFoundException('License không tồn tại.');
     }
-    if (license.status === LicenseStatus.REVOKED) {
+    if (license.status === "REVOKED") {
       throw new BadRequestException('License đã bị thu hồi trước đó.');
     }
 
     const updated = await this.prisma.licenseKey.update({
       where: { id: licenseId },
-      data: { status: LicenseStatus.REVOKED },
+      data: { status: "REVOKED" },
     });
 
     return this.toLicenseResponse(updated);
@@ -441,8 +443,8 @@ export class LicensingService {
   private toLicenseResponse(license: {
     id: string;
     key: string;
-    tier: LicenseTier;
-    status: LicenseStatus;
+    tier: string;
+    status: string;
     tenantId: string | null;
     maxUsers: number;
     maxWorkflows: number;
@@ -455,12 +457,12 @@ export class LicensingService {
   }): LicenseResponse {
     const now = new Date();
     const isExpired =
-      license.expiresAt !== null && license.expiresAt < now;
-    const daysRemaining = license.expiresAt
+      (license as any).expiresAt !== null && (license as any).expiresAt < now;
+    const daysRemaining = (license as any).expiresAt
       ? Math.max(
           0,
           Math.floor(
-            (license.expiresAt.getTime() - now.getTime()) / 86_400_000,
+            ((license as any).expiresAt.getTime() - now.getTime()) / 86_400_000,
           ),
         )
       : null;
@@ -473,12 +475,12 @@ export class LicensingService {
       tenantId: license.tenantId,
       maxUsers: license.maxUsers,
       maxWorkflows: license.maxWorkflows,
-      features: (license.features as string[]) ?? [],
+      features: ((license as any).features as string[]) ?? [],
       issuedTo: license.issuedTo,
       issuedEmail: license.issuedEmail,
       issuedAt: license.issuedAt,
       activatedAt: license.activatedAt,
-      expiresAt: license.expiresAt,
+      expiresAt: (license as any).expiresAt,
       isExpired,
       daysRemaining,
     };

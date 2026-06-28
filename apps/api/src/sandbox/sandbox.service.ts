@@ -80,6 +80,43 @@ export class SandboxService {
    * @param name     - Tên gợi nhớ cho phiên sandbox
    * @returns SandboxSessionResponse — phiên vừa được tạo
    */
+  async createSession(
+    tenantId: string,
+    name: string,
+  ): Promise<SandboxSessionResponse> {
+    // ── Validate ──────────────────────────────────────────────────
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim().length === 0) {
+      throw new BadRequestException('tenantId không được để trống');
+    }
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      throw new BadRequestException('name không được để trống');
+    }
+    if (name.length > 256) {
+      throw new BadRequestException('name không được vượt quá 256 ký tự');
+    }
+
+    // ── Kiểm tra tenant tồn tại ──────────────────────────────────
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant '${tenantId}' không tồn tại`);
+    }
+
+    // ── Tạo session mới ──────────────────────────────────────────
+    const session = await this.prisma.sandboxSession.create({
+      data: {
+        tenantId,
+        name: name.trim(),
+        isActive: true,
+      },
+    });
+
+    return this.toSessionResponse(session, 0);
+  }
+
   /**
    * updateSessionStatus
    * ────────────────────
@@ -232,40 +269,6 @@ export class SandboxService {
             )[0].createdAt
           : null,
     };
-  }
-
-  async createSession(
-    // ── Validate ─────────────────────────────────────────────────────
-    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim().length === 0) {
-      throw new BadRequestException('tenantId không được để trống');
-    }
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      throw new BadRequestException('name không được để trống');
-    }
-    if (name.length > 256) {
-      throw new BadRequestException('name không được vượt quá 256 ký tự');
-    }
-
-    // ── Kiểm tra tenant tồn tại ──────────────────────────────────────
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { id: true },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant '${tenantId}' không tồn tại`);
-    }
-
-    // ── Tạo session mới ──────────────────────────────────────────────
-    const session = await this.prisma.sandboxSession.create({
-      data: {
-        tenantId,
-        name: name.trim(),
-        isActive: true,
-      },
-    });
-
-    return this.toSessionResponse(session, 0);
   }
 
   /**
