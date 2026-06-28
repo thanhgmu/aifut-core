@@ -727,7 +727,7 @@ export default function BackupsDashboardPage() {
               <p style={{ fontSize: 13, color: "#7888cc", margin: "4px 0 0" }}>
                 {backups.length} bản ghi • Cập nhật gần nhất{" "}
                 {backups.length > 0
-                  ? formatTimeAgo(backups[0].createdAt)
+                  ? formatTimeAgo(backups[0]?.createdAt ?? "")
                   : "—"}
               </p>
             </div>

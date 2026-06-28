@@ -186,7 +186,7 @@ export default function DevelopersBrowsePage() {
           <>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {result.items.map((dev) => {
-                const tierInfo = TIER_CFG[dev.tier] || TIER_CFG.BRONZE;
+                const tierInfo = TIER_CFG[dev.tier] || TIER_CFG.BRONZE!;
                 return (
                   <button
                     key={dev.id}

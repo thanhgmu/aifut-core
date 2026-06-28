@@ -68,7 +68,7 @@ export function SandboxActionExecutor({ tenantId, sessionId }: SandboxActionExec
   // ── State ──────────────────────────────────────────────────────────
 
   const [action, setAction] = useState<string>("AI_ROUTING");
-  const [inputText, setInputText] = useState<string>(ACTION_OPTIONS[0].suggested);
+  const [inputText, setInputText] = useState<string>(ACTION_OPTIONS[0]?.suggested ?? "");
   const [status, setStatus] = useState<ExecStatus>("idle");
   const [result, setResult] = useState<ExecuteResult | null>(null);
   const [error, setError] = useState<string | null>(null);

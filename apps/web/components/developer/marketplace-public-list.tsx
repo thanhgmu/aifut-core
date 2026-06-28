@@ -71,7 +71,7 @@ const extractAuthor = (item: MarketplacePublicItem): string => {
   }
   // Fallback: show a shorthand from key
   const parts = item.key.split("_");
-  return parts.length > 1 ? parts[0] : "Community";
+  return parts.length > 1 ? parts[0] ?? "Community" : "Community";
 };
 
 // ---------------------------------------------------------------------------

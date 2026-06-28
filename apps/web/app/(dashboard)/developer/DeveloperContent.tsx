@@ -162,7 +162,7 @@ export default function DeveloperDashboardContent() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const tier = summary ? TIER_INFO[summary.tier] ?? TIER_INFO.BRONZE : TIER_INFO.BRONZE;
+  const tier = summary ? TIER_INFO[summary.tier] ?? TIER_INFO.BRONZE! : TIER_INFO.BRONZE!;
   const nextTier = tier.next !== "—" ? TIER_INFO[tier.next] ?? null : null;
   const salesForNext = nextTier ? Math.max(0, nextTier.minSales - (summary?.totalSales ?? 0)) : 0;
 

@@ -68,7 +68,7 @@ function parseAwlBrace(raw: string): {
   let braceDepth = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const lineRaw = lines[i];
+    const lineRaw = lines[i] ?? "";
     const stripped = lineRaw.replace(/\/\/.*$/, "").trim();
     if (!stripped) continue;
 
@@ -84,7 +84,7 @@ function parseAwlBrace(raw: string): {
           line: i + 1,
         };
       }
-      workflowName = wfMatch[1];
+      workflowName = wfMatch[1] ?? "";
       inWorkflow = true;
       braceDepth = 1;
       continue;
@@ -122,7 +122,7 @@ function parseAwlBrace(raw: string): {
     // trigger: type [config];
     const triggerMatch = stmt.match(/^trigger\s*:\s*(.+)$/);
     if (triggerMatch) {
-      const val = triggerMatch[1].trim();
+      const val = triggerMatch[1]?.trim() ?? "";
       const params = extractParams(val);
       nodes.push({ type: "trigger", value: params.primary, params: params.extra });
       continue;
@@ -131,14 +131,14 @@ function parseAwlBrace(raw: string): {
     // execute: action;
     const execMatch = stmt.match(/^execute\s*:\s*(.+)$/);
     if (execMatch) {
-      nodes.push({ type: "execute", value: execMatch[1].trim() });
+      nodes.push({ type: "execute", value: execMatch[1]?.trim() ?? "" });
       continue;
     }
 
     // condition: expr -> label;
     const condMatch = stmt.match(/^condition\s*:\s*(.+)$/);
     if (condMatch) {
-      const val = condMatch[1].trim();
+      const val = condMatch[1]?.trim() ?? "";
       const params = extractParams(val);
       nodes.push({ type: "condition", value: params.primary, params: params.extra });
       continue;
@@ -147,7 +147,7 @@ function parseAwlBrace(raw: string): {
     // send: channel "target";
     const sendMatch = stmt.match(/^send\s*:\s*(.+)$/);
     if (sendMatch) {
-      const val = sendMatch[1].trim();
+      const val = sendMatch[1]?.trim() ?? "";
       const params = extractParams(val);
       nodes.push({ type: "send", value: params.primary, params: params.extra });
       continue;
@@ -156,14 +156,14 @@ function parseAwlBrace(raw: string): {
     // wait: duration;
     const waitMatch = stmt.match(/^wait\s*:\s*(.+)$/);
     if (waitMatch) {
-      nodes.push({ type: "wait", value: waitMatch[1].trim() });
+      nodes.push({ type: "wait", value: waitMatch[1]?.trim() ?? "" });
       continue;
     }
 
     // transform: type [...];
     const tformMatch = stmt.match(/^transform\s*:\s*(.+)$/);
     if (tformMatch) {
-      const val = tformMatch[1].trim();
+      const val = tformMatch[1]?.trim() ?? "";
       const params = extractParams(val);
       nodes.push({ type: "transform", value: params.primary, params: params.extra });
       continue;
@@ -172,7 +172,7 @@ function parseAwlBrace(raw: string): {
     // loop: over [...];
     const loopMatch = stmt.match(/^loop\s*:\s*(.+)$/);
     if (loopMatch) {
-      const val = loopMatch[1].trim();
+      const val = loopMatch[1]?.trim() ?? "";
       const params = extractParams(val);
       nodes.push({ type: "loop", value: params.primary, params: params.extra });
       continue;
@@ -181,21 +181,21 @@ function parseAwlBrace(raw: string): {
     // subflow: name;
     const subMatch = stmt.match(/^subflow\s*:\s*(.+)$/);
     if (subMatch) {
-      nodes.push({ type: "subflow", value: subMatch[1].trim() });
+      nodes.push({ type: "subflow", value: subMatch[1]?.trim() ?? "" });
       continue;
     }
 
     // log: message;
     const logMatch = stmt.match(/^log\s*:\s*(.+)$/);
     if (logMatch) {
-      nodes.push({ type: "log", value: logMatch[1].trim() });
+      nodes.push({ type: "log", value: logMatch[1]?.trim() ?? "" });
       continue;
     }
 
     // output: field;
     const outMatch = stmt.match(/^output\s*:\s*(.+)$/);
     if (outMatch) {
-      nodes.push({ type: "output", value: outMatch[1].trim() });
+      nodes.push({ type: "output", value: outMatch[1]?.trim() ?? "" });
       continue;
     }
 
@@ -349,6 +349,7 @@ function generateAst(doc: AwlBraceDocument): AstDocument {
 
   for (let i = 0; i < doc.nodes.length; i++) {
     const n = doc.nodes[i];
+    if (!n) continue;
     const meta = getNodeMeta(n.type, i);
     const astNode: AstNode = {
       kind: n.type,

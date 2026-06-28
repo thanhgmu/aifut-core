@@ -50,7 +50,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 function TierBadge({ tier }: { tier: string }) {
-  const cfg = TIER_CONFIG[tier] || TIER_CONFIG.BRONZE;
+  const cfg = TIER_CONFIG[tier] || TIER_CONFIG.BRONZE!;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${cfg.color} ${cfg.bg} ${cfg.border}`}>
       {cfg.label}
