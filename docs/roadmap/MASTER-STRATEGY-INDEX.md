@@ -1,6 +1,6 @@
 # AIFUT — MASTER STRATEGY INDEX
 > Entry point cho tất cả chiến lược. Đọc file này trước mọi quyết định.
-> Cập nhật: 2026-06-15
+> Cập nhật: 2026-06-28
 
 ---
 
@@ -36,7 +36,7 @@ MASTER-STRATEGY-INDEX.md  ← Bạn đang ở đây
 
 **Mirror tại D:\TARGET AIFUT\** (tất cả 4 file trên)
 
-**Trạng thái hiện tại (chi tiết ở STATUS.md): Phase 1 ~98%, Phase 2 ~55%**
+**Trạng thái hiện tại (chi tiết ở STATUS.md): Phase 1 ~98%, Phase 2 ~88%, Phase 3 ~15%**
 
 ---
 
@@ -72,7 +72,7 @@ Control plane AI-native, sovereign, multi-tenant cho operator/SME — đặc bi�
 
 ---
 
-## III. TRẠNG THÁI HIỆN TẠI (cập nhật 2026-06-15)
+## III. TRẠNG THÁI HIỆN TẠI (cập nhật 2026-06-28)
 
 ### ✅ ĐÃ HOÀN THÀNH (Phase 1)
 ```
@@ -107,37 +107,42 @@ Control plane AI-native, sovereign, multi-tenant cho operator/SME — đặc bi�
  ㉕ Multi-currency billing (7 currencies)        ✅
  ㉖ Localization engine (7 languages)            ✅
  ㉗ Connector certification program              ✅
+ ㉘ Developer sandbox environment                ✅ (pause/resume/archive, search/filter, session stats)
+ ㉙ Community marketplace (moderation + versioning + deps) ✅ (full workflow: submit→moderate→version→dependency)
+ ㉚ Developer Profile UI                         ✅ (register, skills, earnings)
+ ㉛ Marketplace Orders UI                        ✅ (purchase, history, sales)
+ ㉜ Analytics BI Dashboard                       ✅ (live health, benchmark, anomaly)
+ ㉝ Connector Certification UI                   ✅ (tier display, live checklist, submit)
+ ㉞ Developer Discovery UI                       ✅ (browse by skill/tier/country)
 ```
 
 ### 🟡 CÒN LẠI (Phase 2-3)
 ```
- ㉘ Developer sandbox environment               📅 Q4 2026
- ㉙ API analytics dashboard                     📅 Planned
- ㉚ Community connector marketplace              🔄 Next (frontend done, backend depth needed)
- ㉛ Multi-country deployment config              ✅ Done
- ㉜ Localization content depth                   ✅ Done (325+ keys, 7 languages)
- ㉝ Connector SDK PyPI publish                   ✅ Pipeline ready
+ ㉟ Integration tests (E2E cross-module)        📅 Next Phase 2 gap
+ ㊱ Multi-country deployment config              ✅ Done
+ ㊲ Localization content depth                   ✅ Done (325+ keys, 7 languages)
+ ㊳ Connector SDK PyPI publish                   ✅ Pipeline ready
 ```
 
 ---
 
 ## IV. CRITICAL PATH — LÀM GÌ TIẾP THEO
 
-### Phase 1 đã hoàn thành. Chuyển sang Phase 2:
+### Phase 1 ✅ Hoàn thành. Phase 2 ~88% ✅. Chuyển sang Phase 3:
 
-### 🟠 Phase 2 Core
+### 🟠 Phase 3 Core (2026 Q3–Q4)
 ```
-① Developer sandbox environment (isolated test env for connectors)
-② API analytics dashboard (usage stats for devs)
-③ Community connector marketplace (user-submitted connectors)
-④ Multi-country deployment config (region-aware infra)
+① Ecosystem economy: developer revenue share + marketplace commission split
+② Per-tenant AI operator agent: persistent agent runtime + proactive triggers
+③ On-premise deployment packaging: Docker Compose + air-gapped installer
+④ Cross-tenant analytics engine: anonymization + aggregation pipeline
+⑤ Integration tests (E2E cross-module flows) — Phase 2 gap cuối cùng
 ```
 
-### 🟡 Phase 2 Revenue (song song)
+### 🟡 Phase 2 Residual
 ```
-⑤ Connector SDK PyPI publish (Python package) — ✅ Pipeline ready
-⑥ Localization content depth (full UI translation for 7 languages, 325+ keys) — ✅ Done
-⑦ Connector certification badge distribution
+⑥ Integration tests (E2E cross-module)                       📅 High priority
+⑦ UI polish (loading states, error boundaries, responsive)    📅 Low priority
 ```
 
 ---

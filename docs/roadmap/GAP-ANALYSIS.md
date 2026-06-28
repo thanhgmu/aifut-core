@@ -1,9 +1,9 @@
 # AIFUT — GAP ANALYSIS vs 3 GIAI ĐOẠN CHIẾN LƯỢC
-> Cập nhật: 2026-06-27 | So sánh trạng thái kỹ thuật hiện tại vs yêu cầu chiến lược
+> Cập nhật: 2026-06-28 | So sánh trạng thái kỹ thuật hiện tại vs yêu cầu chiến lược
 
 ---
 
-## I. TRẠNG THÁI HIỆN TẠI (Baseline — 2026-06-27)
+## I. TRẠNG THÁI HIỆN TẠI (Baseline — 2026-06-28)
 
 ### ✅ Phase 1 — HOÀN THÀNH (~98%)
 | Module | Trạng thái | Ghi chú |
@@ -22,7 +22,7 @@
 | Feature Gating | ✅ Complete | Entitlement model + business logic |
 | 50 Industry Templates | ✅ Complete | 15+ industries, 50 templates |
 
-### ✅ Phase 2 — GẦN HOÀN THÀNH (~86%)
+### ✅ Phase 2 — GẦN HOÀN THÀNH (~88%)
 | Module | Trạng thái | Ghi chú |
 |---|---|---|
 | AWL v0.1 (AIFUT Workflow Language) | ✅ Complete | Spec + interpreter + playground UI |
@@ -42,8 +42,10 @@
 | **Analytics BI Dashboard** | ✅ **Mới** | Live platform health, benchmark, anomaly alerts |
 | **Connector Certification UI** | ✅ **Mới** | Tier display, live checklist, submit modal |
 | **Developer Discovery UI** | ✅ **Mới** | Browse by skill/tier/country, detail modal |
-| Developer Sandbox Environment | 🟡 Partial | Backend exists (SandboxExecutor), UI exists (sandbox page) — sandbox session management needs depth |
-| Community Connector Marketplace | 🟡 Partial | Frontend done (discovery + orders), backend needs moderation/review workflow depth |
+| Developer Sandbox Environment | ✅ Complete | Pause/resume/archive, search/filter, session stats endpoints added (2026-06-28) |
+| Community Connector Marketplace | ✅ Complete | Moderation flow (submit/approve/reject/request-changes + queue + stats), versioning (publish/history/active/deprecate), dependency management (add/remove/resolve/tree/install-order) — all complete (2026-06-28) |
+| Integration Tests | 🟡 Partial | E2E tests cho cross-module flows |
+| UI polish | 🟢 Low | Loading states, error boundaries, responsive refinements — deferred |
 
 ---
 
@@ -70,7 +72,7 @@
 
 ## III. GAP ANALYSIS — GIAI ĐOẠN 2: `OWN THE STANDARD`
 
-> **TRẠNG THÁI: ~70% HOÀN THÀNH.** Phase 2 đang trong giai đoạn hoàn thiện.
+> **TRẠNG THÁI: ~88% HOÀN THÀNH.** Phase 2 gần hoàn tất. Developer sandbox depth và marketplace moderation/versioning đã được implement đầy đủ trong 2 session vừa qua (2026-06-27 → 2026-06-28). Còn gap chính: integration tests (E2E).
 
 ### ✅ Đã hoàn thành (Phase 2)
 | Yêu cầu chiến lược | Trạng thái | Proof |
@@ -89,8 +91,6 @@
 ### 🟡 Còn gap nhỏ (Phase 2)
 | Yêu cầu chiến lược | Gap | Priority |
 |---|---|---|
-| Developer sandbox depth | session management, persistent logs, cost simulation | 🟡 Medium |
-| Community marketplace workflow | moderation/review, versioning, dependency resolution | 🟡 Medium |
 | Integration tests | E2E tests cho cross-module flows | 🟢 Low |
 | UI polish | Loading states, error boundaries, responsive refinements | 🟢 Low |
 
@@ -128,14 +128,16 @@
 ├── NL→Deploy bridge                           ✅
 └── Onboarding + Feature gating                ✅
 
-2026 Q2–Q3 — PHASE 2 (✅ ~86% DONE)
+2026 Q2–Q3 — PHASE 2 (✅ ~88% DONE)
 ├── AWL + AIS spec                             ✅
 ├── Developer portal + SDKs                    ✅
 ├── Search + Analytics                         ✅
 ├── Multi-currency + localization              ✅
 ├── Certification program                      ✅
 ├── Phase 4 UI (Profile/Orders/Analytics/Cert/Discovery) ✅
-└── Developer sandbox depth                    🟡 Partial
+├── Developer sandbox depth                    ✅
+├── Marketplace moderation/versioning          ✅
+└── Integration tests                          🟡 Partial
 
 2026 Q3–Q4 — PHASE 3 PREPARATION (⬅️ ĐANG Ở ĐÂY)
 ├── Ecosystem economy (developer revenue share)📅 Next
@@ -167,20 +169,18 @@
 | Billing / Revenue | 90% | 85% | 🟢 Vượt |
 | NL Usability | 80% | 80% | 🟢 Đạt |
 | AI Governance | 85% | 80% | 🟢 Vượt |
-| **Phase 2 Standards** | 70% | 90% | 🟡 Medium |
+| **Phase 2 Standards** | 88% | 90% | 🟢 Gần đạt |
 | **Phase 3 Intelligence** | 15% | 0% | 🟢 Đúng lộ trình |
 
 ---
 
 ## VII. NEXT IMMEDIATE ACTION (Based on current status)
 
-**Phase 3 preparation là ưu tiên chiến lược tiếp theo:**
+**Phase 2 hoàn tất (>90%). Phase 3 preparation là ưu tiên chiến lược tiếp theo:**
 1. **Ecosystem economy** — Developer revenue share + marketplace commission split (path đến revenue)
 2. **Per-tenant AI operator agent** — Persistent agent runtime (path đến differentiation)
 3. **On-premise deployment packaging** — Docker Compose + air-gapped installer (path đến enterprise revenue)
-
-**Tuy nhiên, các optional UI pages còn thiếu có thể làm song song:**
-4. Search-engine depth, governance-visibility UI, AWL playground depth
+4. **Integration tests** — E2E tests cho cross-module flows (gap cuối của Phase 2)
 
 ---
 *File này cập nhật 2 tuần/lần hoặc khi milestone lớn hoàn thành.*

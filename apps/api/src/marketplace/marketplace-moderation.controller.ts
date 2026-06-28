@@ -8,6 +8,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Headers,
   Param,
   Body,
@@ -60,6 +61,7 @@ export class MarketplaceModerationController {
    * POST /v1/marketplace/listings/:id/approve
    *
    * Admin approves a listing, making it public.
+   * Legacy POST endpoint — prefer PATCH for REST compliance.
    */
   @Post('listings/:id/approve')
   async approveListing(
@@ -77,9 +79,24 @@ export class MarketplaceModerationController {
   }
 
   /**
+   * PATCH /v1/marketplace/listings/:id/approve
+   *
+   * RESTful alternative for approve.
+   */
+  @Patch('listings/:id/approve')
+  async approveListingPatch(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', ParseUUIDPipe) listingId: string,
+    @Body() dto: ReviewDecisionDto,
+  ) {
+    return this.approveListing(tenantId, listingId, dto);
+  }
+
+  /**
    * POST /v1/marketplace/listings/:id/reject
    *
    * Admin rejects a listing with reason.
+   * Legacy POST endpoint — prefer PATCH for REST compliance.
    */
   @Post('listings/:id/reject')
   async rejectListing(
@@ -94,6 +111,20 @@ export class MarketplaceModerationController {
       reason: dto.reason,
       reviewerNote: dto.reviewerNote,
     });
+  }
+
+  /**
+   * PATCH /v1/marketplace/listings/:id/reject
+   *
+   * RESTful alternative for reject.
+   */
+  @Patch('listings/:id/reject')
+  async rejectListingPatch(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', ParseUUIDPipe) listingId: string,
+    @Body() dto: ReviewDecisionDto,
+  ) {
+    return this.rejectListing(tenantId, listingId, dto);
   }
 
   /**
@@ -117,6 +148,20 @@ export class MarketplaceModerationController {
   }
 
   /**
+   * PATCH /v1/marketplace/listings/:id/request-changes
+   *
+   * RESTful alternative for request-changes.
+   */
+  @Patch('listings/:id/request-changes')
+  async requestChangesPatch(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id', ParseUUIDPipe) listingId: string,
+    @Body() dto: ReviewDecisionDto,
+  ) {
+    return this.requestChanges(tenantId, listingId, dto);
+  }
+
+  /**
    * GET /v1/marketplace/listings/:id/review-history
    *
    * Full audit trail of moderation actions for a listing.
@@ -137,5 +182,15 @@ export class MarketplaceModerationController {
   @Get('moderation/queue')
   async getModerationQueue(@Headers('x-tenant-id') tenantId: string) {
     return this.moderationService.getModerationQueue();
+  }
+
+  /**
+   * GET /v1/marketplace/moderation/stats
+   *
+   * Moderation dashboard stats — pending/approved/rejected counts.
+   */
+  @Get('moderation/stats')
+  async getModerationStats(@Headers('x-tenant-id') tenantId: string) {
+    return this.moderationService.getModerationStats();
   }
 }

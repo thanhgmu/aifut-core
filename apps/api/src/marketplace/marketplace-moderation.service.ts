@@ -273,7 +273,8 @@ export class MarketplaceModerationService {
       return { items, total: items.length };
     }
 
-    // DB: Find listings whose last review action is SUBMITTED, not APPROVED/REJECTED
+    // DB: Find listings whose last review action is SUBMITTED
+    // Use reviewActions relation (not ratings) for correct Prisma model reference
     const listings = await this.prisma!.marketplaceListing.findMany({
       where: {
         isPublished: false,
@@ -286,11 +287,11 @@ export class MarketplaceModerationService {
         version: true,
         authorName: true,
         createdAt: true,
-        ratings: {
+        reviewActions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
           select: {
-            
+            action: true,
             createdAt: true,
           },
         },
@@ -300,7 +301,7 @@ export class MarketplaceModerationService {
     const items: ModerationQueueItem[] = [];
 
     for (const listing of listings) {
-      const lastReview = (listing as any).ratings?.[0];
+      const lastReview = listing.reviewActions?.[0];
       // Only show listings with SUBMITTED as last action, or no review yet
       if (lastReview && lastReview.action !== 'SUBMITTED') continue;
 
@@ -326,6 +327,86 @@ export class MarketplaceModerationService {
         (a, b) => b.submittedAt.getTime() - a.submittedAt.getTime(),
       ),
       total: items.length,
+    };
+  }
+
+  // ── Moderation stats ──────────────────────────────────────────
+
+  async getModerationStats(): Promise<{
+    pending: number;
+    approved: number;
+    rejected: number;
+    flagged: number;
+    changesRequested: number;
+    total: number;
+    reviewActionsToday: number;
+  }> {
+    if (this.useMemory) {
+      const all = this.store['actions'] as Map<string, MemoryReviewAction>;
+      const actions = Array.from(all.values());
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      return {
+        pending: this.store.getQueue().length,
+        approved: actions.filter((a) => a.action === 'APPROVED').length,
+        rejected: actions.filter((a) => a.action === 'REJECTED').length,
+        flagged: actions.filter((a) => a.action === 'FLAGGED').length,
+        changesRequested: actions.filter((a) => a.action === 'CHANGES_REQUESTED').length,
+        total: actions.length,
+        reviewActionsToday: actions.filter((a) => a.createdAt >= todayStart).length,
+      };
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [
+      pending,
+      approved,
+      rejected,
+      flagged,
+      changesRequested,
+      totalActions,
+      todayActions,
+    ] = await Promise.all([
+      // Pending: listings not published with last action = SUBMITTED or no action yet
+      this.prisma!.marketplaceListing.count({
+        where: {
+          isPublished: false,
+          reviewActions: {
+            none: {
+              action: { in: ['APPROVED', 'REJECTED'] },
+            },
+          },
+        },
+      }),
+      this.prisma!.marketplaceReviewAction.count({
+        where: { action: 'APPROVED' },
+      }),
+      this.prisma!.marketplaceReviewAction.count({
+        where: { action: 'REJECTED' },
+      }),
+      this.prisma!.marketplaceReviewAction.count({
+        where: { action: 'FLAGGED' },
+      }),
+      this.prisma!.marketplaceReviewAction.count({
+        where: { action: 'CHANGES_REQUESTED' },
+      }),
+      this.prisma!.marketplaceReviewAction.count(),
+      this.prisma!.marketplaceReviewAction.count({
+        where: { createdAt: { gte: todayStart } },
+      }),
+    ]);
+
+    return {
+      pending,
+      approved,
+      rejected,
+      flagged,
+      changesRequested,
+      total: totalActions,
+      reviewActionsToday: todayActions,
     };
   }
 
