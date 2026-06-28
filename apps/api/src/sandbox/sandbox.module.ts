@@ -15,6 +15,7 @@ import { SandboxController } from './sandbox.controller';
 import { SandboxService } from './sandbox.service';
 import { SandboxExecutorService } from './sandbox-executor.service';
 import { SandboxBudgetService } from './sandbox-budget.service';
+import { SandboxTemplateService } from './sandbox-template.service';
 import { VirtualCostInterceptor } from './interceptors/virtual-cost.interceptor';
 import { TenancyModule } from '../tenancy.module';
 
@@ -41,8 +42,9 @@ import { TenancyModule } from '../tenancy.module';
     SandboxService,
     SandboxExecutorService,
     SandboxBudgetService,
+    SandboxTemplateService,
     VirtualCostInterceptor,
   ],
-  exports: [SandboxService, SandboxExecutorService, SandboxBudgetService],
+  exports: [SandboxService, SandboxExecutorService, SandboxBudgetService, SandboxTemplateService],
 })
 export class SandboxModule {}
