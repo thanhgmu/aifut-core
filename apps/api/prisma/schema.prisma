@@ -127,6 +127,9 @@ model Tenant {
   licenseKeys              LicenseKey[]
   agentSessions            AgentSession[]
   agentTriggers            AgentTrigger[]
+  consultantProfiles      ConsultantProfile[]
+  dataProducts            DataProduct[]
+  dataConsents            DataConsent[]
 }
 
 
@@ -2176,3 +2179,170 @@ model AgentTrigger {
   @@index([triggerType, isActive])
   @@index([nextFireAt])
 }
+
+// ----------------------------------------------------------------------
+// -- Consultant / Expert Directory (Phase 3) --------------------------
+// Module: apps/api/src/consultant/
+// Per-tenant expert/consultant directory with search, booking, reviews.
+// ----------------------------------------------------------------------
+
+model ConsultantProfile {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // -- Identity ------------------------------------------------------
+  fullName  String
+  avatarUrl String?
+  title     String?    // e.g. "AI Workflow Specialist"
+  bio       String?
+
+  // -- Skills & Specialties ------------------------------------------
+  skills         Json @default("[]")  // ["workflow-automation", "ai-integration", ...]
+  industries     Json @default("[]")  // ["ecommerce", "healthcare", ...]
+  certifications Json @default("[]")  // references to ConnectorCertification ids
+
+  // -- Contact -------------------------------------------------------
+  email       String?
+  phone       String?
+  website     String?
+  socialLinks Json @default("[]")
+
+  // -- Availability & Pricing ----------------------------------------
+  isAvailable Boolean @default(true)
+  rateType    String? // "hourly" | "fixed" | "free"
+  rateAmount  Float?
+  currency    String  @default("USD")
+
+  // -- Rating & Reputation -------------------------------------------
+  rating        Float? // avg of ConsultantReview.rating
+  reviewCount   Int    @default(0)
+  completedJobs Int    @default(0)
+
+  // -- Verification & Status -----------------------------------------
+  isVerified Boolean @default(false)
+  status     String  @default("active") // active | inactive | suspended
+
+  // -- Timestamps ----------------------------------------------------
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reviews  ConsultantReview[]
+  bookings ConsultantBooking[]
+
+  @@index([status, isAvailable])
+  @@index([rating])
+}
+
+model ConsultantReview {
+  id            String   @id @default(cuid())
+  consultantId  String
+  reviewerId    String   // tenantId of reviewer
+  rating        Int      // 1-5
+  review        String?
+  engagementId  String?  // if related to a booking
+  createdAt     DateTime @default(now())
+
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([consultantId, reviewerId])
+  @@index([consultantId])
+  @@index([reviewerId])
+}
+
+model ConsultantBooking {
+  id             String   @id @default(cuid())
+  consultantId   String
+  clientTenantId String
+  status         String   @default("requested") // requested | confirmed | in_progress | completed | cancelled
+  message        String?
+
+  // -- Schedule ------------------------------------------------------
+  requestedDate DateTime?
+  completedAt   DateTime?
+
+  // -- Payment -------------------------------------------------------
+  amount        BigInt @default(0)
+  currency      String @default("USD")
+  paymentStatus String @default("pending") // pending | paid | refunded
+
+  // -- Timestamps ----------------------------------------------------
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@index([consultantId, status])
+  @@index([clientTenantId, status])
+}
+
+
+// ----------------------------------------------------------------------
+// -- Data Marketplace (Phase 3) ---------------------------------------
+// Module: apps/api/src/data-marketplace/
+// Data product listing, purchase, consent management.
+// ----------------------------------------------------------------------
+
+model DataProduct {
+  id          String   @id @default(cuid())
+  tenantId    String   // Data owner (seller)
+  name        String
+  description String?
+  category    String?  // "analytics" | "workflow-metrics" | "revenue" | "ai-usage" | "custom"
+  tags        Json     @default("[]")
+  format      String   @default("json") // "csv" | "json" | "api"
+  price       Float    @default(0)
+  currency    String   @default("USD")
+
+  sampleData  Json?    // Preview rows
+  schema      Json?    // Column definitions [{name, type, description}]
+  rowCount    Int      @default(0)
+  sizeBytes   BigInt   @default(0)
+
+  isPublished Boolean  @default(false)
+  downloads   Int      @default(0)
+  rating      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases DataProductPurchase[]
+
+  @@index([tenantId, isPublished])
+  @@index([category, isPublished])
+  @@index([isPublished])
+}
+
+model DataProductPurchase {
+  id              String   @id @default(cuid())
+  productId       String
+  buyerTenantId   String
+  price           Float    @default(0)
+  currency        String   @default("USD")
+  status          String   @default("pending") // pending | completed | refunded
+  consentSnapshot Json?    // Snapshot of consent at time of purchase
+  downloadedAt    DateTime?
+  createdAt       DateTime @default(now())
+
+  product DataProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, buyerTenantId])
+  @@index([buyerTenantId])
+  @@index([productId, status])
+}
+
+model DataConsent {
+  id        String   @id @default(cuid())
+  tenantId  String   // Data owner
+  purpose   String   // "anonymized-benchmark" | "research" | "marketplace-listing"
+  scope     String   // "workflow-metrics" | "revenue" | "ai-usage" | "all-anonymized"
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  grantedAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@unique([tenantId, purpose, scope])
+  @@index([tenantId, isActive])
+  @@index([isActive])
+}
+

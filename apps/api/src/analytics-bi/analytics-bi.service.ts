@@ -8,6 +8,7 @@
 //   • Tenant health scoring
 //   • Revenue analytics & cohort analysis
 //   • Cross-tenant anonymized analytics & trend data
+//   • Anomaly record CRUD, query, resolve, acknowledge
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -62,6 +63,30 @@ export interface TenantAnalyticsSnapshot {
   users: { active: number; new: number };
   storage: { totalBytes: string; deltaBytes: string };
   notifications: { sent: number; failed: number };
+}
+
+export interface AnomalyRecordResponse {
+  id: string;
+  tenantId: string;
+  anomalyType: string;
+  severity: string;
+  title: string;
+  description: string | null;
+  metricName: string | null;
+  metricValue: number | null;
+  baselineValue: number | null;
+  deviationScore: number | null;
+  isResolved: boolean;
+  resolvedAt: Date | null;
+  detectedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AnomalyQueryResult {
+  items: AnomalyRecordResponse[];
+  total: number;
+  unresolvedCount: number;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────
@@ -913,5 +938,279 @@ export class AnalyticsBiService {
     const poly = t * (b1 + t * (b2 + t * (b3 + t * (b4 + t * b5))));
     const cdf = 1 - poly * Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
     return z >= 0 ? cdf : 1 - cdf;
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  //  ANOMALY RECORD CRUD
+  // ═════════════════════════════════════════════════════════════════════
+
+  /**
+   * queryAnomalies
+   * ──────────────
+   * Truy vấn danh sách anomaly records với filter.
+   * Hỗ trợ: tenantId, severity, anomalyType, isResolved, date range, pagination.
+   */
+  async queryAnomalies(options: {
+    tenantId?: string;
+    severity?: string;
+    anomalyType?: string;
+    isResolved?: boolean;
+    from?: Date;
+    to?: Date;
+    limit?: number;
+    offset?: number;
+    orderBy?: 'detectedAt' | 'severity' | 'createdAt';
+    orderDir?: 'asc' | 'desc';
+  } = {}): Promise<AnomalyQueryResult> {
+    const {
+      tenantId, severity, anomalyType, isResolved,
+      from, to, limit = 50, offset = 0,
+      orderBy = 'detectedAt', orderDir = 'desc',
+    } = options;
+
+    const where: any = {};
+
+    if (tenantId) where.tenantId = tenantId;
+    if (severity) where.severity = severity;
+    if (anomalyType) where.anomalyType = anomalyType;
+    if (isResolved !== undefined) where.isResolved = isResolved;
+    if (from || to) {
+      where.detectedAt = {};
+      if (from) where.detectedAt.gte = from;
+      if (to) where.detectedAt.lte = to;
+    }
+
+    const [items, total, unresolvedCount] = await Promise.all([
+      this.prisma.anomalyRecord.findMany({
+        where,
+        orderBy: { [orderBy]: orderDir },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          tenantId: true,
+          anomalyType: true,
+          severity: true,
+          title: true,
+          description: true,
+          metricName: true,
+          metricValue: true,
+          baselineValue: true,
+          deviationScore: true,
+          isResolved: true,
+          resolvedAt: true,
+          detectedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.anomalyRecord.count({ where }),
+      this.prisma.anomalyRecord.count({
+        where: { ...where, isResolved: false },
+      }),
+    ]);
+
+    return { items: items as any, total, unresolvedCount };
+  }
+
+  /**
+   * getAnomalyById
+   * ──────────────
+   * Lấy chi tiết một anomaly record.
+   */
+  async getAnomalyById(id: string): Promise<AnomalyRecordResponse | null> {
+    const record = await this.prisma.anomalyRecord.findUnique({
+      where: { id },
+    });
+    if (!record) return null;
+    return record as any;
+  }
+
+  /**
+   * resolveAnomaly
+   * ──────────────
+   * Đánh dấu anomaly là đã xử lý.
+   */
+  async resolveAnomaly(
+    id: string,
+    resolvedBy?: string,
+  ): Promise<AnomalyRecordResponse> {
+    const record = await this.prisma.anomalyRecord.update({
+      where: { id },
+      data: {
+        isResolved: true,
+        resolvedAt: new Date(),
+        resolvedBy: resolvedBy ?? null,
+      },
+    });
+    return record as any;
+  }
+
+  /**
+   * acknowledgeAnomaly
+   * ──────────────────
+   * Đánh dấu anomaly đã được acknowledge (đã xem).
+   */
+  async acknowledgeAnomaly(id: string): Promise<AnomalyRecordResponse> {
+    const record = await this.prisma.anomalyRecord.update({
+      where: { id },
+      data: {
+        acknowledgedAt: new Date(),
+      },
+    });
+    return record as any;
+  }
+
+  /**
+   * batchResolveAnomalies
+   * ─────────────────────
+   * Resolve nhiều anomaly cùng lúc theo filter.
+   * Dùng cho "mark all as resolved" trên dashboard.
+   */
+  async batchResolveAnomalies(options: {
+    tenantId?: string;
+    anomalyType?: string;
+    severity?: string;
+    from?: Date;
+    to?: Date;
+    resolvedBy?: string;
+  }): Promise<{ resolved: number }> {
+    const where: any = { isResolved: false };
+    if (options.tenantId) where.tenantId = options.tenantId;
+    if (options.anomalyType) where.anomalyType = options.anomalyType;
+    if (options.severity) where.severity = options.severity;
+    if (options.from || options.to) {
+      where.detectedAt = {};
+      if (options.from) where.detectedAt.gte = options.from;
+      if (options.to) where.detectedAt.lte = options.to;
+    }
+
+    const result = await this.prisma.anomalyRecord.updateMany({
+      where,
+      data: {
+        isResolved: true,
+        resolvedAt: new Date(),
+        resolvedBy: options.resolvedBy ?? null,
+      },
+    });
+
+    return { resolved: result.count };
+  }
+
+  /**
+   * getAnomalyStats
+   * ───────────────
+   * Thống kê anomaly theo severity và type.
+   * Dùng cho dashboard tổng quan.
+   */
+  async getAnomalyStats(options: {
+    tenantId?: string;
+    from?: Date;
+    to?: Date;
+  } = {}): Promise<{
+    total: number;
+    unresolved: number;
+    bySeverity: Array<{ severity: string; count: number }>;
+    byType: Array<{ anomalyType: string; count: number }>;
+    trend: Array<{ date: string; count: number; unresolved: number }>;
+  }> {
+    const where: any = {};
+    if (options.tenantId) where.tenantId = options.tenantId;
+    if (options.from || options.to) {
+      where.detectedAt = {};
+      if (options.from) where.detectedAt.gte = options.from;
+      if (options.to) where.detectedAt.lte = options.to;
+    }
+
+    const [total, unresolved, bySeverity, byType, records] = await Promise.all([
+      this.prisma.anomalyRecord.count({ where }),
+      this.prisma.anomalyRecord.count({ where: { ...where, isResolved: false } }),
+      this.prisma.anomalyRecord.groupBy({
+        by: ['severity'],
+        where,
+        _count: { _all: true },
+        orderBy: { _count: { severity: 'desc' as const } },
+      }),
+      this.prisma.anomalyRecord.groupBy({
+        by: ['anomalyType'],
+        where,
+        _count: { _all: true },
+        orderBy: { _count: { anomalyType: 'desc' as const } },
+        take: 10,
+      }),
+      this.prisma.anomalyRecord.findMany({
+        where,
+        select: { detectedAt: true, isResolved: true },
+        orderBy: { detectedAt: 'asc' },
+        take: 1000,
+      }),
+    ]);
+
+    // Trend theo ngày
+    const dayBuckets = new Map<string, { total: number; unresolved: number }>();
+    for (const r of records) {
+      const day = r.detectedAt.toISOString().slice(0, 10);
+      const existing = dayBuckets.get(day) || { total: 0, unresolved: 0 };
+      existing.total++;
+      if (!r.isResolved) existing.unresolved++;
+      dayBuckets.set(day, existing);
+    }
+
+    const trend = Array.from(dayBuckets.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-30) // Last 30 days
+      .map(([date, data]) => ({
+        date,
+        count: data.total,
+        unresolved: data.unresolved,
+      }));
+
+    return {
+      total,
+      unresolved,
+      bySeverity: (bySeverity as any[]).map((s: any) => ({
+        severity: s.severity,
+        count: s._count._all,
+      })),
+      byType: (byType as any[]).map((t: any) => ({
+        anomalyType: t.anomalyType,
+        count: t._count._all,
+      })),
+      trend,
+    };
+  }
+
+  /**
+   * deleteAnomaly
+   * ─────────────
+   * Xoá một anomaly record (manual cleanup).
+   */
+  async deleteAnomaly(id: string): Promise<boolean> {
+    try {
+      await this.prisma.anomalyRecord.delete({ where: { id } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * purgeOldAnomalies
+   * ─────────────────
+   * Xoá các anomaly records cũ hơn N ngày.
+   * Dùng cho cleanup định kỳ.
+   */
+  async purgeOldAnomalies(olderThanDays: number = 90): Promise<{ deleted: number }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - olderThanDays);
+
+    const result = await this.prisma.anomalyRecord.deleteMany({
+      where: {
+        detectedAt: { lt: cutoff },
+        isResolved: true, // Chỉ xoá cái đã resolve
+      },
+    });
+
+    return { deleted: result.count };
   }
 }

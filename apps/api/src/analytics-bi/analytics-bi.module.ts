@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma.service';
 import { AnalyticsBiService } from './analytics-bi.service';
 import { AnalyticsBiController } from './analytics-bi.controller';
 import { AnalyticsCronService } from './analytics-cron.service';
+import { AnomalyDetectorService } from './anomaly-detector.service';
+import { RecommendationService } from './recommendation.service';
 
 /**
  * AnalyticsBiModule
@@ -11,11 +13,13 @@ import { AnalyticsCronService } from './analytics-cron.service';
  * Cung cấp:
  *   - Hourly/Daily aggregation từ các bảng nguồn
  *   - Platform benchmark theo industry
- *   - Anomaly detection (interface for cron)
+ *   - Anomaly detection (statistical: z-score, IQR, moving avg)
+ *   - Predictive recommendation (collaborative + content-based)
  *   - Tenant health scoring & revenue analytics
+ *   - Anomaly record CRUD & notification
  *
- * Export: AnalyticsBiService + AnalyticsCronService để các module khác
- * (vd: Admin Dashboard) tái sử dụng analytics data.
+ * Export: AnalyticsBiService + AnalyticsCronService + AnomalyDetectorService
+ * + RecommendationService để các module khác tái sử dụng.
  */
 @Module({
   controllers: [AnalyticsBiController],
@@ -23,10 +27,14 @@ import { AnalyticsCronService } from './analytics-cron.service';
     PrismaService,
     AnalyticsBiService,
     AnalyticsCronService,
+    AnomalyDetectorService,
+    RecommendationService,
   ],
   exports: [
     AnalyticsBiService,
     AnalyticsCronService,
+    AnomalyDetectorService,
+    RecommendationService,
   ],
 })
 export class AnalyticsBiModule {}

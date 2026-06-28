@@ -25,6 +25,8 @@ import { AnalyticsBiModule } from './analytics-bi/analytics-bi.module';
 import { AiAgentModule } from './ai-agent/ai-agent.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { LicensingModule } from './licensing/licensing.module';
+import { ConsultantModule } from './consultant/consultant.module';
+import { DataMarketplaceModule } from './data-marketplace/data-marketplace.module';
 import { BillingMeterController } from './billing-meter.controller';
 import { AiBillingMeterService } from './ai-billing-meter.service';
 import { SearchService } from './search.service';
@@ -61,6 +63,8 @@ import { ApiKeyController } from './api-key.controller';
     AiAgentModule,
     ComplianceModule,
     LicensingModule,
+    ConsultantModule,
+    DataMarketplaceModule,
   ],
   controllers: [AppController, BillingMeterController, SearchController, AnalyticsController, ApiKeyController],
   providers: [AiBillingMeterService, SearchService, AnalyticsService, ApiKeyService],
