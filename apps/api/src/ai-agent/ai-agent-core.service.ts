@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { AiAgentActionExecutorService } from './ai-agent-action-executor.service';
+import type { BatchExecutionResult } from './ai-agent-action-executor.service';
 
 type AgentIntent =
   | 'BUDGET_OPTIMIZATION'
@@ -43,7 +45,10 @@ type InternalAgentAnalysis = {
 export class AiAgentCoreService {
   private readonly logger = new Logger(AiAgentCoreService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionExecutor: AiAgentActionExecutorService,
+  ) {}
 
   async processAgentCommand(
     tenantId: string,
@@ -74,6 +79,35 @@ export class AiAgentCoreService {
     await this.writeAgentAuditLog(normalizedTenantId, normalizedQuery, result);
 
     return result;
+  }
+
+  /**
+   * processAndExecute
+   * ────────────────────
+   * processAgentCommand + executeActions in one call.
+   * Phân tích lệnh, gợi ý action, và thực thi tất cả action an toàn.
+   */
+  async processAndExecute(
+    tenantId: string,
+    sessionId: string,
+    query: string,
+    userId?: string,
+  ): Promise<{
+    command: AgentCommandResult;
+    execution: BatchExecutionResult;
+  }> {
+    // 1. Phân tích lệnh như bình thường
+    const command = await this.processAgentCommand(tenantId, query);
+
+    // 2. Thực thi các recommended actions
+    const execution = await this.actionExecutor.executeActions(
+      sessionId,
+      this.normalizeTenantId(tenantId),
+      command,
+      userId,
+    );
+
+    return { command, execution };
   }
 
   private buildOperatorPlan(
