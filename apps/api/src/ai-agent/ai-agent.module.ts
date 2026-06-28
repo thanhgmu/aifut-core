@@ -12,6 +12,8 @@ import { AiAgentCoreService } from './ai-agent-core.service';
 import { AiAgentActionExecutorService } from './ai-agent-action-executor.service';
 import { AiAgentController } from './ai-agent.controller';
 import { AiAgentSessionService } from './ai-agent-session.service';
+import { AiAgentTriggerService } from './ai-agent-trigger.service';
+import { AiAgentTriggerScheduler } from './ai-agent-trigger.scheduler';
 
 @Module({
   imports: [
@@ -25,11 +27,14 @@ import { AiAgentSessionService } from './ai-agent-session.service';
     AiAgentCoreService,
     AiAgentActionExecutorService,
     AiAgentSessionService,
+    AiAgentTriggerService,
+    AiAgentTriggerScheduler,
   ],
   exports: [
     AiAgentCoreService,
     AiAgentActionExecutorService,
     AiAgentSessionService,
+    AiAgentTriggerService,
   ],
 })
 export class AiAgentModule {}

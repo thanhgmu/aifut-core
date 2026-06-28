@@ -11,6 +11,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Headers,
   Body,
   Param,
@@ -20,6 +22,7 @@ import {
 } from '@nestjs/common';
 import { AiAgentCoreService } from './ai-agent-core.service';
 import { AiAgentSessionService } from './ai-agent-session.service';
+import { AiAgentTriggerService } from './ai-agent-trigger.service';
 
 // ── Controller ────────────────────────────────────────────────────────────
 
@@ -28,6 +31,7 @@ export class AiAgentController {
   constructor(
     private readonly agentCore: AiAgentCoreService,
     private readonly sessionService: AiAgentSessionService,
+    private readonly triggerService: AiAgentTriggerService,
   ) {}
 
   /**
@@ -354,6 +358,160 @@ export class AiAgentController {
     }
     const deleted = await this.sessionService.deleteSession(id);
     return { success: deleted };
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  //  Trigger Management Endpoints
+  // ═════════════════════════════════════════════════════════════════════════
+
+  /**
+   * POST /v1/ai-agent/triggers
+   * Tạo trigger mới (scheduled/event/threshold).
+   */
+  @Post('triggers')
+  async createTrigger(
+    @Headers('x-tenant-id') tenantId: string,
+    @Body() body: {
+      name: string;
+      triggerType: 'scheduled' | 'event' | 'threshold';
+      schedule?: string;
+      eventType?: string;
+      config?: Record<string, unknown>;
+      intent?: string;
+    },
+  ) {
+    this.requireTenant(tenantId);
+    if (!body.name || body.name.trim().length === 0) {
+      throw new BadRequestException('name is required.');
+    }
+    if (!['scheduled', 'event', 'threshold'].includes(body.triggerType)) {
+      throw new BadRequestException('triggerType must be scheduled, event, or threshold.');
+    }
+    if (body.triggerType === 'scheduled' && !body.schedule) {
+      throw new BadRequestException('schedule is required for scheduled triggers.');
+    }
+
+    const trigger = await this.triggerService.createTrigger({
+      tenantId,
+      name: body.name,
+      triggerType: body.triggerType,
+      schedule: body.schedule,
+      eventType: body.eventType,
+      config: body.config,
+      intent: body.intent,
+    });
+
+    return { trigger };
+  }
+
+  /**
+   * GET /v1/ai-agent/triggers
+   * Danh sách triggers của tenant.
+   */
+  @Get('triggers')
+  async listTriggers(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('triggerType') triggerType?: string,
+    @Query('isActive') isActive?: string,
+  ) {
+    this.requireTenant(tenantId);
+    const triggers = await this.triggerService.listTriggers(tenantId, {
+      triggerType,
+      isActive: isActive !== undefined ? isActive === 'true' : undefined,
+    });
+    return { items: triggers };
+  }
+
+  /**
+   * GET /v1/ai-agent/triggers/:id
+   * Chi tiết trigger.
+   */
+  @Get('triggers/:id')
+  async getTrigger(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    this.requireTenant(tenantId);
+    const trigger = await this.triggerService.getTrigger(id);
+    if (!trigger || trigger.tenantId !== tenantId) {
+      throw new NotFoundException('Trigger not found.');
+    }
+    return { trigger };
+  }
+
+  /**
+   * PATCH /v1/ai-agent/triggers/:id
+   * Cập nhật trigger.
+   */
+  @Patch('triggers/:id')
+  async updateTrigger(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: {
+      name?: string;
+      schedule?: string;
+      eventType?: string;
+      config?: Record<string, unknown>;
+      intent?: string;
+      isActive?: boolean;
+    },
+  ) {
+    this.requireTenant(tenantId);
+    const existing = await this.triggerService.getTrigger(id);
+    if (!existing || existing.tenantId !== tenantId) {
+      throw new NotFoundException('Trigger not found.');
+    }
+    const updated = await this.triggerService.updateTrigger(id, body);
+    return { trigger: updated };
+  }
+
+  /**
+   * DELETE /v1/ai-agent/triggers/:id
+   * Xoá trigger.
+   */
+  @Delete('triggers/:id')
+  async deleteTrigger(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    this.requireTenant(tenantId);
+    const existing = await this.triggerService.getTrigger(id);
+    if (!existing || existing.tenantId !== tenantId) {
+      throw new NotFoundException('Trigger not found.');
+    }
+    const deleted = await this.triggerService.deleteTrigger(id);
+    return { success: deleted };
+  }
+
+  /**
+   * POST /v1/ai-agent/triggers/:id/fire
+   * Kích hoạt trigger thủ công (manual fire).
+   */
+  @Post('triggers/:id/fire')
+  async fireTrigger(
+    @Headers('x-tenant-id') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    this.requireTenant(tenantId);
+    const existing = await this.triggerService.getTrigger(id);
+    if (!existing || existing.tenantId !== tenantId) {
+      throw new NotFoundException('Trigger not found.');
+    }
+    const result = await this.triggerService.fireTrigger(id);
+    return result;
+  }
+
+  /**
+   * GET /v1/ai-agent/triggers/stats
+   * Thống kê trigger cho tenant dashboard.
+   */
+  @Get('triggers/stats')
+  async getTriggerStats(
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    this.requireTenant(tenantId);
+    const stats = await this.triggerService.getTenantTriggerStats(tenantId);
+    return { stats };
   }
 
   private requireTenant(tenantId?: string): asserts tenantId is string {
