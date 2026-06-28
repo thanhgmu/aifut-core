@@ -383,11 +383,12 @@ describe('AnomalyDetectorService', () => {
 
   describe('IDLE_TENANT detection', () => {
     it('should detect user count drop as IDLE_TENANT', async () => {
+      // Use varied historical values to ensure stddev > 0 and IQR detection works
       for (let h = 0; h < 48; h++) {
         mockPrisma._seedSummary({
           tenantId: 'idle-tenant',
           timestamp: new Date(Date.now() - (48 - h) * 3600_000),
-          activeUserCount: 50,
+          activeUserCount: 40 + (h % 20), // 40…59, varied
           totalExecutions: 100,
         });
       }

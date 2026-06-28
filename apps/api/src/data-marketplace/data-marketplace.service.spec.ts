@@ -121,9 +121,16 @@ function makeMockPrisma() {
           if (args.where.isPublished !== undefined) filtered = filtered.filter((p) => p.isPublished === args.where.isPublished);
           if (args.where.tenantId) filtered = filtered.filter((p) => p.tenantId === args.where.tenantId);
           if (args.where.category) filtered = filtered.filter((p) => p.category === args.where.category);
-          if (args.where.OR) {
-            const search = args.where.OR[0]?.name?.contains;
-            if (search) filtered = filtered.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+          if (args.where.OR && Array.isArray(args.where.OR)) {
+            filtered = filtered.filter((p) => {
+              return args.where.OR.some((condition: any) => {
+                const field = Object.keys(condition)[0];
+                const val = condition[field]?.contains;
+                if (!val) return false;
+                const pValue = String((p as any)[field] ?? '');
+                return pValue.toLowerCase().includes(val.toLowerCase());
+              });
+            });
           }
           if (args.where.price) {
             if (args.where.price.gte) filtered = filtered.filter((p) => p.price >= args.where.price.gte);
@@ -140,6 +147,17 @@ function makeMockPrisma() {
         let filtered = [...products];
         if (args?.where?.isPublished !== undefined) filtered = filtered.filter((p) => p.isPublished === args.where.isPublished);
         if (args?.where?.category) filtered = filtered.filter((p) => p.category === args.where.category);
+        if (args?.where?.OR && Array.isArray(args.where.OR)) {
+          filtered = filtered.filter((p) => {
+            return args.where.OR.some((condition: any) => {
+              const field = Object.keys(condition)[0];
+              const val = condition[field]?.contains;
+              if (!val) return false;
+              const pValue = String((p as any)[field] ?? '');
+              return pValue.toLowerCase().includes(val.toLowerCase());
+            });
+          });
+        }
         return Promise.resolve(filtered.length);
       }),
       create: jest.fn().mockImplementation((args: any) => {

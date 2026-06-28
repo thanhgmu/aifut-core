@@ -279,7 +279,7 @@ describe('AiAgentActionExecutorService', () => {
   describe('REVIEW_ACCESS_POLICY', () => {
     it('should return access policy review', async () => {
       mockPrisma._seedEvent({ action: 'ACCESS_DENIED', severity: 'WARN', actorType: 'API' });
-      mockPrisma._seedEvent({ action: 'ROLE_CHANGED', severity: 'CRITICAL', actorType: 'USER' });
+      mockPrisma._seedEvent({ action: 'ACCESS_GRANTED', severity: 'CRITICAL', actorType: 'USER' });
 
       const command = makeCommand({
         recommendedActions: [
