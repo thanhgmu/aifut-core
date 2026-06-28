@@ -6,20 +6,22 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { BillingService } from '../billing/billing.service';
-import { AnalyticsBiService } from '../analytics-bi/analytics-bi.service';
-import { AuditService } from '../audit/audit.service';
+import { AnalyticsBiModule } from '../analytics-bi/analytics-bi.module';
+import { AuditModule } from '../audit/audit.module';
 import { AiAgentCoreService } from './ai-agent-core.service';
 import { AiAgentActionExecutorService } from './ai-agent-action-executor.service';
 import { AiAgentController } from './ai-agent.controller';
 import { AiAgentSessionService } from './ai-agent-session.service';
 
 @Module({
+  imports: [
+    AnalyticsBiModule,
+    AuditModule,
+  ],
   controllers: [AiAgentController],
   providers: [
     PrismaService,
     BillingService,
-    AnalyticsBiService,
-    AuditService,
     AiAgentCoreService,
     AiAgentActionExecutorService,
     AiAgentSessionService,

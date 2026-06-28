@@ -3,12 +3,12 @@ import { AiGovernanceController } from './ai-governance.controller';
 import { AiGovernancePersistenceService } from './ai-governance-persistence.service';
 import { AiTokenGovernanceService } from './ai-token-governance.service';
 import { TenancyModule } from './tenancy.module';
-import { AiAgentCoreService } from './ai-agent/ai-agent-core.service';
+import { AiAgentModule } from './ai-agent/ai-agent.module';
 
 @Module({
-  imports: [TenancyModule],
+  imports: [TenancyModule, AiAgentModule],
   controllers: [AiGovernanceController],
-  providers: [AiTokenGovernanceService, AiGovernancePersistenceService, AiAgentCoreService],
-  exports: [AiTokenGovernanceService, AiGovernancePersistenceService, AiAgentCoreService],
+  providers: [AiTokenGovernanceService, AiGovernancePersistenceService],
+  exports: [AiTokenGovernanceService, AiGovernancePersistenceService],
 })
 export class AiGovernanceModule {}

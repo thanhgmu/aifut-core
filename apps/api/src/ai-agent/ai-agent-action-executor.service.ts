@@ -157,7 +157,7 @@ export class AiAgentActionExecutorService {
         return this.handleScanRecentErrors(tenantId);
 
       case 'OPEN_INCIDENT_DRAFT':
-        return this.handleOpenIncidentDraft(tenantId, targetId);
+        return this.handleOpenIncidentDraft(tenantId, targetId, userId);
 
       // ── Security / Audit ───────────────────────────────────────────
       case 'REVIEW_ACCESS_POLICY':
@@ -175,7 +175,7 @@ export class AiAgentActionExecutorService {
 
       // ── General ────────────────────────────────────────────────────
       case 'CREATE_AGENT_TASK_DRAFT':
-        return this.handleCreateAgentTaskDraft(tenantId, targetId);
+        return this.handleCreateAgentTaskDraft(tenantId, targetId, userId);
 
       default:
         // Unknown action type → simulate with advisory info
@@ -192,11 +192,6 @@ export class AiAgentActionExecutorService {
   //  Handler implementations
   // ═════════════════════════════════════════════════════════════════════
 
-  /**
-   * ANALYZE_USAGE_COST
-   * ──────────────────
-   * Lấy dữ liệu usage + hóa đơn → phân tích xu hướng chi phí.
-   */
   /** Helper: lấy latest analytics snapshot cho tenant */
   private async getLatestAnalyticsSnapshot(tenantId: string, period: 'HOURLY' | 'DAILY' = 'DAILY') {
     const snapshots = await this.analyticsBiService.getTenantAnalytics(tenantId, period);
@@ -209,14 +204,10 @@ export class AiAgentActionExecutorService {
    * Lấy dữ liệu usage + hóa đơn → phân tích xu hướng chi phí.
    */
   private async handleAnalyzeUsageCost(tenantId: string): Promise<unknown> {
-    // 1. Lấy billing account + invoices
     const account = await this.billingService.getOrCreateAccount(tenantId);
     const invoices = await this.billingService.getInvoices(tenantId);
-
-    // 2. Lấy analytics snapshot (aggregated data)
     const analytics = await this.getLatestAnalyticsSnapshot(tenantId, 'DAILY');
 
-    // 3. Tổng hợp phân tích
     const totalInvoiced = invoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
     const paidCount = invoices.filter((inv: any) => inv.status === 'paid').length;
     const pendingCount = invoices.filter((inv: any) => inv.status === 'pending').length;
@@ -268,13 +259,11 @@ export class AiAgentActionExecutorService {
    * Gợi ý cấu hình routing model AI dựa trên usage pattern.
    */
   private async handleRecommendModelRouting(tenantId: string): Promise<unknown> {
-    // Lấy analytics để biết pattern usage
     const analytics = await this.getLatestAnalyticsSnapshot(tenantId, 'DAILY');
 
     const aiCallCount = analytics?.ai?.callCount ? Number(analytics.ai.callCount) : 0;
     const totalCost = Number(analytics?.ai?.totalCost ?? '0');
 
-    // Routing policy template dựa trên usage volume
     const routingPolicy = {
       smallTasks: {
         model: aiCallCount > 50 ? 'gpt-4o-mini' : 'gpt-4o',
@@ -294,7 +283,7 @@ export class AiAgentActionExecutorService {
     };
 
     const estimatedSavings = aiCallCount > 0
-      ? (totalCost * 0.35).toFixed(2) // Ước tính 35% savings khi routing đúng
+      ? (totalCost * 0.35).toFixed(2)
       : 'N/A';
 
     return {
@@ -316,17 +305,15 @@ export class AiAgentActionExecutorService {
    * Quét lỗi gần đây từ analytics + audit.
    */
   private async handleScanRecentErrors(tenantId: string): Promise<unknown> {
-    // Lấy analytics snapshot để biết failed executions
     const analytics = await this.getLatestAnalyticsSnapshot(tenantId, 'DAILY');
 
     const failedCount = analytics?.executions?.failed ?? 0;
     const totalCount = analytics?.executions?.total ?? 0;
 
-    // Quét audit log gần nhất để tìm lỗi
     const recentAuditEvents = await this.prisma.auditEvent.findMany({
       where: {
         tenantId,
-        severity: { in: ['error', 'warning'] },
+        severity: { in: ['WARN' as any, 'CRITICAL' as any] },
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
       orderBy: { createdAt: 'desc' },
@@ -339,6 +326,14 @@ export class AiAgentActionExecutorService {
         metadata: true,
       },
     });
+
+    // Fix type: map to { action, severity } before grouping
+    const mappedEvents = recentAuditEvents
+      .filter((e) => e.severity !== null)
+      .map((e) => ({
+        action: e.action,
+        severity: e.severity as string,
+      }));
 
     return {
       tenantId,
@@ -356,19 +351,19 @@ export class AiAgentActionExecutorService {
         summary: (e.metadata as any)?.error ?? e.action,
       })),
       totalAuditIssues: recentAuditEvents.length,
-      topIssues: this.groupAuditErrors(recentAuditEvents),
+      topIssues: this.groupAuditErrors(mappedEvents),
     };
   }
 
   /**
    * OPEN_INCIDENT_DRAFT
    * ───────────────────
-   * Tạo bản nháp incident (ghi vào DB qua model sẵn có hoặc vào metadata).
-   * Hiện tại dùng AuditEvent + telemetry vì chưa có Incident model riêng.
+   * Tạo bản nháp incident với audit trail.
    */
   private async handleOpenIncidentDraft(
     tenantId: string,
     targetId: string,
+    userId?: string,
   ): Promise<unknown> {
     const draft = {
       id: `draft-inc-${Date.now()}`,
@@ -387,14 +382,14 @@ export class AiAgentActionExecutorService {
       ],
     };
 
-    // Ghi vào audit trail
     await this.auditService.logActivity({
       tenantId,
       action: 'AI_AGENT_INCIDENT_DRAFT_CREATED',
-      actor: 'ai-agent-core',
-      targetType: 'incident',
-      targetId: draft.id,
-      payload: { draft, source: 'AI_AGENT_CORE' },
+      userId: userId ?? null,
+      actorType: 'SYSTEM',
+      resource: 'incident',
+      resourceId: draft.id,
+      metadata: { draft },
     });
 
     return draft;
@@ -409,7 +404,6 @@ export class AiAgentActionExecutorService {
     tenantId: string,
     userId?: string,
   ): Promise<unknown> {
-    // Query recent access-related audit events
     const accessEvents = await this.prisma.auditEvent.findMany({
       where: {
         tenantId,
@@ -421,19 +415,24 @@ export class AiAgentActionExecutorService {
       select: {
         id: true,
         action: true,
-        actor: true,
+        actorType: true,
+        userId: true,
         targetId: true,
         severity: true,
         createdAt: true,
       },
     });
 
-    // Group by actor
+    // Group by actorType instead of actor
     const actorMap = new Map<string, number>();
     for (const event of accessEvents) {
-      const actor = event.actor ?? 'unknown';
+      const actor = event.actorType ?? 'UNKNOWN';
       actorMap.set(actor, (actorMap.get(actor) ?? 0) + 1);
     }
+
+    const sensitiveActions = accessEvents.filter(
+      (e) => e.severity === 'CRITICAL' || e.severity === 'WARN',
+    );
 
     return {
       tenantId,
@@ -443,9 +442,7 @@ export class AiAgentActionExecutorService {
       actorsByActivity: Array.from(actorMap.entries())
         .map(([actor, count]) => ({ actor, count }))
         .sort((a, b) => b.count - a.count),
-      recentSensitiveActions: accessEvents
-        .filter((e) => e.severity === 'critical' || e.severity === 'high')
-        .slice(0, 10),
+      recentSensitiveActions: sensitiveActions.slice(0, 10),
       reviewedBy: userId ?? 'ai-agent-core',
       reviewedAt: new Date().toISOString(),
     };
@@ -454,20 +451,18 @@ export class AiAgentActionExecutorService {
   /**
    * EXPORT_SECURITY_AUDIT_SUMMARY
    * ──────────────────────────────
-   * Tổng hợp audit summary.
+   * Tổng hợp audit summary với raw SQL.
    */
   private async handleExportAuditSummary(tenantId: string): Promise<unknown> {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Event counts by severity
     const severityCounts = await this.prisma.$queryRawUnsafe<Array<{ severity: string; count: bigint }>>(
       `SELECT severity, COUNT(*)::int as count FROM "AuditEvent" WHERE "tenantId" = $1 AND "createdAt" >= $2 GROUP BY severity ORDER BY severity`,
       tenantId,
       thirtyDaysAgo,
     );
 
-    // Event counts by action type
     const actionCounts = await this.prisma.$queryRawUnsafe<Array<{ action: string; count: bigint }>>(
       `SELECT action, COUNT(*)::int as count FROM "AuditEvent" WHERE "tenantId" = $1 AND "createdAt" >= $2 GROUP BY action ORDER BY count DESC LIMIT 20`,
       tenantId,
@@ -493,21 +488,20 @@ export class AiAgentActionExecutorService {
   /**
    * MAP_INTEGRATION_REQUIREMENTS
    * ─────────────────────────────
-   * Tạo integration plan template dựa trên tenant context.
+   * Tạo integration plan template dựa trên IntegrationConnection inventory.
    */
   private async handleMapIntegrationRequirements(tenantId: string): Promise<unknown> {
-    // Tenant connectors
-    const connectors = await this.prisma.connector.findMany({
+    const connections = await this.prisma.integrationConnection.findMany({
       where: { tenantId },
-      select: { id: true, name: true, connectorType: true, status: true },
+      select: { id: true, name: true, provider: true, status: true },
     });
 
     return {
       tenantId,
-      existingConnectors: connectors.map((c) => ({
+      existingConnectors: connections.map((c) => ({
         id: c.id,
         name: c.name,
-        type: c.connectorType,
+        type: c.provider,
         status: c.status,
       })),
       recommendedPatterns: [
@@ -517,7 +511,7 @@ export class AiAgentActionExecutorService {
         { type: 'EVENT_BRIDGE', description: 'Cross-connector event-driven workflows' },
       ],
       nextSteps: [
-        'Review existing connectors and their current status',
+        'Review existing integrations and their current status',
         'Identify gaps in current integration coverage',
         'Draft an integration architecture diagram',
       ],
@@ -527,15 +521,15 @@ export class AiAgentActionExecutorService {
   /**
    * VALIDATE_CONNECTOR_SCOPE
    * ────────────────────────
-   * Kiểm tra phạm vi quyền của connector.
+   * Kiểm tra phạm vi quyền của IntegrationConnection.
    */
   private async handleValidateConnectorScope(tenantId: string): Promise<unknown> {
-    const connectors = await this.prisma.connector.findMany({
+    const connections = await this.prisma.integrationConnection.findMany({
       where: { tenantId },
       select: {
         id: true,
         name: true,
-        connectorType: true,
+        provider: true,
         status: true,
         config: true,
       },
@@ -544,20 +538,20 @@ export class AiAgentActionExecutorService {
     const issues: string[] = [];
     const valid: string[] = [];
 
-    for (const conn of connectors) {
+    for (const conn of connections) {
       if (!conn.config || Object.keys(conn.config as Record<string, unknown>).length === 0) {
-        issues.push(`Connector "${conn.name}" (${conn.connectorType}) has no configuration`);
-      } else if (conn.status === 'DISCONNECTED') {
-        issues.push(`Connector "${conn.name}" is disconnected — needs re-authorization`);
+        issues.push(`Integration "${conn.name}" (${conn.provider}) has no configuration`);
+      } else if (conn.status === 'PENDING' || conn.status === 'ERROR') {
+        issues.push(`Integration "${conn.name}" has status ${conn.status} — needs attention`);
       } else {
-        valid.push(`${conn.name} (${conn.connectorType}): scope OK`);
+        valid.push(`${conn.name} (${conn.provider}): scope OK`);
       }
     }
 
     return {
       tenantId,
-      totalConnectors: connectors.length,
-      validConnectors: valid,
+      totalConnections: connections.length,
+      validConnections: valid,
       issues,
       healthy: issues.length === 0,
       validatedAt: new Date().toISOString(),
@@ -567,12 +561,12 @@ export class AiAgentActionExecutorService {
   /**
    * CREATE_AGENT_TASK_DRAFT
    * ────────────────────────
-   * Tạo structured task draft từ agent analysis.
-   * Task lưu vào session messages cho đến khi có Task model riêng.
+   * Tạo structured task draft từ agent analysis với audit trail.
    */
   private async handleCreateAgentTaskDraft(
     tenantId: string,
     targetId: string,
+    userId?: string,
   ): Promise<unknown> {
     const draft = {
       id: `agent-task-${Date.now()}`,
@@ -584,14 +578,14 @@ export class AiAgentActionExecutorService {
       createdAt: new Date().toISOString(),
     };
 
-    // Ghi audit
     await this.auditService.logActivity({
       tenantId,
       action: 'AI_AGENT_TASK_DRAFT_CREATED',
-      actor: 'ai-agent-core',
-      targetType: 'agent-task',
-      targetId: draft.id,
-      payload: { draft, source: 'AI_AGENT_CORE' },
+      userId: userId ?? null,
+      actorType: 'SYSTEM',
+      resource: 'agent-task',
+      resourceId: draft.id,
+      metadata: { draft },
     });
 
     return draft;
@@ -613,10 +607,11 @@ export class AiAgentActionExecutorService {
       await this.auditService.logActivity({
         tenantId,
         action: 'AI_AGENT_ACTIONS_EXECUTED',
-        actor: userId ?? 'ai-agent-core',
-        targetType: 'ai-agent-session',
-        targetId: sessionId,
-        payload: {
+        userId: userId ?? null,
+        actorType: 'SYSTEM',
+        resource: 'ai-agent-session',
+        resourceId: sessionId,
+        metadata: {
           intent: command.intent,
           confidence: command.confidence,
           executionMode: command.operatorPlan.executionMode,
@@ -632,7 +627,6 @@ export class AiAgentActionExecutorService {
         },
       });
     } catch {
-      // Audit log fail không block execution
       this.logger.warn(`Failed to record execution audit for tenant ${tenantId}`);
     }
   }
