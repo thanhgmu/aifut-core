@@ -1,0 +1,50 @@
+# ════════════════════════════════════════════════════════════════
+# AIFUT — Monitoring Stack (optional, on-premise)
+# ════════════════════════════════════════════════════════════════
+# Lightweight Prometheus + Grafana for on-premise deployments.
+# Usage: docker compose -f docker-compose.airgap.yml -f docker-compose.monitoring.yml up -d
+# ════════════════════════════════════════════════════════════════
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    container_name: aifut-prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+      - full
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:11.7.0
+    container_name: aifut-grafana
+    restart: unless-stopped
+    profiles:
+      - monitoring
+      - full
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+
+volumes:
+  prometheus_data:
+  grafana_data:

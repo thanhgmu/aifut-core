@@ -1,73 +1,106 @@
-# ═══════════════════════════════════════════════════════════════════════════
-# docker-compose.airgap.yml — AIFUT On-Premise / Air-Gapped Deployment
-# ═══════════════════════════════════════════════════════════════════════════
-# Không phụ thuộc PostgreSQL. Dùng SQLite local.
-# Chạy offline hoàn toàn — 0 external dependencies.
-# Phù hợp cho: SME Việt Nam, government, air-gapped environments.
+# ════════════════════════════════════════════════════════════════
+# AIFUT — Air-Gapped / On-Premise Deployment (offline-ready)
+# ════════════════════════════════════════════════════════════════
+# Use when the target environment has NO internet access.
+# All images must be pre-loaded or built from local Dockerfiles.
 #
 # Usage:
-#   docker compose -f infra/docker/docker-compose.airgap.yml up -d
-# ═══════════════════════════════════════════════════════════════════════════
+#   docker compose -f docker-compose.airgap.yml up -d
+# ════════════════════════════════════════════════════════════════
 
 services:
-  ## ── AIFUT Backend & Frontend (Monolith) ──────────────────────────
-  aifut-core:
-    image: aifut/core:latest
-    container_name: aifut-airgap-core
+  postgres:
+    image: postgres:16-alpine
+    container_name: aifut-db-airgap
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER:-aifut}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-aifut_secret}
+      POSTGRES_DB: ${PG_DB:-aifut}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-aifut}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: aifut-api:${AIFUT_VERSION:-latest}
     build:
       context: ../..
-      dockerfile: Dockerfile
-      args:
-        RUNTIME_MODE: local-sqlite
+      dockerfile: apps/api/Dockerfile
+    container_name: aifut-api-airgap
     restart: unless-stopped
-    ports:
-      - "3000:3000"   # Web UI
-      - "3002:3002"   # API
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      RUNTIME_MODE: local-sqlite
-      DATABASE_URL: file:/data/aifut.db
       NODE_ENV: production
-      AIRGAP_MODE: "true"
-      # Tắt mọi external call
-      DISABLE_TELEMETRY: "true"
-      DISABLE_CRON_SYNC: "true"
-      # JWT tự sinh nếu không set
-      # JWT_SECRET: "<your-secret>"
+      DATABASE_URL: postgresql://${PG_USER:-aifut}:${PG_PASSWORD:-aifut_secret}@postgres:5432/${PG_DB:-aifut}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required for production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      API_PORT: 3002
+      # ── License (on-premise) ──
+      AIFUT_LICENSE_KEY: ${AIFUT_LICENSE_KEY:-}
+      AIFUT_EDITION: ${AIFUT_EDITION:-on-premise}
+      # ── Storage ──
+      UPLOAD_DIR: /app/uploads
+      # ── Telemetry (opt-in only for on-prem) ──
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
+      TELEMETRY_ENDPOINT: ${TELEMETRY_ENDPOINT:-}
+    ports:
+      - "127.0.0.1:3002:3002"
     volumes:
-      - aifut_data:/data   # SQLite DB + file uploads
-      - aifut_config:/config   # Config overrides
-    networks:
-      - aifut-airgap
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      - api_uploads:/app/uploads
+      - ./config/api.env:/app/.env:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  ## ── Nginx Reverse Proxy (optional) ───────────────────────────────
-  aifut-nginx:
-    image: nginx:alpine
-    container_name: aifut-airgap-nginx
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: aifut-web:${AIFUT_VERSION:-latest}
+    container_name: aifut-web-airgap
     restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002}
+      NEXT_PUBLIC_EDITION: on-premise
+    ports:
+      - "127.0.0.1:3000:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Optional: Nginx reverse proxy (air-gapped) ──
+  nginx:
+    image: nginx:alpine
+    container_name: aifut-nginx-airgap
+    restart: unless-stopped
+    profiles:
+      - with-proxy
+    depends_on:
+      - api
+      - web
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.airgap.conf:/etc/nginx/nginx.conf:ro
-      - aifut_ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - aifut-core
-    networks:
-      - aifut-airgap
-    profiles:
-      - with-nginx   # Chỉ start với --profile with-nginx
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
 
 volumes:
-  aifut_data:
-  aifut_config:
-  aifut_ssl:
-
-networks:
-  aifut-airgap:
-    driver: bridge
+  pgdata:
+  api_uploads:

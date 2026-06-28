@@ -1,0 +1,36 @@
+# ════════════════════════════════════════════════════════════════
+# AIFUT — Prometheus Configuration (on-premise)
+# ════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'aifut-api'
+    static_configs:
+      - targets: ['host.docker.internal:3002']
+        labels:
+          service: 'api'
+          edition: 'on-premise'
+
+  - job_name: 'aifut-web'
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+        labels:
+          service: 'web'
+          edition: 'on-premise'
+
+  - job_name: 'aifut-postgres'
+    static_configs:
+      - targets: ['host.docker.internal:5432']
+        labels:
+          service: 'postgres'
+          edition: 'on-premise'
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          service: 'node'
+          edition: 'on-premise'
