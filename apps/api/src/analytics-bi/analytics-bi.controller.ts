@@ -86,4 +86,25 @@ export class AnalyticsBiController {
       days: parseInt(days ?? '30', 10) || 30,
     });
   }
+
+  /**
+   * GET /v1/analytics/tenant/benchmark
+   * Tenant benchmark dashboard: so sánh tenant hiện tại với industry peers.
+   * Trả về percentile ranking, deviation, composite health score.
+   */
+  @Get('tenant/benchmark')
+  async getTenantBenchmark(
+    @Headers('x-tenant-id') tenantId: string,
+    @Query('period') period?: string,
+    @Query('industry') industry?: string,
+  ) {
+    if (!tenantId) throw new BadRequestException('x-tenant-id header is required.');
+    return this.analytics.getTenantBenchmarkComparison(
+      tenantId,
+      {
+        period: (period as 'HOURLY' | 'DAILY') || 'DAILY',
+        industry,
+      },
+    );
+  }
 }

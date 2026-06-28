@@ -29,6 +29,29 @@ export interface PlatformHealthReport {
   topCostTenants: Array<{ tenantSlug: string; totalCost: string }>;
 }
 
+export interface TenantBenchmarkComparison {
+  tenantId: string;
+  industry: string;
+  period: string;
+  windowDate: Date | null;
+  metrics: Array<{
+    name: string;
+    tenantValue: number;
+    industryAvg: number;
+    industryMedian: number;
+    industryP90: number;
+    industryP95: number;
+    industryMin: number;
+    industryMax: number;
+    deviation: number;
+    percentile: number;
+    ranking: 'top' | 'above_avg' | 'avg' | 'below_avg' | 'bottom';
+    betterThan: number;
+    totalPeers: number;
+  }>;
+  overallScore: number;
+}
+
 export interface TenantAnalyticsSnapshot {
   tenantId: string;
   timestamp: Date;
@@ -687,5 +710,208 @@ export class AnalyticsBiService {
       }));
 
     return { trends, period };
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  //  TENANT BENCHMARK COMPARISON (Self vs Industry)
+  // ═════════════════════════════════════════════════════════════════════
+
+  /**
+   * getTenantBenchmarkComparison
+   * ─────────────────────────────
+   * So sánh metrics của tenant với industry benchmark.
+   * Dùng cho Tenant Benchmark Dashboard — tenant thấy "mình đang ở đâu so với peers".
+   * Anonymized: chỉ trả về benchmark aggregate, không expose tenant identity.
+   */
+  async getTenantBenchmarkComparison(
+    tenantId: string,
+    options: { period?: 'HOURLY' | 'DAILY'; industry?: string } = {},
+  ): Promise<TenantBenchmarkComparison> {
+    const period = options.period || 'DAILY';
+
+    // ── Xác định industry của tenant ───────────────────────────────────
+    let industry = options.industry;
+    if (!industry) {
+      const listing = await this.prisma.marketplaceListing.findFirst({
+        where: { tenantId, isPublished: true, industry: { not: null } },
+        select: { industry: true },
+      });
+      industry = listing?.industry ?? 'general';
+    }
+
+    // ── Latest daily summary cho tenant ────────────────────────────────
+    const latestSummary = await this.prisma.tenantAnalyticsSummary.findFirst({
+      where: { tenantId, period },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    if (!latestSummary) {
+      return {
+        tenantId,
+        industry,
+        period,
+        windowDate: null,
+        metrics: [],
+        overallScore: 0,
+      };
+    }
+
+    // ── Industry benchmarks cùng kỳ ────────────────────────────────────
+    const benchmarks = await this.prisma.globalPlatformBenchmark.findMany({
+      where: {
+        industry,
+        windowStartDate: { lte: latestSummary.timestamp },
+      },
+      orderBy: { windowStartDate: 'desc' },
+      take: 1,
+    });
+
+    const latestBenchmark = benchmarks[0] ?? null;
+
+    // ── So sánh từng metric ────────────────────────────────────────────
+    const metrics: TenantBenchmarkComparison['metrics'] = [];
+
+    const metricDefs: Array<{
+      name: string;
+      getTenantValue: () => number;
+      getBenchmark: (b: typeof latestBenchmark) => number | null;
+    }> = [
+      {
+        name: 'totalExecutions',
+        getTenantValue: () => latestSummary.totalExecutions,
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+      {
+        name: 'executionSuccessRate',
+        getTenantValue: () => latestSummary.totalExecutions > 0
+          ? latestSummary.successfulExecutions / latestSummary.totalExecutions
+          : 1,
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+      {
+        name: 'totalAiTokens',
+        getTenantValue: () => Number(latestSummary.totalAiTokens),
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+      {
+        name: 'totalAiCost',
+        getTenantValue: () => Number(latestSummary.totalAiCost),
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+      {
+        name: 'totalRevenue',
+        getTenantValue: () => Number(latestSummary.totalRevenue),
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+      {
+        name: 'activeUserCount',
+        getTenantValue: () => latestSummary.activeUserCount,
+        getBenchmark: (b) => b?.avgValue ?? null,
+      },
+    ];
+
+    let totalScore = 0;
+    let scoredMetrics = 0;
+
+    for (const def of metricDefs) {
+      const tenantValue = def.getTenantValue();
+      const benchmarkAvg = def.getBenchmark(latestBenchmark);
+
+      if (benchmarkAvg === null || benchmarkAvg === 0) {
+        metrics.push({
+          name: def.name,
+          tenantValue,
+          industryAvg: benchmarkAvg ?? 0,
+          industryMedian: latestBenchmark?.medianValue ?? 0,
+          industryP90: latestBenchmark?.p90Value ?? 0,
+          industryP95: latestBenchmark?.p95Value ?? 0,
+          industryMin: latestBenchmark?.minValue ?? 0,
+          industryMax: latestBenchmark?.maxValue ?? 0,
+          deviation: 0,
+          percentile: 0.5,
+          ranking: 'avg',
+          betterThan: 0,
+          totalPeers: latestBenchmark?.totalTenants ?? 0,
+        });
+        continue;
+      }
+
+      const deviation = benchmarkAvg > 0
+        ? (tenantValue - benchmarkAvg) / benchmarkAvg
+        : 0;
+
+      // Ước lượng percentile từ phân phối chuẩn (stdDev + avg)
+      const stdDev = latestBenchmark?.stdDev ?? 0;
+      let percentile = 0.5;
+      if (stdDev > 0) {
+        // Z-score
+        const zScore = (tenantValue - benchmarkAvg) / stdDev;
+        // Approximate CDF using normal distribution
+        percentile = this.approximateNormalCdf(zScore);
+      }
+
+      // Ranking dựa trên percentile
+      let ranking: 'top' | 'above_avg' | 'avg' | 'below_avg' | 'bottom';
+      if (percentile >= 0.95) ranking = 'top';
+      else if (percentile >= 0.7) ranking = 'above_avg';
+      else if (percentile >= 0.3) ranking = 'avg';
+      else if (percentile >= 0.1) ranking = 'below_avg';
+      else ranking = 'bottom';
+
+      const totalPeers = latestBenchmark?.totalTenants ?? 0;
+      const betterThan = Math.round(percentile * totalPeers);
+
+      metrics.push({
+        name: def.name,
+        tenantValue,
+        industryAvg: benchmarkAvg,
+        industryMedian: latestBenchmark?.medianValue ?? 0,
+        industryP90: latestBenchmark?.p90Value ?? 0,
+        industryP95: latestBenchmark?.p95Value ?? 0,
+        industryMin: latestBenchmark?.minValue ?? 0,
+        industryMax: latestBenchmark?.maxValue ?? 0,
+        deviation,
+        percentile: Math.round(percentile * 100) / 100,
+        ranking,
+        betterThan,
+        totalPeers,
+      });
+
+      // Health score: normalize percentile-based
+      if (['executionSuccessRate', 'totalRevenue', 'activeUserCount'].includes(def.name)) {
+        totalScore += percentile * 20; // each metric contributes up to 20 pts
+        scoredMetrics++;
+      }
+    }
+
+    const overallScore = scoredMetrics > 0
+      ? Math.min(100, Math.round((totalScore / scoredMetrics) * 5))
+      : 0;
+
+    return {
+      tenantId,
+      industry,
+      period,
+      windowDate: latestBenchmark?.windowEndDate ?? null,
+      metrics,
+      overallScore,
+    };
+  }
+
+  /**
+   * approximateNormalCdf
+   * ─────────────────────
+   * Xấp xỉ CDF của phân phối chuẩn (Abramowitz & Stegun 26.2.17).
+   * Cho z-score, trả về percentile (0..1).
+   */
+  private approximateNormalCdf(z: number): number {
+    if (z > 6) return 1;
+    if (z < -6) return 0;
+    const b0 = 0.2316419, b1 = 0.319381530, b2 = -0.356563782;
+    const b3 = 1.781477937, b4 = -1.821255978, b5 = 1.330274429;
+    const t = 1 / (1 + b0 * Math.abs(z));
+    const poly = t * (b1 + t * (b2 + t * (b3 + t * (b4 + t * b5))));
+    const cdf = 1 - poly * Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+    return z >= 0 ? cdf : 1 - cdf;
   }
 }
