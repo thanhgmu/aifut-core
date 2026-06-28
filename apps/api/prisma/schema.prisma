@@ -125,6 +125,8 @@ model Tenant {
   anomalyRecords           AnomalyRecord[]
   developerProfiles        DeveloperProfile[]
   licenseKeys              LicenseKey[]
+  agentSessions            AgentSession[]
+  agentTriggers            AgentTrigger[]
 }
 
 
@@ -2130,3 +2132,47 @@ model SandboxBudgetAlert {
   @@index([tenantId, createdAt])
 }
 
+// ----------------------------------------------------------------------
+// -- AI Operator Agent — Persistent Session & Trigger (Phase 3) --------
+// Module: apps/api/src/ai-agent/
+// Per-tenant persistent agent sessions + scheduled proactive triggers.
+// ----------------------------------------------------------------------
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String   @default("New Session")
+  status    String   @default("active") // active | archived
+  messages  Json     @default("[]")    // Array<{role, content, timestamp}>
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, updatedAt])
+  @@index([status])
+}
+
+model AgentTrigger {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String                           // e.g. "Daily Health Check", "Budget Alert"
+  triggerType String                           // scheduled | event | threshold
+  schedule    String?                          // cron expression (for scheduled triggers)
+  eventType   String?                          // event name (for event triggers)
+  config      Json?                            // trigger-specific configuration
+  intent      String   @default("SYSTEM_HEALTH_CHECK") // Agent intent to fire
+  isActive    Boolean  @default(true)
+  lastFiredAt DateTime?
+  nextFireAt  DateTime?
+  failCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@index([triggerType, isActive])
+  @@index([nextFireAt])
+}

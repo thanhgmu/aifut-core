@@ -3,6 +3,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Route gốc: /v1/ai-agent
 // Per-tenant AI operator agent — chat interface + session management + actions.
+// ── Now async with Prisma-backed persistence ──
+// ═══════════════════════════════════════════════════════════════════════════
 
 import {
   Controller,
@@ -17,9 +19,6 @@ import {
 } from '@nestjs/common';
 import { AiAgentCoreService } from './ai-agent-core.service';
 import { AiAgentSessionService } from './ai-agent-session.service';
-import type { AgentSession } from './ai-agent-session.service';
-
-// ── Types ─────────────────────────────────────────────────────────────────
 
 // ── Controller ────────────────────────────────────────────────────────────
 
@@ -48,27 +47,28 @@ export class AiAgentController {
       throw new BadRequestException('query is required.');
     }
 
-    // Resolve session
-    let session: AgentSession;
+    // Resolve session (async with Prisma)
+    let session;
     if (body.sessionId) {
-      const existingSession = this.sessionService.getSession(body.sessionId);
+      const existingSession = await this.sessionService.getSession(body.sessionId);
       if (!existingSession || existingSession.tenantId !== tenantId) {
         throw new NotFoundException('Session not found.');
       }
       session = existingSession;
     } else {
-      session = this.sessionService.createSession(
+      session = await this.sessionService.createSession(
         tenantId,
         body.query.slice(0, 60),
       );
     }
 
-    // Add user message
-    session.messages.push({
-      role: 'user',
+    // Add user message (persisted)
+    const userMessage = {
+      role: 'user' as const,
       content: body.query,
       timestamp: new Date().toISOString(),
-    });
+    };
+    session = await this.sessionService.addMessage(session.id, userMessage);
 
     // Process through agent core
     const result = await this.agentCore.processAgentCommand(tenantId, body.query);
@@ -89,11 +89,12 @@ export class AiAgentController {
       `_Agent analysis completed at ${new Date().toLocaleTimeString('vi-VN')}_`,
     ].join('\n');
 
-    session.messages.push({
-      role: 'assistant',
+    const assistantMessage = {
+      role: 'assistant' as const,
       content: responseText,
       timestamp: new Date().toISOString(),
-    });
+    };
+    session = await this.sessionService.addMessage(session.id, assistantMessage);
 
     return {
       sessionId: session.id,
@@ -110,12 +111,12 @@ export class AiAgentController {
    * Danh sách session của tenant.
    */
   @Get('sessions')
-  listSessions(
+  async listSessions(
     @Headers('x-tenant-id') tenantId: string,
     @Query('status') status?: string,
   ) {
     this.requireTenant(tenantId);
-    const sessions = this.sessionService.listSessions(tenantId, status);
+    const sessions = await this.sessionService.listSessions(tenantId, status);
     return {
       items: sessions.map((s) => ({
         id: s.id,
@@ -134,12 +135,12 @@ export class AiAgentController {
    * Chi tiết session — bao gồm full messages.
    */
   @Get('sessions/:id')
-  getSession(
+  async getSession(
     @Headers('x-tenant-id') tenantId: string,
     @Param('id') id: string,
   ) {
     this.requireTenant(tenantId);
-    const session = this.sessionService.getSession(id);
+    const session = await this.sessionService.getSession(id);
     if (!session || session.tenantId !== tenantId) {
       throw new NotFoundException('Session not found.');
     }

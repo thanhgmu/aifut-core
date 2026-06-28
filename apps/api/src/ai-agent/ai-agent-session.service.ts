@@ -1,11 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // ai-agent-session.service.ts — AI Operator Agent Session Management
 // ═══════════════════════════════════════════════════════════════════════════
-// In-memory session store cho per-tenant AI Agent.
+// Persistence-backed session store cho per-tenant AI Agent.
 // Mỗi tenant có N session, mỗi session chứa lịch sử chat.
+// ── Chuyển từ in-memory Map → Prisma Tenant + AgentSession model ──
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -29,52 +32,58 @@ export interface AgentSession {
 
 @Injectable()
 export class AiAgentSessionService {
-  private sessions: Map<string, AgentSession> = new Map();
+  private readonly logger = new Logger(AiAgentSessionService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * createSession
    * ─────────────
-   * Tạo một session mới cho tenant.
+   * Tạo session mới — persisted to DB.
    */
-  createSession(tenantId: string, title: string): AgentSession {
-    const id = this.generateId();
-    const now = new Date();
-    const session: AgentSession = {
-      id,
-      tenantId,
-      title: title.length > 60 ? `${title.slice(0, 57)}...` : title,
-      messages: [],
-      status: 'active',
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.sessions.set(id, session);
-    return session;
+  async createSession(tenantId: string, title: string): Promise<AgentSession> {
+    const record = await this.prisma.agentSession.create({
+      data: {
+        tenantId,
+        title: title.length > 60 ? `${title.slice(0, 57)}...` : title,
+        status: 'active',
+        messages: Prisma.JsonNull,
+      },
+    });
+    return this.toAgentSession(record);
   }
 
   /**
    * getSession
    * ──────────
-   * Lấy session theo id.
+   * Lấy session từ DB theo id.
    */
-  getSession(id: string): AgentSession | undefined {
-    return this.sessions.get(id);
+  async getSession(id: string): Promise<AgentSession | null> {
+    const record = await this.prisma.agentSession.findUnique({
+      where: { id },
+    });
+    return record ? this.toAgentSession(record) : null;
   }
 
   /**
    * listSessions
    * ────────────
-   * Liệt kê session của tenant.
+   * Liệt kê sessions của tenant từ DB.
    */
-  listSessions(tenantId: string, status?: string): AgentSession[] {
-    const all = Array.from(this.sessions.values())
-      .filter((s) => s.tenantId === tenantId)
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  async listSessions(
+    tenantId: string,
+    status?: string,
+    limit = 50,
+  ): Promise<AgentSession[]> {
+    const where: Prisma.AgentSessionWhereInput = { tenantId };
+    if (status) where.status = status;
 
-    if (status) {
-      return all.filter((s) => s.status === status);
-    }
-    return all;
+    const records = await this.prisma.agentSession.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+    return records.map((r) => this.toAgentSession(r));
   }
 
   /**
@@ -82,35 +91,95 @@ export class AiAgentSessionService {
    * ──────────────
    * Đánh dấu session là archived.
    */
-  archiveSession(id: string): boolean {
-    const session = this.sessions.get(id);
-    if (!session) return false;
-    session.status = 'archived';
-    session.updatedAt = new Date();
-    return true;
+  async archiveSession(id: string): Promise<boolean> {
+    try {
+      await this.prisma.agentSession.update({
+        where: { id },
+        data: { status: 'archived' },
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * deleteSession
    * ─────────────
-   * Xoá session.
+   * Xoá session khỏi DB.
    */
-  deleteSession(id: string): boolean {
-    return this.sessions.delete(id);
+  async deleteSession(id: string): Promise<boolean> {
+    try {
+      await this.prisma.agentSession.delete({ where: { id } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * getTenantSessionCount
    * ──────────────────────
-   * Đếm session của tenant.
+   * Đếm active sessions của tenant.
    */
-  getTenantSessionCount(tenantId: string): number {
-    return Array.from(this.sessions.values()).filter(
-      (s) => s.tenantId === tenantId,
-    ).length;
+  async getTenantSessionCount(tenantId: string): Promise<number> {
+    return this.prisma.agentSession.count({
+      where: { tenantId, status: 'active' },
+    });
   }
 
-  private generateId(): string {
-    return `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  // ═════════════════════════════════════════════════════════════════════
+  //  Message helpers
+  // ═════════════════════════════════════════════════════════════════════
+
+  /**
+   * addMessage
+   * ──────────
+   * Thêm message vào session và update DB.
+   */
+  async addMessage(
+    sessionId: string,
+    message: ChatMessage,
+  ): Promise<AgentSession> {
+    const record = await this.prisma.agentSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!record) throw new Error(`Session ${sessionId} not found`);
+
+    const currentMessages = this.parseMessages(record.messages);
+    const updatedMessages = [...currentMessages, message];
+
+    const updated = await this.prisma.agentSession.update({
+      where: { id: sessionId },
+      data: { messages: updatedMessages as any },
+    });
+    return this.toAgentSession(updated);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  //  Internal helpers
+  // ═════════════════════════════════════════════════════════════════════
+
+  private parseMessages(messages: unknown): ChatMessage[] {
+    if (!messages) return [];
+    if (Array.isArray(messages)) return messages as ChatMessage[];
+    try {
+      const parsed = typeof messages === 'string' ? JSON.parse(messages) : messages;
+      return Array.isArray(parsed) ? (parsed as ChatMessage[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private toAgentSession(record: any): AgentSession {
+    return {
+      id: record.id,
+      tenantId: record.tenantId,
+      title: record.title,
+      messages: this.parseMessages(record.messages),
+      status: record.status as 'active' | 'archived',
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 }
