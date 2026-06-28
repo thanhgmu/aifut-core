@@ -1889,9 +1889,10 @@ model DeveloperProfile {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
-  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  skills    DeveloperSkill[]
-  earnings  DeveloperEarning[]
+  tenant        Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  skills        DeveloperSkill[]
+  earnings      DeveloperEarning[]
+  payoutRequests DeveloperPayoutRequest[]
 
   @@index([tenantId, status])
   @@index([tier])
@@ -1958,6 +1959,34 @@ model DeveloperEarning {
 }
 
 // ----------------------------------------------------------------------
+// -- Developer Payout Request (Phase 3 â€” Ecosystem Economy) -----------
+// Module: apps/api/src/developer/
+// Approval workflow: PENDING â†’ APPROVED â†’ PROCESSED
+// ----------------------------------------------------------------------
+
+model DeveloperPayoutRequest {
+  id            String   @id @default(uuid())
+  profileId     String
+  amount        BigInt
+  currency      String   @default("VND")
+  status        String   @default("PENDING") // PENDING | APPROVED | PROCESSED | REJECTED | CANCELLED
+  payoutMethod  String?  // bank_transfer, momo, paypal, wallet
+  accountInfo   String?  // JSON: account details at time of request
+  notes         String?
+  approvedById  String?  // admin tenantId who approved/rejected
+  approvedAt    DateTime?
+  processedAt   DateTime?
+  rejectReason  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, status])
+  @@index([status, createdAt])
+}
+
+// ----------------------------------------------------------------------
 // -- Marketplace Versioning & Dependency (Phase 4) -------------------
 // Module: apps/api/src/marketplace/
 // ----------------------------------------------------------------------
@@ -1971,7 +2000,7 @@ enum VersionStatus {
 model MarketplaceVersion {
   id          String   @id @default(uuid())
   listingId   String
-  version     String          // "1.2.3" — semver
+  version     String          // "1.2.3" ï¿½ semver
   changelog   String?
   config      Json?           // snapshot of listing config at this version
   status      VersionStatus   @default(ACTIVE)
@@ -1990,7 +2019,7 @@ model MarketplaceDependency {
   id           String   @id @default(uuid())
   versionId    String           // dependent version
   dependsOnId  String           // dependency version
-  constraint   String           // ">=1.0.0 <2.0.0" — semver range
+  constraint   String           // ">=1.0.0 <2.0.0" ï¿½ semver range
   isOptional   Boolean  @default(false)
   createdAt    DateTime @default(now())
 
